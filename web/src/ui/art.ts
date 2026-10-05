@@ -1,6 +1,7 @@
-// All UI art is original and generated here at startup: shapes are painted with canvas, then dithered into
-// the 256-colour palette (Atkinson for icons, Bayer for gradients), alpha made binary (screen-door, never
-// blended). Results are cached as PNG data URLs and exposed to CSS as custom properties.
+// All UI art is original and generated here at startup: shapes are painted with canvas, then put into the
+// 256-colour palette (icons98.ts snaps icons to the VGA colours by majority vote; Atkinson dithers photo
+// thumbnails; Bayer dithers the sky and the fades), alpha made binary (screen-door, never blended). Results are
+// cached as PNG data URLs and exposed to CSS as custom properties.
 import { ditherAtkinson, ditherBayer, nearest, PALETTE } from './palette';
 import { drawText } from './pixeltext';
 
@@ -84,40 +85,12 @@ export function ascii(rows: string[], pal: Record<string, string>, into?: HTMLCa
   return c;
 }
 
-function lin(x: Ctx, x0: number, y0: number, x1: number, y1: number, stops: [number, string][]) {
-  const g = x.createLinearGradient(x0, y0, x1, y1);
-  for (const [o, c] of stops) g.addColorStop(o, c);
-  return g;
-}
-
 // ------------------------------------------------------------------ icons: ui/icons98.ts (Windows 98 style)
 
 export { iconNames, iconCanvas, icon, iconImg } from './icons98';
 
-// ------------------------------------------------------------------ gradients & patterns
-
-/** A vertical Bayer-dithered gradient strip (8 px wide so the pattern tiles seamlessly). */
-export function vgradient(h: number, stops: [number, string][], spread = 36, w = 8): string {
-  return cached(`vg:${h}:${w}:${spread}:${JSON.stringify(stops)}`, () => {
-    const c = makeCanvas(w, h);
-    const x = ctx2d(c);
-    x.fillStyle = lin(x, 0, 0, 0, h, stops);
-    x.fillRect(0, 0, w, h);
-    dither(c, 'bayer', spread);
-    return c;
-  });
-}
-
-export function hgradient(w: number, h: number, stops: [number, string][], spread = 36): string {
-  return cached(`hg:${w}:${h}:${spread}:${JSON.stringify(stops)}`, () => {
-    const c = makeCanvas(w, h);
-    const x = ctx2d(c);
-    x.fillStyle = lin(x, 0, 0, w, 0, stops);
-    x.fillRect(0, 0, w, h);
-    dither(c, 'bayer', spread);
-    return c;
-  });
-}
+// ------------------------------------------------------------------ patterns
+// (title bars and the Start banner keep the smooth 98 caption gradient: 98 draws it smooth on 16-bit displays)
 
 /** 2×2 checkerboard of a colour and transparency: the screen-door "50 % transparent". */
 export function checker(color: string, k = 1): string {

@@ -264,11 +264,13 @@ function onIconDown(e: PointerEvent, ic: DIcon) {
         desk.classList.add('dragging-icons');
       }
       for (const g of ghosts) g.style.transform = `translate(${Math.round(dx)}px, ${Math.round(dy)}px)`;
+      // the 98 "no" cursor where the icons can't be dropped
+      desk.classList.toggle('nodrop', !dropAllowed(e.clientX, e.clientY, dx, dy));
     },
     (dx, dy, moved) => {
       if (ghosts) {
         for (const g of ghosts) g.remove();
-        desk.classList.remove('dragging-icons');
+        desk.classList.remove('dragging-icons', 'nodrop');
         if (dropAllowed(e.clientX, e.clientY, dx, dy)) setCells(G.dropIcons(cells, moving, Math.round(dx), Math.round(dy), gridNow()));
         return;
       }

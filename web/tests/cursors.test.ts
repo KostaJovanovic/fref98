@@ -95,7 +95,7 @@ describe('cursor art', () => {
   });
 
   it('the pointing cursors have their hot spot on the tip', () => {
-    for (const name of ['arrow', 'hand', 'help', 'wait-bg', 'pen'] as const) {
+    for (const name of ['arrow', 'hand', 'wait-bg', 'pen'] as const) {
       const { rows, hot } = cursorArt(name);
       expect(rows[hot[1]][hot[0]]).toBe('X');
     }

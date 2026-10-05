@@ -1,7 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { captionRect, CAPTION_H } from '../src/ui/wm-anim';
 import { edgeAt, resizeRect, moveRect, zoneBox, zoneClip, edgeCursor, EDGES, RZ_EDGE, RZ_CORNER, RZ_TOUCH_OUT, type Edge } from '../src/ui/wm-drag';
-import { captionButtonRows, sizeGripRows } from '../src/ui/art-chrome';
+import { captionButtonRows, sizeGripRows, GRIP_ROWS } from '../src/ui/art-chrome';
+
+// 02-3: the stack-row grip was a 7×15 XP-grey sprite stretched to 8×18 (16×36 on phones), so it blurred
+describe('stack-row grip', () => {
+  it('is drawn at its shown size (8×18) in 98 greys', () => {
+    expect(GRIP_ROWS.length).toBe(18);
+    for (const r of GRIP_ROWS) expect(r.length).toBe(8);
+    expect(new Set(GRIP_ROWS.join('').replace(/\./g, ''))).toEqual(new Set(['W', 'G']));
+  });
+});
 
 describe('captionRect', () => {
   const win = { x: 100, y: 50, w: 400, h: 300 };

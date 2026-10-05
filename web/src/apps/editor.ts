@@ -100,7 +100,7 @@ class Editor {
     });
     this.toolbar = this.buildToolbar();
     this.tabBar = h('div');
-    this.panel = h('div', { class: 'ed-panel' });
+    this.panel = h('div', { class: 'ed-panel tabpage' });
     this.side = h('div', { class: 'ed-side' }, this.tabBar, this.panel);
     const main = h('div', { class: 'ed-main' }, this.toolbar, this.viewer.el);
     const body = h('div', { class: 'editor' + (this.tab === 1 ? ' expert' : '') }, main, this.side);
@@ -185,7 +185,7 @@ class Editor {
     const gridLbl = h('span', null, this.viewer.grid ? `${this.viewer.grid}` : '');
     grid.append(gridLbl);
     const heat = toolButton(iconImg('heat', 16), 'Coefficient heatmap', () => void this.toggleHeat(), { pressed: this.heatOn });
-    const export_ = button(ui.phone ? '' : 'Export…',() => openApp('export'), { cls: 'primary small', icon: iconImg('export', 16) });
+    const export_ = button(ui.phone ? '' : 'Save As…', () => openApp('export'), { cls: 'small ed-save', icon: iconImg('export', 16) });
     const expertBits = settings.expert
       ? [
           sep(),
@@ -199,8 +199,8 @@ class Editor {
         ]
       : [];
     for (const el of [zout, zin, this.zoomLabel]) el.classList.add('ph-hide');
-    export_.setAttribute('aria-label', 'Export');
-    export_.dataset.tip = 'Export';
+    export_.setAttribute('aria-label', 'Save As');
+    export_.dataset.tip = 'Save As';
     return h('div', { class: 'ed-toolbar', role: 'toolbar', 'aria-label': 'Editor tools' }, openB, sep(), undo, redo, sep(), zout, fit, one, zin, this.zoomLabel, sep(), split, grid, heat, ...expertBits, h('span', { class: 'grow' }), export_);
   }
 
@@ -287,8 +287,8 @@ class Editor {
     if (!a) return;
     const CI = (globalThis as { ClipboardItem?: typeof ClipboardItem }).ClipboardItem;
     const fail = () =>
-      message('Copy', 'This browser doesn’t let a web page put pictures on the clipboard. Use Export… to save the picture instead.', 'info', [
-        { label: 'Export…', run: () => void openApp('export') },
+      message('Copy', 'This browser doesn’t let a web page put pictures on the clipboard. Use Save As… to save the picture instead.', 'info', [
+        { label: 'Save As…', run: () => void openApp('export') },
         { label: 'OK', primary: true },
       ]);
     if (!CI || !navigator.clipboard?.write) return void fail();
@@ -429,7 +429,7 @@ class Editor {
           button('Explain', () => foldy.help(p.foldy, [{ label: 'What exactly went wrong?', run: () => this.explain() }]), { cls: 'small' }),
         ),
         p.needsPool && store.pool().length < 2 ? h('div', { class: 'hint' }, 'This one borrows bytes from another photo in My Pictures. Add a second photo for the full effect.') : null as any,
-        h('div', { class: 'row wrap', style: { marginTop: '4px' } }, button('Export…', () => openApp('export'), { cls: 'primary', icon: iconImg('export', 16) }), button('Start over', () => this.startOver(), { cls: 'small' })),
+        h('div', { class: 'row wrap', style: { marginTop: '4px' } }, button('Save As…', () => openApp('export'), { icon: iconImg('export', 16) }), button('Start over', () => this.startOver(), { cls: 'small' })),
         h('div', { class: 'sep' }),
         h('h2', null, 'Something else happened?'),
       );
@@ -541,7 +541,7 @@ class Editor {
       img: r.after ? this.cAfter : null,
       w: r.after?.width ?? r.before?.width ?? 1,
       h: r.after?.height ?? r.before?.height ?? 1,
-      error: r.after ? undefined : `Even the forgiving decoder can’t show this file (${r.decodeError ?? 'cannot decode'}). Export it anyway, or try a header graft.`,
+      error: r.after ? undefined : `Even the forgiving decoder can’t show this file (${r.decodeError ?? 'cannot decode'}). Save it anyway, or try a header graft.`,
     };
     const before: Pane = { label: 'Before', img: r.before ? this.cBefore : null, w: r.before?.width ?? after.w, h: r.before?.height ?? after.h };
     if (this.viewMode === 'three') {

@@ -17,7 +17,7 @@ import { cascadeRects, tileRects, type Box } from './desktop-grid';
 let startBtn: HTMLElement | null = null;
 
 export function buildTaskbar(): HTMLElement {
-  const start = h('button', { class: 'start', type: 'button', 'aria-haspopup': 'menu', 'aria-label': 'Start', 'data-tip': 'Click here to begin.' }, iconImg('folder', 16), h('b', null, 'Start'));
+  const start = h('button', { class: 'start', type: 'button', 'aria-haspopup': 'menu', 'aria-label': 'Start', 'data-tip': 'Click here to begin.' }, iconImg('start', 16), h('b', null, 'Start'));
   startBtn = start;
   start.addEventListener('pointerdown', (e) => {
     // 98 opens the Start menu on the press, not the release

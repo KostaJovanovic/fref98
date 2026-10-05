@@ -34,7 +34,7 @@ export const TIPS = [
   'Tip: the before/after split has a handle in the middle. Drag it!',
   'Tip: every random step has its own seed. Press the dice for a different roll.',
   'Tip: steps can be reordered. Damage first, then re-save, looks very different from the other way round.',
-  'Tip: "Export" gives you the actual broken JPEG. Other programs may show it differently. Try it!',
+  'Tip: "Save As…" gives you the actual broken JPEG. Other programs may show it differently. Try it!',
   'Tip: the grid button draws the 8×8 (or 16×16) block grid that JPEG works in.',
   'Tip: nothing you do leaves your computer. Look at the tray: Network: blocked.',
   'Tip: My Pictures can hold lots of photos. Some steps borrow a neighbour photo, like a real SD card would.',
@@ -113,7 +113,7 @@ export const TUTORIAL = {
   hello: 'Hi! I’m Foldy. I explain things. Drop a photo onto the editor, or press "Try a sample photo".',
   helloPhone: 'Hi! I’m Foldy. I explain things. Press "Choose photo…" to pick one of yours, or "Try a sample photo".',
   pick: 'Now pick what happened to this photo from the list. Every choice really breaks the JPEG data.',
-  slider: 'Drag "How bad?" to make it better or worse. When you like it, press Export to save the broken file.',
+  slider: 'Drag "How bad?" to make it better or worse. When you like it, press Save As… to save the broken file.',
   expert: 'These are the real steps behind the story. They run top to bottom. Press a step’s name for its settings, untick it to switch it off, and use ▲▼ (or drag the dots) to reorder.',
   done: 'That is a real broken JPEG! Open it in other programs: each one shows the damage a little differently.',
 };

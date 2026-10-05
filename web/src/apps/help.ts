@@ -7,7 +7,7 @@ import { button, tabs, textField } from '../ui/controls';
 import { openWindow, getWin, type Win } from '../ui/wm';
 import { spinningGlobe, marquee, hitCounter, visitCount } from '../ui/y2k';
 import { pipeline } from '../pipeline';
-import { openApp } from './registry';
+import { APPS, openApp } from './registry';
 import { foldy } from '../foldy/foldy';
 import { logoArt } from './splash';
 import { APP_NAME } from '../brand';
@@ -33,7 +33,7 @@ const TOPICS: Topic[] = [
       '1. Drop a photo onto the editor (or press "Try a sample photo").',
       '2. On the right, pick what happened to it: a dead SD card, 40 forwards on WhatsApp, a 2004 camera…',
       '3. Drag "How bad?".',
-      '4. Press Export (File ▸ Save As…) to save the broken .jpg. That file really is broken: open it in other programs and compare.',
+      '4. Press Save As… (or File ▸ Save As…) to save the broken .jpg. That file really is broken: open it in other programs and compare.',
       'Everything else is optional depth.',
     ],
     see: ['real', 'save'],
@@ -198,7 +198,8 @@ class HelpViewer {
     const body = h('div', { class: 'hh98' }, this.bar, h('div', { class: 'hh-main' }, this.nav, this.page));
     this.win = openWindow({
       id: 'help',
-      title: 'File Refragmenter Help',
+      // (the registry's title, so the desktop, Start menu and error boxes say the same)
+      title: APPS.help.title,
       short: 'Help',
       icon: 'help',
       body,

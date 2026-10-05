@@ -39,7 +39,7 @@ const DEFAULTS: Settings = {
   uiScale: 'auto',
   bigText: 'auto',
   wallpaper: 'sky',
-  solidColor: '#3a6fc4',
+  solidColor: '#008080',
   cloudSpeed: 1,
   screensaver: { enabled: true, minutes: 5, kind: 'starfield' },
   foldy: { enabled: true, glitches: true, tutorialDone: false },

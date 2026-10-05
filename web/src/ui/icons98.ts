@@ -847,6 +847,25 @@ const SMALL: Record<string, string[]> = {
     '................',
     '................',
   ],
+  // the Start button's own glyph: four disk clusters, one of them out of line (no Windows flag)
+  start: [
+    '........KKKKKK..',
+    '.KKKKKK.KllllK..',
+    '.KRRRRK.KllllK..',
+    '.KRRRRK.KllllK..',
+    '.KRRRRK.KllllK..',
+    '.KRRRRK.KKKKKK..',
+    '.KKKKKK.........',
+    '................',
+    'KKKKKK..........',
+    'KBBBBK...KKKKKK.',
+    'KBBBBK...KYYYYK.',
+    'KBBBBK...KYYYYK.',
+    'KBBBBK...KYYYYK.',
+    'KKKKKK...KYYYYK.',
+    '.........KKKKKK.',
+    '................',
+  ],
 };
 SMALL.redo = SMALL.undo.map((r) => [...r].reverse().join(''));
 SMALL.star = SMALL.presets;

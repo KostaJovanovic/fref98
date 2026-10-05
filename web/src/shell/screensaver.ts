@@ -66,6 +66,9 @@ function runSaver(app: HTMLElement, kind: 'starfield' | 'folders') {
   const W = Math.ceil(ui.w / S);
   const H = Math.ceil(ui.h / S);
   const canvas = h('canvas', { width: W, height: H });
+  // exactly S UI px per saver pixel (the last row and column run past the edge; .saver clips them)
+  canvas.style.width = W * S + 'px';
+  canvas.style.height = H * S + 'px';
   const el = h('div', { class: 'saver', 'aria-hidden': 'true' }, canvas);
   el.style.setProperty('-webkit-mask-size', '8px 8px');
   el.style.setProperty('mask-size', '8px 8px');

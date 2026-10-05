@@ -35,9 +35,6 @@
   min-height: 34px;
   padding: 0 16px;
 }
-.btn.primary {
-  font-weight: 700;
-}
 /* the default button (and the focused one) gets an extra black ring */
 .btn.default,
 .btn:focus-visible {
@@ -66,8 +63,9 @@
 .btn:disabled .tx {
   text-shadow: 1px 1px 0 #fff;
 }
+/* disabled icons: the 98 emboss (ui/dom.ts emboss98Filter) */
 .btn:disabled img {
-  filter: grayscale(1) contrast(0.6);
+  filter: url(#emboss98);
 }
 
 /* ---------------------------------------------------------------- flat toolbar buttons (IE4 style) */
@@ -104,7 +102,7 @@
   text-shadow: 1px 1px 0 #fff;
 }
 .tool:disabled img {
-  filter: grayscale(1) contrast(0.5);
+  filter: url(#emboss98);
   opacity: 1;
 }
 
@@ -178,6 +176,10 @@ input[type='number']::-webkit-outer-spin-button {
   box-shadow: inset -1px -1px #000, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #fff;
   cursor: var(--cur-arrow, default);
 }
+/* whole-pixel halves (a 17 px field interior splits 9 + 8, not 8.5 + 8.5, which blurs the bevels) */
+.spin-btns > .spin-up {
+  flex: 0 0 round(up, 50%, 1px);
+}
 .spin-up {
   background-image: var(--img-g-spin-u);
 }
@@ -219,7 +221,7 @@ input[type='number']::-webkit-outer-spin-button {
 .combo:focus .combo-text {
   background: #000080;
   color: #fff;
-  outline: 1px dotted #ffff80;
+  outline: 1px dotted var(--focus-on-sel);
   outline-offset: -1px;
 }
 .combo-btn {
@@ -383,13 +385,12 @@ input[type='range']::-moz-range-thumb {
   background-size: 11px 21px;
   transform: translateY(8px);
 }
-/* tick marks under the thumb's point: --ticks intervals, ticks at the thumb centres (5 px in from each end) */
+/* tick marks under the thumb's point at the thumb centres (5 px in from each end): one 1×3 layer per tick, placed
+   at whole pixels by controls.ts slider() (a repeating gradient would put them between pixels) */
 input[type='range'].ticks {
   height: 30px;
   padding-bottom: 4px;
-  background-image: repeating-linear-gradient(to right, #000 0 1px, transparent 1px calc(100% / var(--ticks))), linear-gradient(#000, #000);
-  background-size: calc(100% - 11px) 3px, 1px 3px;
-  background-position: 5px 100%, calc(100% - 5px) 100%;
+  background-size: 1px 3px;
   background-repeat: no-repeat;
 }
 /* phones: the thumb at exactly 2× so its pixels stay square */
@@ -511,6 +512,10 @@ input[type='range']:disabled::-webkit-slider-thumb {
 .li.sel {
   background: #000080;
   color: #fff;
+}
+.list:focus .li.sel {
+  outline: 1px dotted var(--focus-on-sel);
+  outline-offset: -1px;
 }
 
 /* ---------------------------------------------------------------- status bar panes (sunken 1 px) */

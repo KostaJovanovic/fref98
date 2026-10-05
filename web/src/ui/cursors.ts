@@ -241,8 +241,6 @@ function noCore(): string[] {
   });
 }
 
-const QUESTION = ['.XXXX.', 'XX..XX', 'XX..XX', '....XX', '...XX.', '..XX..', '..XX..', '......', '..XX..', '..XX..'];
-
 function crossCore(): string[] {
   const n = 21;
   const c = 10;
@@ -266,7 +264,8 @@ function penRows(): string[] {
   });
 }
 
-export type CursorName = 'arrow' | 'hand' | 'text' | 'wait' | 'wait-bg' | 'ns' | 'ew' | 'nwse' | 'nesw' | 'move' | 'no' | 'help' | 'cross' | 'pen';
+// (no 98 "help select" cursor: nothing here has a What's This? mode, the help comes from the right-click menu)
+export type CursorName = 'arrow' | 'hand' | 'text' | 'wait' | 'wait-bg' | 'ns' | 'ew' | 'nwse' | 'nesw' | 'move' | 'no' | 'cross' | 'pen';
 
 /** CSS custom property and native fallback for each cursor. */
 export const CURSOR_VARS: Record<CursorName, [string, string]> = {
@@ -281,7 +280,6 @@ export const CURSOR_VARS: Record<CursorName, [string, string]> = {
   nesw: ['--cur-nesw', 'nesw-resize'],
   move: ['--cur-move', 'move'],
   no: ['--cur-no', 'not-allowed'],
-  help: ['--cur-help', 'help'],
   cross: ['--cur-cross', 'crosshair'],
   pen: ['--cur-pen', 'crosshair'],
 };
@@ -334,8 +332,6 @@ export function cursorArt(name: CursorName, frame = 0): CursorArt {
       const rows = outlined(noCore());
       return { rows, hot: [10, 10] };
     }
-    case 'help':
-      return { rows: overlay(ARROW, outlined(QUESTION), 12, 0), hot: [0, 0] };
     case 'cross': {
       const rows = outlined(crossCore());
       return { rows, hot: [11, 11] };

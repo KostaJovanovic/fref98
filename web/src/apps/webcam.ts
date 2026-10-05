@@ -104,7 +104,7 @@ class Cam {
 
   private tbtn(g: MediaGlyph, label: string, run: () => void, disabled: boolean, on = false): HTMLButtonElement {
     const b = h('button', { class: 'mp-btn' + (on ? ' on' : ''), type: 'button', 'aria-label': label, 'data-tip': label, disabled, onclick: run });
-    b.style.setProperty('background-image', `url("${mediaGlyph(g, disabled)}")`);
+    b.style.setProperty('--glyph', `url("${mediaGlyph(g, disabled)}")`);
     return b;
   }
 

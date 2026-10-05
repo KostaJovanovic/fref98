@@ -2,7 +2,6 @@
 
 .phone {
   --taskbar-h: 56px;
-  --title-h: 40px;
   /* the smallest touch target */
   --tap: 44px;
 }
@@ -89,10 +88,14 @@
 .phone .spin-btns {
   width: var(--tap);
 }
-.phone input[type='checkbox'],
-.phone input[type='radio'] {
+/* 2× the 98 check box (13 px) and radio button (12 px): a whole factor, so the sprites stay sharp */
+.phone input[type='checkbox'] {
   width: 26px;
   height: 26px;
+}
+.phone input[type='radio'] {
+  width: 24px;
+  height: 24px;
 }
 .phone .check {
   min-height: 44px;
@@ -108,14 +111,9 @@
 }
 .phone .start {
   padding: 0 10px;
-  clip-path: none;
   flex-direction: column;
   justify-content: center;
   gap: 2px;
-}
-.phone .start .tx {
-  font-size: inherit;
-  line-height: inherit;
 }
 .phone .tasks {
   padding: 0 2px;
@@ -130,7 +128,6 @@
   gap: 1px;
   padding: 2px 6px;
   max-width: 120px;
-  clip-path: none;
 }
 .phone .tray .clock {
   display: none;
@@ -142,7 +139,6 @@
   left: 0;
   right: 0;
   width: auto;
-  top: 0;
   max-height: none;
   border: 0;
 }

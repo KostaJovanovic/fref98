@@ -1,17 +1,20 @@
-// The one fixed 256-colour UI palette: web-safe 216 plus 40 hand-picked XP-era blues, greens, greys and
-// beiges. Every piece of UI art is dithered into it. Pure module (also used inside workers).
+// The one fixed 256-colour UI palette: web-safe 216 plus the Windows 98 / VGA colours the cube lacks (the 98
+// chrome, the half-intensity VGA colours, the tooltip yellow, the icon manilas), greys and the sky blues. Every
+// piece of UI art is dithered into it. Pure module (also used inside workers).
 
 const EXTRA: number[] = [
   // greys that the web-safe cube lacks
-  0x111111, 0x222222, 0x444444, 0x555555, 0x777777, 0x808080, 0x888888, 0xaaaaaa, 0xbbbbbb, 0xc0c0c0, 0xdddddd, 0xeeeeee,
-  // window chrome blues
-  0x0a246a, 0x0054e3, 0x0058ee, 0x1f6cdb, 0x2b71e0, 0x3a93ff, 0x3d95ff, 0x0046c8, 0x003cad, 0x7aa6e8, 0x9db9eb, 0xd6dff7,
+  0x111111, 0x222222, 0x444444, 0x555555, 0x777777, 0x888888, 0xaaaaaa, 0xbbbbbb, 0xdddddd, 0xeeeeee,
+  // the 98 chrome: shadow, face, light, dark shadow, inactive caption end
+  0x808080, 0xc0c0c0, 0xdfdfdf, 0x404040, 0xb5b5b5,
+  // VGA half-intensity colours, the active caption end, the tooltip yellow
+  0x000080, 0x008080, 0x800000, 0x008000, 0x808000, 0x800080, 0x1084d0, 0xffffe1,
+  // the dark end of the wizard panel (teal → navy) and the steps between
+  0x006060, 0x004848, 0x002850, 0x000040,
+  // icon manilas and browns
+  0xfff8c0, 0xf0d878, 0xb89840, 0x804000,
   // sky blues
   0x5c8fd6, 0x87b5f0, 0xa8cbf5, 0xc5ddf7, 0xe3eefb, 0x3a6fc4, 0x295bb1,
-  // start-button greens
-  0x3c9a3c, 0x4cb84c, 0x2f8f2f, 0x6cc86c, 0x218a21,
-  // beige face colours
-  0xece9d8, 0xf1efe2, 0xaca899, 0x716f64,
 ];
 
 export const PALETTE: Uint8Array = (() => {
@@ -103,7 +106,7 @@ export function ditherBayer(px: Uint8ClampedArray | Uint8Array, w: number, h: nu
   }
 }
 
-/** Atkinson error diffusion into the palette, in place (icons, Foldy, thumbnails). Alpha is made binary. */
+/** Atkinson error diffusion into the palette, in place (photo thumbnails). Alpha is made binary. */
 export function ditherAtkinson(px: Uint8ClampedArray | Uint8Array, w: number, h: number): void {
   const n = w * h;
   const er = new Float32Array(n * 3);

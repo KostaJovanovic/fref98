@@ -1,9 +1,11 @@
-// Contact sheets: the recovery-script layout (8 per row on black with filenames), an XP "Thumbnails" view and a
-// Kodak-style index print. Thumbnails are the real decoded pixels (box-filtered down), never dithered.
-import { engine } from './engine/client';
+// Contact sheets: the recovery-script layout (8 per row on black with filenames), an Explorer "Thumbnails"
+// view (98 style: sunken frames on the window colour) and a Kodak-style index print. Thumbnails are the real
+// decoded pixels, scaled down by the browser and never dithered. Decoded on the background engine, like
+// My Pictures' thumbnails, so a long sheet doesn't hold up the editor.
+import { ambientEngine } from './engine/client';
 import { drawText, fitText, LINE } from './ui/pixeltext';
 
-export type SheetStyle = 'graft' | 'xp' | 'kodak';
+export type SheetStyle = 'graft' | 'thumbs' | 'kodak';
 
 export interface SheetItem {
   name: string;
@@ -12,7 +14,7 @@ export interface SheetItem {
 
 async function thumb(bytes: Uint8Array, size: number): Promise<HTMLCanvasElement | null> {
   try {
-    const d = await engine().decode(bytes, { max_dim: size * 2 }).promise;
+    const d = await ambientEngine().decode(bytes, { max_dim: size * 2 }).promise;
     const src = document.createElement('canvas');
     src.width = d.width;
     src.height = d.height;
@@ -58,7 +60,7 @@ export async function contactSheet(items: SheetItem[], style: SheetStyle = 'graf
   c.width = W;
   c.height = H;
   const x = c.getContext('2d')!;
-  x.fillStyle = style === 'graft' ? '#000000' : style === 'xp' ? '#ffffff' : '#f4efe1';
+  x.fillStyle = style === 'graft' ? '#000000' : style === 'thumbs' ? '#ffffff' : '#f4efe1';
   x.fillRect(0, 0, W, H);
   if (style === 'kodak') {
     drawText(x, 'INDEX PRINT  ·  REFRAGMENTER 98  ·  ' + new Date().toISOString().slice(0, 10), pad, 12, '#c65a00', { bold: true });
@@ -71,10 +73,13 @@ export async function contactSheet(items: SheetItem[], style: SheetStyle = 'graf
     const cx = pad + col * (cell + pad);
     const cy = headH + pad + row * (cell + labelH + pad);
     const t = await thumb(items[i].bytes, cell);
-    if (style === 'xp') {
-      x.fillStyle = '#d0d0bf';
+    if (style === 'thumbs') {
+      // the 98 sunken frame: shadow above/left, white below/right, then the face inside
+      x.fillStyle = '#808080';
       x.fillRect(cx - 1, cy - 1, cell + 2, cell + 2);
       x.fillStyle = '#ffffff';
+      x.fillRect(cx, cy, cell + 1, cell + 1);
+      x.fillStyle = '#c0c0c0';
       x.fillRect(cx, cy, cell, cell);
     }
     if (t) {

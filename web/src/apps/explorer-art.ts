@@ -198,9 +198,10 @@ function greyed(src: HTMLCanvasElement): HTMLCanvasElement {
   return c;
 }
 
-/** 98's disabled look: dark pixels of the image become #808080 with a white copy 1 px down-right. */
+/** 98's disabled look: dark pixels of the image become #808080 with a white copy 1 px down-right. Same size
+ *  as the image (it is shown 1:1 in a 20×20 slot; a white pixel past the edge is dropped). */
 function embossed(src: HTMLCanvasElement): HTMLCanvasElement {
-  const c = makeCanvas(src.width + 1, src.height + 1);
+  const c = makeCanvas(src.width, src.height);
   const x = c.getContext('2d', { willReadFrequently: true })!;
   const s = src.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, src.width, src.height);
   const dark: number[] = [];

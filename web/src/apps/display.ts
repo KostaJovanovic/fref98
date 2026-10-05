@@ -30,7 +30,8 @@ const SAVERS: [string, string][] = [
   ['starfield', 'JPEG Starfield'],
   ['folders', 'Flying Folders'],
 ];
-const SWATCHES = ['#3a6fc4', '#009999', '#000000', '#336699', '#663366', '#2f8f2f', '#808080', '#0a246a'];
+// the 98 desktop colours: teal first (the 98 default), then the VGA half-intensity set
+const SWATCHES = ['#008080', '#000000', '#000080', '#808080', '#800000', '#008000', '#808000', '#800080'];
 
 let dp: DisplayProps | null = null;
 

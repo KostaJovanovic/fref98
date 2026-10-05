@@ -2,7 +2,7 @@
 // No native popups: selects use our drop-down list, number fields our spin buttons, tooltips are data-tip.
 import { h } from './dom';
 import { dropdown } from './dropdown';
-import { spinStep } from './uimath';
+import { spinStep, tickXs } from './uimath';
 
 let uidN = 0;
 const nid = (p: string) => p + ++uidN;
@@ -109,8 +109,15 @@ export function slider(value: number, min: number, max: number, step: number, on
   inp.addEventListener('input', () => onInput(Number(inp.value)));
   if (opts.onCommit) inp.addEventListener('change', () => opts.onCommit!(Number(inp.value)));
   if (opts.ticks && opts.ticks > 0) {
+    const n = opts.ticks;
     inp.classList.add('ticks');
-    inp.style.setProperty('--ticks', String(opts.ticks));
+    const draw = () => {
+      const xs = tickXs(inp.clientWidth, n);
+      if (!xs.length) return;
+      inp.style.backgroundImage = xs.map(() => 'linear-gradient(#000, #000)').join(', ');
+      inp.style.backgroundPosition = xs.map((x) => `${x}px 100%`).join(', ');
+    };
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(draw).observe(inp);
   }
   return inp;
 }

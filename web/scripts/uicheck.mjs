@@ -407,6 +407,100 @@ await pg.waitForTimeout(300);
   await pg.waitForTimeout(400);
 }
 
+// ------------------------------------------------------------------ Windows 98 visual rules (audit B7)
+{
+  // Display Properties ▸ Screen Saver has a spin box ("Wait")
+  await pg.evaluate(() => window.__refrag.openApp('display'));
+  await pg.waitForTimeout(500);
+  await pg.locator('.win.active .tab', { hasText: 'Screen Saver' }).first().click().catch(() => {});
+  await pg.waitForTimeout(300);
+  const v = await pg.evaluate(() => {
+    const help = document.querySelector('.win[aria-label="File Refragmenter Help"]');
+    const meta = document.querySelector('meta[name="theme-color"]')?.getAttribute('content');
+    const view = document.querySelector('canvas.view');
+    const b = document.createElement('button');
+    b.className = 'btn';
+    b.disabled = true;
+    const img = document.createElement('img');
+    img.className = 'ico';
+    b.append(img);
+    document.body.append(b);
+    const filt = getComputedStyle(img).filter;
+    b.remove();
+    const spins = [...document.querySelectorAll('.spin-btns > span')].map((s) => s.getBoundingClientRect().height);
+    const save = [...document.querySelectorAll('.ed-toolbar .btn')].map((x) => x.textContent.trim()).filter(Boolean);
+    return {
+      help: !!help,
+      meta,
+      view: view ? getComputedStyle(view).imageRendering : 'no canvas.view',
+      filt,
+      emboss: !!document.getElementById('emboss98'),
+      spins,
+      primary: document.querySelectorAll('.btn.primary').length,
+      save,
+    };
+  });
+  check('the Help window is "File Refragmenter Help" (06-25)', v.help);
+  check('theme colour is 98 navy (12-8)', v.meta === '#000080', String(v.meta));
+  check('the photo view is drawn pixelated (03-5)', v.view === 'pixelated', v.view);
+  check('disabled icons use the 98 emboss filter (03-19)', v.emboss && /emboss98/.test(v.filt), v.filt);
+  check('spin buttons split into whole pixels (03-17)', v.spins.length > 0 && v.spins.every((hgt) => Number.isInteger(hgt)), v.spins.join(','));
+  check('the editor says Save As…, not Export, and no bold .primary buttons (06-23)', v.save.includes('Save As…') && !v.save.includes('Export…') && v.primary === 0, `${v.save.join(' | ')}; primary ${v.primary}`);
+
+  // the emboss itself: a black square comes out as #808080 over a white copy, nothing else (98 colours only)
+  await pg.evaluate(() => {
+    const c = document.createElement('canvas');
+    c.width = c.height = 16;
+    const x = c.getContext('2d');
+    x.fillRect(4, 4, 8, 8);
+    const b = document.createElement('button');
+    b.className = 'btn';
+    b.disabled = true;
+    b.style.cssText = 'position:fixed;left:0;top:0;z-index:2147483647;width:40px;min-width:0;padding:0';
+    const img = document.createElement('img');
+    img.src = c.toDataURL();
+    img.className = 'ico';
+    img.width = img.height = 16;
+    b.append(img);
+    b.id = 'emb-probe';
+    document.body.append(b);
+    return new Promise((r) => (img.complete ? r(0) : (img.onload = () => r(0))));
+  });
+  await pg.waitForTimeout(100);
+  const png = await pg.locator('#emb-probe img').screenshot();
+  const colours = await pg.evaluate(async (b64) => {
+    const im = new Image();
+    im.src = 'data:image/png;base64,' + b64;
+    await im.decode();
+    const c = document.createElement('canvas');
+    c.width = im.width;
+    c.height = im.height;
+    const x = c.getContext('2d');
+    x.drawImage(im, 0, 0);
+    const d = x.getImageData(0, 0, c.width, c.height).data;
+    const set = new Set();
+    for (let i = 0; i < d.length; i += 4) set.add(((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]).toString(16).padStart(6, '0'));
+    document.getElementById('emb-probe').remove();
+    return [...set].sort();
+  }, png.toString('base64'));
+  const ok98 = new Set(['808080', 'ffffff', 'c0c0c0']);
+  check('the emboss draws #808080 over white on the button face', colours.includes('808080') && colours.includes('ffffff') && colours.every((c) => ok98.has(c)), colours.join(','));
+
+  // the focus rectangle on a selected Help topic is the XOR yellow, not black on navy (03-15)
+  await pg.evaluate(() => window.__refrag.openApp('help'));
+  await pg.waitForTimeout(500);
+  if (!(await pg.locator('.win.active .hh-tree .hh-leaf').count())) await pg.locator('.win.active .hh-tree .hh-node > .hh-lbl').first().click();
+  await pg.waitForTimeout(150);
+  await pg.locator('.win.active .hh-tree .hh-leaf > .hh-lbl').first().click();
+  await pg.waitForTimeout(300);
+  const fo = await pg.evaluate(() => {
+    document.querySelector('.win.active .hh-tree')?.focus();
+    const l = document.querySelector('.win.active .hh-tree:focus .hh-node.sel > .hh-lbl');
+    return l ? getComputedStyle(l).outlineStyle + ' ' + getComputedStyle(l).outlineColor : 'no focused selected topic';
+  });
+  check('focus on a selected Help topic is the XOR colour', fo === 'dotted rgb(255, 255, 127)', fo);
+}
+
 await audits('after interaction');
 await shot(pg, 'desktop');
 

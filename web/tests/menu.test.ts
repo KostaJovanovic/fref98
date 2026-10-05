@@ -1,5 +1,20 @@
 import { describe, it, expect } from 'vitest';
-import { placeAtPoint, placeBelow, placeSubmenu, clampTip, parseMnemonic, mnemonicKey, nextIndex, typeAhead, contextCandidates, spinStep } from '../src/ui/uimath';
+import { placeAtPoint, placeBelow, placeSubmenu, clampTip, parseMnemonic, mnemonicKey, nextIndex, typeAhead, contextCandidates, spinStep, tickXs } from '../src/ui/uimath';
+
+// 03-18: trackbar ticks came from a repeating gradient at 100%/n, so they landed between pixels and smeared
+describe('trackbar ticks', () => {
+  it('sit on whole pixels from the first thumb centre to the last', () => {
+    for (const [w, n] of [[150, 4], [173, 7], [100, 3], [12, 1]]) {
+      const xs = tickXs(w, n);
+      expect(xs.length).toBe(n + 1);
+      expect(xs[0]).toBe(5);
+      expect(xs[n]).toBe(w - 6);
+      for (const x of xs) expect(Number.isInteger(x)).toBe(true);
+      for (let i = 1; i < xs.length; i++) expect(xs[i]).toBeGreaterThan(xs[i - 1]);
+    }
+    expect(tickXs(10, 4)).toEqual([]);
+  });
+});
 
 const W = 800;
 const H = 600;

@@ -14,6 +14,7 @@ bitmaps, cursors or fonts are copied. Sizes are in UI pixels, before our integer
 | 3D light (inner light edge) | `#DFDFDF` |
 | 3D shadow (inner dark edge) | `#808080` |
 | 3D dark shadow (outer dark edge) | `#000000` (98.css uses `#0A0A0A`) |
+| Dark grey (`--face-dk`: our own hint text and thin panel borders; not a 98 system colour) | `#404040` |
 | Window background (text boxes, lists) | `#FFFFFF` |
 | Active caption | gradient `#000080` → `#1084D0` (left to right), text `#FFFFFF` bold |
 | Inactive caption | gradient `#808080` → `#B5B5B5`, text `#C0C0C0` bold |
@@ -54,11 +55,11 @@ Focus is a 1 px dotted black rectangle inset 4 px on buttons, or around the labe
 
 ## Menus
 
-- **Popup:** raised window-frame bevel, 2 px padding inside.
-- **Item:** 18 px tall. 20 px left margin for the check mark or bullet; accelerator text right-aligned.
+- **Popup:** raised window-frame bevel (2 px) plus 1 px of face, so items start 3 px in.
+- **Item:** 17 px tall (it grows with Large Fonts). 20 px left margin for the check mark or bullet; accelerator text right-aligned.
 - **Submenu arrow:** black ▸ at the right.
 - **Hover:** `#000080` with white text.
-- **Separator:** 1 px `#808080` above 1 px `#FFFFFF`, with 3 px margins.
+- **Separator:** 1 px `#808080` above 1 px `#FFFFFF`, 3 px above and 4 px below (9 px in all).
 - **Submenus:** cascade to the right of their item (or flip left at the screen edge) and open after about 400 ms
   of hover.
 
@@ -72,7 +73,7 @@ Focus is a 1 px dotted black rectangle inset 4 px on buttons, or around the labe
 | Text box | sunken field, white, 21 px tall for one line |
 | Drop-down | text box plus a 16 px-wide raised button with a ▼. Its list is a white box with a 1 px black border and `#000080` highlight. |
 | Scrollbar | 16 px wide. Arrow buttons 16×16 raised. Track is a dither of `#C0C0C0` and `#FFFFFF`. Thumb is raised, at least 8 px. |
-| Spin buttons | two 16×10 stacked raised buttons with tiny ▲▼ |
+| Spin buttons | 16 px wide, two stacked raised buttons with tiny ▲▼ filling the field's height in whole pixels (9 + 8 in a 21 px box) |
 | Slider (trackbar) | 4 px sunken track. The thumb is a raised 11×21 pointed tab. Tick marks are 1 px black lines under it. |
 | Tabs | 18 px tall, raised on top and sides. The selected tab is 2 px taller and joins the page. |
 | Group box | etched frame: 1 px `#808080` then 1 px `#FFFFFF`, with the label on the line |
@@ -82,7 +83,7 @@ Focus is a 1 px dotted black rectangle inset 4 px on buttons, or around the labe
 
 | Part | Metrics |
 |---|---|
-| Desktop icon | 32×32 icon above a label up to 2 lines. Selected: the icon is dithered with `#000080` and the label is highlighted. Grid spacing 75×75. |
+| Desktop icon | 32×32 icon above a label up to 2 lines. Selected: the icon is dithered with `#000080` and the label is highlighted. Grid spacing 75×75 (wider with Large Fonts: 120×115 at 2×). |
 | Rubber band | a 1 px dotted rectangle (XOR), not translucent |
 | Taskbar | 28 px tall with a raised top edge |
 | Start button | 54×22 raised. Windows-style flag icon replaced by our own, bold "Start". Pressed while the menu is open. |
@@ -92,11 +93,13 @@ Focus is a 1 px dotted black rectangle inset 4 px on buttons, or around the labe
 
 ## Cursors (redrawn, 1-bit with a mask, no shadow)
 
-Arrow (11×19 visible), link hand, I-beam, hourglass (animated), arrow with hourglass (working in background), resize
-↕ ↔ ⤡ ⤢, move ✥, unavailable ⊘, help (arrow plus ?), crosshair, pen. They are drawn at device pixels so they
-never scale with browser zoom.
+Arrow (12×19 visible), link hand, I-beam, hourglass (animated: over a window blocked by a progress dialog), arrow
+with hourglass (working in background), resize ↕ ↔ ⤡ ⤢, move ✥, unavailable ⊘ (desktop icons dragged where they
+can't drop), crosshair (mask eraser), pen (mask brush). There is no help-select cursor (no What's This? mode). They
+are drawn at device pixels so they never scale with browser zoom.
 
 ## Font
 
-We keep our own pixel font (Refragmenter Pixel), set at 98's MS Sans Serif 8 pt metrics: about 11 px cap
-height and 13 px line height, bold for captions and the default button.
+We keep our own pixel font (Refragmenter Pixel), close to 98's MS Sans Serif 8 pt: about 11 px cap height,
+set on 16 px lines (its glyphs need the extra rows). Bold for captions and default menu items; the default
+button is not bold, only ringed, as in 98.

@@ -8,7 +8,7 @@ import { syntheticPhoto, type PhotoKind } from './util';
 // 05-18: the Card window's double-click hit test hard-coded the sheet's geometry
 describe('contact sheet hit test', () => {
   it('finds the picture under a point, from the same layout the sheet is drawn with', () => {
-    for (const style of ['graft', 'xp', 'kodak'] as const) {
+    for (const style of ['graft', 'thumbs', 'kodak'] as const) {
       const L = sheetLayout(20, style);
       const at = (col: number, row: number) => sheetHit(20, L.pad + col * (L.cell + L.pad) + L.cell / 2, L.headH + L.pad + row * (L.cell + L.labelH + L.pad) + L.cell / 2, style);
       expect(at(0, 0), style).toBe(0);
