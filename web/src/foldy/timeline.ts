@@ -317,12 +317,5 @@ export function painDuration(timing: FoldyTiming): number {
   return Math.round(Math.max(1, Math.round(timing.painMs / step)) * step) + timing.winceMs;
 }
 
-/** A small seeded PRNG (the tear must look random but be reproducible per frame). */
-export function rng(seed: number): () => number {
-  let s = seed >>> 0 || 1;
-  return () => {
-    s = (Math.imul(s ^ (s >>> 15), 2246822507) + 0x9e3779b9) >>> 0;
-    s ^= s >>> 13;
-    return (s >>> 0) / 4294967296;
-  };
-}
+/** The tear must look random but be reproducible per frame: the app's seeded PRNG. */
+export { mulberry32 as rng } from '../engine/hash';

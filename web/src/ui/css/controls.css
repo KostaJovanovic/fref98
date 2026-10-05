@@ -18,7 +18,7 @@
   border: 0;
   background: var(--c-face);
   color: var(--c-text);
-  box-shadow: inset -1px -1px var(--c-dark), inset 1px 1px var(--c-hi), inset -2px -2px var(--c-shadow), inset 2px 2px var(--c-light);
+  box-shadow: var(--bevel-raised);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -46,7 +46,7 @@
 }
 .btn:not(:disabled):active,
 .btn.pressed {
-  box-shadow: inset -1px -1px var(--c-hi), inset 1px 1px var(--c-dark), inset -2px -2px var(--c-light), inset 2px 2px var(--c-shadow);
+  box-shadow: var(--bevel-pushed);
 }
 .btn.default:not(:disabled):active {
   box-shadow: inset 0 0 0 1px var(--c-dark), inset 0 0 0 2px var(--c-shadow);
@@ -116,7 +116,7 @@
   border: 0;
   padding: 2px;
   min-height: 21px;
-  box-shadow: inset -1px -1px var(--c-hi), inset 1px 1px var(--c-shadow), inset -2px -2px var(--c-light), inset 2px 2px var(--c-dark);
+  box-shadow: var(--bevel-sunken);
 }
 .field > input,
 .field > textarea {
@@ -173,7 +173,7 @@ input[type='number']::-webkit-outer-spin-button {
   background-color: var(--c-face);
   background-repeat: no-repeat;
   background-position: center;
-  box-shadow: inset -1px -1px var(--c-dark), inset 1px 1px var(--c-light), inset -2px -2px var(--c-shadow), inset 2px 2px var(--c-hi);
+  box-shadow: var(--bevel-frame);
   cursor: var(--cur-arrow, default);
 }
 /* whole-pixel halves (a 17 px field interior splits 9 + 8, not 8.5 + 8.5, which blurs the bevels) */
@@ -233,7 +233,7 @@ input[type='number']::-webkit-outer-spin-button {
   background-image: var(--img-g-arrow-d);
   background-repeat: no-repeat;
   background-position: center;
-  box-shadow: inset -1px -1px var(--c-dark), inset 1px 1px var(--c-light), inset -2px -2px var(--c-shadow), inset 2px 2px var(--c-hi);
+  box-shadow: var(--bevel-frame);
 }
 .combo.open .combo-btn {
   box-shadow: inset 0 0 0 1px var(--c-shadow);
@@ -358,7 +358,7 @@ input[type='range'] {
 input[type='range']::-webkit-slider-runnable-track {
   height: 4px;
   background: transparent;
-  box-shadow: inset 1px 1px var(--c-shadow), inset -1px -1px var(--c-hi), inset 2px 2px var(--c-dark), inset -2px -2px var(--c-light);
+  box-shadow: var(--bevel-sunken);
 }
 input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -373,7 +373,7 @@ input[type='range']::-webkit-slider-thumb {
 input[type='range']::-moz-range-track {
   height: 4px;
   background: transparent;
-  box-shadow: inset 1px 1px var(--c-shadow), inset -1px -1px var(--c-hi), inset 2px 2px var(--c-dark), inset -2px -2px var(--c-light);
+  box-shadow: var(--bevel-sunken);
 }
 input[type='range']::-moz-range-thumb {
   width: 11px;
@@ -416,7 +416,7 @@ input[type='range']:disabled::-webkit-slider-thumb {
   height: 18px;
   padding: 2px;
   background: var(--c-face);
-  box-shadow: inset 1px 1px var(--c-shadow), inset -1px -1px var(--c-hi);
+  box-shadow: var(--bevel-thin-in);
   overflow: hidden;
   position: relative;
 }
@@ -492,7 +492,7 @@ input[type='range']:disabled::-webkit-slider-thumb {
 }
 .tabpage {
   background: var(--c-face);
-  box-shadow: inset -1px -1px var(--c-dark), inset 1px 1px var(--c-hi), inset -2px -2px var(--c-shadow), inset 2px 2px var(--c-light);
+  box-shadow: var(--bevel-raised);
   padding: 10px;
 }
 
@@ -500,7 +500,7 @@ input[type='range']:disabled::-webkit-slider-thumb {
 .list {
   background: var(--c-win);
   padding: 2px;
-  box-shadow: inset -1px -1px var(--c-hi), inset 1px 1px var(--c-shadow), inset -2px -2px var(--c-light), inset 2px 2px var(--c-dark);
+  box-shadow: var(--bevel-sunken);
   overflow: auto;
 }
 .li {
@@ -524,7 +524,7 @@ input[type='range']:disabled::-webkit-slider-thumb {
   align-items: center;
   min-height: 18px;
   padding: 1px 4px;
-  box-shadow: inset 1px 1px var(--c-shadow), inset -1px -1px var(--c-hi);
+  box-shadow: var(--bevel-thin-in);
   white-space: nowrap;
   overflow: hidden;
 }
@@ -554,17 +554,29 @@ input[type='range']:disabled::-webkit-slider-thumb {
   white-space: pre-line;
   overflow-wrap: anywhere;
 }
-.msg-btns {
+/* every row of dialog buttons: right-aligned and 6 px apart, as in 98 (message boxes centre theirs; the
+   wizard keeps Back and Next together and spaces Cancel off with .wiz-gap) */
+.dlg-btns,
+.msg-btns,
+.xw-pbtns,
+.about-btns,
+.dp-btns,
+.wiz-btns,
+.ftune-btns,
+.hh-btnrow {
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 6px;
 }
-.msg-btns > .btn {
-  min-width: 75px;
+.msg-btns {
+  justify-content: center;
+}
+.wiz-btns {
+  gap: 0;
 }
 /* a message box is sized to its text: Foldy's inline balloon never goes in one */
-.win:has(.msgbox) .win-foldy {
-  display: none !important;
+.win:has(.msgbox) .win-foldy.on {
+  display: none;
 }
 
 /* ---------------------------------------------------------------- 98 scroll bars */
@@ -581,7 +593,7 @@ input[type='range']:disabled::-webkit-slider-thumb {
   }
   #app ::-webkit-scrollbar-thumb {
     background-color: var(--c-face);
-    box-shadow: inset -1px -1px var(--c-dark), inset 1px 1px var(--c-light), inset -2px -2px var(--c-shadow), inset 2px 2px var(--c-hi);
+    box-shadow: var(--bevel-frame);
     min-height: 8px;
   }
   #app ::-webkit-scrollbar-corner {
@@ -670,9 +682,8 @@ input[type='range']:disabled::-webkit-slider-thumb {
   font-weight: 700;
 }
 .sep {
-  height: 1px;
-  background: var(--face-lo);
-  border-bottom: 1px solid var(--c-hi);
+  height: 2px;
+  box-shadow: var(--etch-h);
   margin: 4px 0;
 }
 .selectable {

@@ -75,10 +75,10 @@ class HexView {
   private resizeObs: ResizeObserver | null = null;
 
   constructor() {
-    this.canvas = h('canvas', { class: 'hexcanvas', 'aria-hidden': 'true' });
+    this.canvas = h('canvas', { 'aria-hidden': 'true' });
     this.spacer = h('div', { class: 'hx-spacer' }, this.canvas);
-    this.scroll = h('div', { class: 'hexscroll hx-grid', tabIndex: 0, role: 'grid', 'aria-label': 'Hex bytes. Arrow keys move, type 0-9 A-F to edit.' }, this.spacer);
-    this.side = h('div', { class: 'hexside hx-side' });
+    this.scroll = h('div', { class: 'hx-grid', tabIndex: 0, role: 'grid', 'aria-label': 'Hex bytes. Arrow keys move, type 0-9 A-F to edit.' }, this.spacer);
+    this.side = h('div', { class: 'hx-side' });
     this.keypad = h('div', { class: 'row wrap hx-keypad' }, [...HEXCHARS].map((c) => button(c, () => this.typeNibble(HEXCHARS.indexOf(c)), { cls: 'small' })));
     this.keypad.style.display = 'none';
     const tb = h(
@@ -96,7 +96,7 @@ class HexView {
       h('span', { class: 'tsep', 'aria-hidden': 'true' }),
       toolButton(iconImg('editor', 16), 'Show the picture in the editor', () => openApp('editor')),
     );
-    const body = h('div', { class: 'hx98' }, tb, h('div', { class: 'hexwrap hx-wrap grow' }, h('div', { class: 'hx-left' }, this.scroll, this.keypad), this.side));
+    const body = h('div', { class: 'hx98' }, tb, h('div', { class: 'hx-wrap grow' }, h('div', { class: 'hx-left' }, this.scroll, this.keypad), this.side));
     this.win = openWindow({
       id: 'hex',
       title: 'Hex Doctor',

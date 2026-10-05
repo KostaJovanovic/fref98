@@ -5,12 +5,32 @@
   /* the smallest touch target */
   --tap: 44px;
 }
+/* windows are full-screen sheets with a big caption and a big close button */
 .phone .win {
   left: 0 !important;
   top: 0 !important;
   width: 100% !important;
   height: 100% !important;
   min-width: 0;
+  padding: 0;
+  box-shadow: none;
+}
+.phone .win-title {
+  height: 44px;
+  margin-bottom: 0;
+  padding: 0 4px 0 8px;
+  gap: 6px;
+}
+.phone .tbtn {
+  width: 48px;
+  height: 42px;
+  background-size: 48px 42px;
+}
+.phone .tbtn.min,
+.phone .tbtn.max,
+.phone .win-rz,
+.phone .win-grip {
+  display: none;
 }
 .phone .win-status,
 .phone .ph-hide {
@@ -109,7 +129,13 @@
   margin-top: -17px;
   background-size: 22px 36px;
 }
+/* the taskbar: the bottom tab bar, still grey */
+#app.phone .taskbar {
+  padding: 0 2px;
+}
 .phone .start {
+  width: auto;
+  height: 52px;
   padding: 0 10px;
   flex-direction: column;
   justify-content: center;
@@ -129,10 +155,16 @@
   padding: 2px 6px;
   max-width: 120px;
 }
+.phone .task .tl {
+  flex: none;
+  max-width: 100%;
+}
+.phone .tb-grip,
 .phone .tray .clock {
   display: none;
 }
 .phone .tray {
+  height: 44px;
   padding: 0 6px;
 }
 .phone .startmenu {
@@ -183,12 +215,11 @@
 .phone .story {
   grid-template-columns: 1fr;
 }
-.phone .hexwrap {
+.phone .hx-wrap {
   flex-direction: column;
 }
-.phone .hexside {
+.phone .hx-side {
   width: auto;
-  border-left: 0;
   border-top: 1px solid var(--face-lo);
   max-height: 45%;
 }

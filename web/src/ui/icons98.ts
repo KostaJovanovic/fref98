@@ -5,36 +5,17 @@
 // most common subsample colour, so there are never blended edge colours. Small (16 px) icons that matter
 // most are hand-drawn pixel rows instead (SMALL).
 import { drawText } from './pixeltext';
+import { cachedUrl, makeCanvas } from './canvas';
+import { COLORS98 } from './palette';
 
 type Ctx = CanvasRenderingContext2D;
 
-const K = '#000000';
-const W = '#ffffff';
-const S = '#c0c0c0';
-const LG = '#dfdfdf';
-const G = '#808080';
-const D = '#404040';
-const R = '#ff0000';
-const M = '#800000';
-const Y = '#ffff00';
-const O = '#808000';
-const LI = '#00ff00';
-const N = '#008000';
-const C = '#00ffff';
-const T = '#008080';
-const B = '#0000ff';
-const V = '#000080';
-const P = '#800080';
-const F = '#ff00ff';
+const { black: K, white: W, silver: S, light: LG, gray: G, darkGray: D, red: R, maroon: M, yellow: Y, olive: O, lime: LI, green: N, cyan: C, teal: T, blue: B, navy: V, purple: P, magenta: F } = COLORS98;
 // 98-era extras
-const MA = '#fff8c0'; // manila light
-const MB = '#f0d878'; // manila
-const MC = '#b89840'; // manila shade
-const BR = '#804000'; // brown
-const OR = '#ff8000'; // orange
-const TN = '#e0c090'; // tan
+const { manilaLight: MA, manila: MB, manilaShade: MC, brown: BR, orange: OR, tan: TN } = COLORS98;
 
-const PAL = [K, W, S, LG, G, D, R, M, Y, O, LI, N, C, T, B, V, P, F, MA, MB, MC, BR, OR, TN];
+/** The icon colours: all of them are in palette.ts's PALETTE, so only one palette is in play. */
+export const PAL = [K, W, S, LG, G, D, R, M, Y, O, LI, N, C, T, B, V, P, F, MA, MB, MC, BR, OR, TN];
 const PAL_RGB = PAL.map((h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]);
 const LUMA = PAL_RGB.map(([r, g, b]) => r * 3 + g * 6 + b);
 
@@ -58,12 +39,7 @@ function nearestIcon(r: number, g: number, b: number): number {
   return i;
 }
 
-function canvas(w: number, h: number): HTMLCanvasElement {
-  const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
-  return c;
-}
+const canvas = makeCanvas;
 
 const SS = 4; // supersampling
 
@@ -936,13 +912,8 @@ export function iconCanvas(name: string, size = 32): HTMLCanvasElement {
   return c;
 }
 
-const urlCache = new Map<string, string>();
-
 export function icon(name: string, size = 32): string {
-  const key = `${name}:${size}`;
-  let u = urlCache.get(key);
-  if (!u) urlCache.set(key, (u = iconCanvas(name, size).toDataURL('image/png')));
-  return u;
+  return cachedUrl(`icon:${name}:${size}`, () => iconCanvas(name, size));
 }
 
 /** Creates an <img> for an icon (decorative unless alt is given). */

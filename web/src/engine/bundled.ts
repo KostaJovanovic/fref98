@@ -147,6 +147,8 @@ const PAINTERS: { id: string; name: string; paint: Painter }[] = [
       grass.addColorStop(1, '#1f4d1a');
       ctx.fillStyle = grass;
       ctx.fillRect(0, h * 0.35, w, h * 0.65);
+      // its own Park-Miller sequence on purpose: a placeholder must stay byte-identical across versions (saved
+      // projects and shared recipes refer to it), so it never follows changes to the shared PRNG
       let s = 7;
       const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
       for (let i = 0; i < 260; i++) {

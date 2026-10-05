@@ -91,8 +91,9 @@ export function zipStore(entries: ZipEntry[]): Uint8Array {
   return out;
 }
 
-async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
-  if (typeof DecompressionStream === 'undefined') throw new Error('this ZIP uses compression, which this browser cannot read');
+/** Raw-deflate decompression (ZIP entries, "#r=" recipe links); a clear error where the browser lacks it. */
+export async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
+  if (typeof DecompressionStream === 'undefined') throw new Error('this file or link is compressed, which this browser cannot read');
   const ds = new DecompressionStream('deflate-raw');
   const stream = new Blob([data as BlobPart]).stream().pipeThrough(ds);
   return new Uint8Array(await new Response(stream).arrayBuffer());

@@ -6,7 +6,7 @@
   background: var(--c-face);
   color: var(--c-text);
   /* raised window-frame bevel: outer #DFDFDF / #000, inner #FFF / #808080 */
-  box-shadow: inset -1px -1px var(--c-dark), inset 1px 1px var(--c-light), inset -2px -2px var(--c-shadow), inset 2px 2px var(--c-hi);
+  box-shadow: var(--bevel-frame);
   padding: 3px;
   min-width: 0;
   overflow-x: hidden;
@@ -128,8 +128,7 @@
 .msep {
   height: 2px;
   margin: 3px 1px 4px;
-  border-top: 1px solid var(--c-shadow);
-  border-bottom: 1px solid var(--c-hi);
+  box-shadow: var(--etch-h);
 }
 
 /* menu-bar titles: mnemonic underline like the popup items; while a menu is open, hovering just tracks */
@@ -139,7 +138,7 @@
   text-decoration-thickness: 1px;
 }
 .win-menu > button.open:hover {
-  box-shadow: inset 1px 1px var(--c-shadow), inset -1px -1px var(--c-hi);
+  box-shadow: var(--bevel-thin-in);
 }
 
 /* list rows that borrow the menu look (Hex Doctor's segment list) */

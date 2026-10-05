@@ -97,6 +97,31 @@ export function nextIndex(n: number, from: number, dir: 1 | -1, ok: (i: number) 
   return -1;
 }
 
+export type Dir = 'left' | 'right' | 'up' | 'down';
+
+/** Arrow-key navigation among points (icon cells, item centres): the nearest one strictly in that direction
+ *  (at least 1 unit along it), sideways distance counting double so Down stays in the column when it can. */
+export function neighborInDir(pts: { id: string; x: number; y: number }[], from: string, dir: Dir): string | null {
+  const f = pts.find((p) => p.id === from);
+  if (!f) return null;
+  let best: string | null = null;
+  let bestS = Infinity;
+  for (const p of pts) {
+    if (p.id === from) continue;
+    const dx = p.x - f.x;
+    const dy = p.y - f.y;
+    const along = dir === 'right' ? dx : dir === 'left' ? -dx : dir === 'down' ? dy : -dy;
+    const side = dir === 'left' || dir === 'right' ? Math.abs(dy) : Math.abs(dx);
+    if (along < 1) continue;
+    const s = along + 2 * side;
+    if (s < bestS) {
+      bestS = s;
+      best = p.id;
+    }
+  }
+  return best;
+}
+
 /** Type-ahead: the first label after `from` (wrapping) that starts with `prefix` (case-insensitive). */
 export function typeAhead(labels: string[], from: number, prefix: string): number {
   const p = prefix.toLowerCase();

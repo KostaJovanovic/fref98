@@ -1,5 +1,6 @@
 // Pure geometry for the desktop: the 98 icon grid (75×75 cells, column-major from the top left), snapping,
 // arranging, rubber-band hits, keyboard neighbours, and the taskbar's Cascade / Tile window layouts. No DOM.
+import { neighborInDir, type Dir } from '../ui/uimath';
 
 export const CELL_W = 75;
 export const CELL_H = 75;
@@ -191,28 +192,11 @@ export function combineSelection(base: Iterable<string>, hits: string[], mode: '
   return [...s];
 }
 
-export type Dir = 'left' | 'right' | 'up' | 'down';
+export type { Dir };
 
 /** The icon an arrow key moves to: the nearest one in that direction (sideways distance counts double). */
 export function neighbor(cells: Cells, from: string, dir: Dir): string | null {
-  const f = cells[from];
-  if (!f) return null;
-  let best: string | null = null;
-  let bestS = Infinity;
-  for (const [id, c] of Object.entries(cells)) {
-    if (id === from) continue;
-    const dc = c.c - f.c;
-    const dr = c.r - f.r;
-    const along = dir === 'right' ? dc : dir === 'left' ? -dc : dir === 'down' ? dr : -dr;
-    const side = dir === 'left' || dir === 'right' ? Math.abs(dr) : Math.abs(dc);
-    if (along <= 0) continue;
-    const s = along + 2 * side;
-    if (s < bestS) {
-      bestS = s;
-      best = id;
-    }
-  }
-  return best;
+  return neighborInDir(Object.entries(cells).map(([id, c]) => ({ id, x: c.c, y: c.r })), from, dir);
 }
 
 // ------------------------------------------------------------------ taskbar: Cascade / Tile

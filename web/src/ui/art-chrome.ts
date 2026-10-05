@@ -1,6 +1,7 @@
 // Windows 98 window chrome, drawn pixel by pixel: 16×14 caption buttons (normal, pressed, disabled) and the
 // status-bar size grip. Colours and glyph sizes follow docs/WIN98_METRICS.md.
 import { ascii, cached, C98 } from './art';
+import { bevelRows } from './canvas';
 
 export type CapKind = 'min' | 'max' | 'restore' | 'close' | 'help';
 export type CapState = 'n' | 'p' | 'd';
@@ -24,25 +25,9 @@ const GLYPHS: Record<CapKind, { x: number; y: number; rows: string[] }> = {
 /** Character rows (16×14) of a caption button: W/L/F/G/K are the bevel shades and T the glyph, '.' never
  *  occurs. */
 export function captionButtonRows(kind: CapKind, state: CapState = 'n'): string[] {
-  const W = 16;
-  const H = 14;
-  const g: string[][] = Array.from({ length: H }, () => Array<string>(W).fill('F'));
   const pressed = state === 'p';
-  // two 1 px rings: raised = W/K outside, L/G inside; pressed swaps them (K/W outside, G/L inside)
-  const ring = (i: number, tl: string, br: string) => {
-    for (let x = i; x < W - i; x++) {
-      g[i][x] = tl;
-      g[H - 1 - i][x] = br;
-    }
-    for (let y = i; y < H - i; y++) {
-      g[y][i] = tl;
-      g[y][W - 1 - i] = br;
-    }
-    g[H - 1 - i][i] = br;
-    g[i][W - 1 - i] = br;
-  };
-  ring(0, pressed ? 'K' : 'W', pressed ? 'W' : 'K');
-  ring(1, pressed ? 'G' : 'L', pressed ? 'L' : 'G');
+  // raised = W/K outside, L/G inside; pressed swaps them (K/W outside, G/L inside)
+  const g = bevelRows(16, 14, pressed ? 'pushed' : 'raised', 'F').map((r) => r.split(''));
   const gl = GLYPHS[kind];
   const put = (ox: number, oy: number, c: string) =>
     gl.rows.forEach((r, y) => {

@@ -472,31 +472,16 @@ impl<'a> Dec<'a> {
     }
 
     fn read_dqt(&mut self, p: &[u8], at: usize) {
-        let mut i = 0;
-        while i < p.len() {
-            let pq = p[i] >> 4;
-            let tq = (p[i] & 15) as usize;
-            i += 1;
-            let n = if pq == 0 { 64 } else { 128 };
-            if i + n > p.len() {
+        for t in crate::markers::parse_dqt(p) {
+            if t.short {
                 self.ev("header_repaired", -1, at, "quantisation table is cut short; missing values set to 1".into());
             }
-            let mut z = [1u16; 64];
-            for (k, zk) in z.iter_mut().enumerate() {
-                let v = if pq == 0 { p.get(i + k).map(|&b| b as u16) } else { Some(be16(p, i + 2 * k) as u16).filter(|_| i + 2 * k + 1 < p.len()) };
-                if let Some(v) = v {
-                    *zk = v;
-                }
-            }
-            i += n;
+            let tq = t.id as usize;
             if tq > 3 {
                 self.ev("header_repaired", -1, at, format!("quantisation table id {} out of range", tq));
                 continue;
             }
-            let mut nat = [0u16; 64];
-            for k in 0..64 {
-                nat[NATURAL_ORDER[k]] = z[k];
-            }
+            let nat = t.values;
             self.out.meta.qtables[tq] = Some(nat);
         }
     }
@@ -634,11 +619,10 @@ impl<'a> Dec<'a> {
         self.sos_seen = true;
         let ncomp = img.comps.len();
         let ids: Vec<u8> = img.comps.iter().map(|c| c.id).collect();
-        let ns = p.first().copied().unwrap_or(0) as usize;
+        let sh = crate::markers::parse_sos(p);
+        let ns = sh.ns;
         let mut scan = ScanSpec::default();
-        for k in 0..ns.min(4) {
-            let cs = p.get(1 + 2 * k).copied().unwrap_or(0);
-            let t = p.get(2 + 2 * k).copied().unwrap_or(0);
+        for (k, &(cs, t)) in sh.comps.iter().enumerate() {
             // With duplicate ids (every component called 1), take the first one not used by this scan yet.
             let first = ids.iter().position(|&c| c == cs);
             let idx = match (0..ncomp).find(|&i| ids[i] == cs && !scan.comps.contains(&i)).or(first) {
@@ -661,12 +645,10 @@ impl<'a> Dec<'a> {
             scan.td.push(((t >> 4) as usize).min(3));
             scan.ta.push(((t & 15) as usize).min(3));
         }
-        let b = 1 + 2 * ns;
-        scan.ss = p.get(b).copied().unwrap_or(0);
-        scan.se = p.get(b + 1).copied().unwrap_or(63);
-        let a = p.get(b + 2).copied().unwrap_or(0);
-        scan.ah = a >> 4;
-        scan.al = a & 15;
+        scan.ss = sh.ss;
+        scan.se = sh.se;
+        scan.ah = sh.ah;
+        scan.al = sh.al;
         if scan.comps.is_empty() {
             self.ev("header_repaired", -1, at, "scan header lists no components; assuming all".into());
             scan.comps = (0..ncomp).collect();

@@ -10,7 +10,7 @@
   background: var(--c-face);
   color: var(--c-text);
   /* window frame: outer ring #DFDFDF / #000, inner ring #FFF / #808080 */
-  box-shadow: inset -1px -1px var(--c-dark), inset 1px 1px var(--c-light), inset -2px -2px var(--c-shadow), inset 2px 2px var(--c-hi);
+  box-shadow: var(--bevel-frame);
 }
 .win.fixed {
   padding: 3px;
@@ -64,7 +64,7 @@
   align-items: center;
   gap: 3px;
   padding: 0 2px;
-  background: linear-gradient(to right, var(--c-cap1), var(--c-cap2));
+  background: var(--cap-grad);
   color: var(--c-captext);
   font-weight: 700;
   white-space: nowrap;
@@ -80,7 +80,7 @@
 .win:not(.active) .win-title,
 .win.active.flash .win-title,
 .win-zoom.inactive {
-  background: linear-gradient(to right, var(--c-icap1), var(--c-icap2));
+  background: var(--cap-grad-inactive);
   color: var(--c-icaptext);
 }
 .win-title .ttl,
@@ -200,7 +200,7 @@
   box-shadow: inset -1px -1px var(--c-shadow), inset 1px 1px var(--c-hi);
 }
 .win-menu > button.open {
-  box-shadow: inset 1px 1px var(--c-shadow), inset -1px -1px var(--c-hi);
+  box-shadow: var(--bevel-thin-in);
 }
 .win-body {
   flex: 1;
@@ -226,22 +226,15 @@
   height: calc(16px * var(--ts) + 2px);
   padding: 0 4px;
   overflow: hidden;
-  box-shadow: inset 1px 1px var(--c-shadow), inset -1px -1px var(--c-hi);
+  box-shadow: var(--bevel-thin-in);
 }
 .win-status > .grow {
   flex: 1;
 }
+/* Foldy's panel slot: hidden until he moves in (the panel itself is styled in foldy.css) */
 .win-foldy {
   flex: none;
   display: none;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 4px 6px;
-  border-top: 1px solid var(--c-shadow);
-  background: var(--c-tip);
-}
-.win-foldy.on {
-  display: flex;
 }
 
 /* sizing: 8 hit zones on the frame (corners are L-shaped by clip-path) and the status-bar grip */
@@ -264,9 +257,7 @@
 }
 .win.max .win-rz,
 .win.max .win-grip,
-.win.nostatus .win-grip,
-.phone .win-rz,
-.phone .win-grip {
+.win.nostatus .win-grip {
   display: none;
 }
 
@@ -276,23 +267,4 @@
   cursor: var(--cur-wait-bg, progress) !important;
 }
 
-/* phones: full-screen sheets with a big caption and a big close button */
-.phone .win {
-  padding: 0;
-  box-shadow: none;
-}
-.phone .win-title {
-  height: 44px;
-  margin-bottom: 0;
-  padding: 0 4px 0 8px;
-  gap: 6px;
-}
-.phone .tbtn {
-  width: 48px;
-  height: 42px;
-  background-size: 48px 42px;
-}
-.phone .tbtn.min,
-.phone .tbtn.max {
-  display: none;
-}
+/* phones: full-screen sheets, in phone.css */

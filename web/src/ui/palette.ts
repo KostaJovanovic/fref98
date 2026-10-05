@@ -2,6 +2,36 @@
 // chrome, the half-intensity VGA colours, the tooltip yellow, the icon manilas), greys and the sky blues. Every
 // piece of UI art is dithered into it. Pure module (also used inside workers).
 
+/** The fixed Windows 98 / VGA colours by name, for art that never follows the colour scheme (icons, toolbar
+ *  glyphs, tooltip tails). The scheme's system colours are in scheme.ts. All of them are in PALETTE. */
+export const COLORS98 = {
+  black: '#000000',
+  white: '#ffffff',
+  silver: '#c0c0c0',
+  light: '#dfdfdf',
+  gray: '#808080',
+  darkGray: '#404040',
+  red: '#ff0000',
+  maroon: '#800000',
+  yellow: '#ffff00',
+  olive: '#808000',
+  lime: '#00ff00',
+  green: '#008000',
+  cyan: '#00ffff',
+  teal: '#008080',
+  blue: '#0000ff',
+  navy: '#000080',
+  purple: '#800080',
+  magenta: '#ff00ff',
+  manilaLight: '#fff8c0',
+  manila: '#f0d878',
+  manilaShade: '#b89840',
+  brown: '#804000',
+  orange: '#ff8000',
+  tan: '#e0c090',
+  tip: '#ffffe1',
+} as const;
+
 const EXTRA: number[] = [
   // greys that the web-safe cube lacks
   0x111111, 0x222222, 0x444444, 0x555555, 0x777777, 0x888888, 0xaaaaaa, 0xbbbbbb, 0xdddddd, 0xeeeeee,
@@ -11,8 +41,8 @@ const EXTRA: number[] = [
   0x000080, 0x008080, 0x800000, 0x008000, 0x808000, 0x800080, 0x1084d0, 0xffffe1,
   // the dark end of the wizard panel (teal → navy) and the steps between
   0x006060, 0x004848, 0x002850, 0x000040,
-  // icon manilas and browns
-  0xfff8c0, 0xf0d878, 0xb89840, 0x804000,
+  // icon manilas, browns, orange and tan (icons98's palette is a subset of this one)
+  0xfff8c0, 0xf0d878, 0xb89840, 0x804000, 0xff8000, 0xe0c090,
   // sky blues
   0x5c8fd6, 0x87b5f0, 0xa8cbf5, 0xc5ddf7, 0xe3eefb, 0x3a6fc4, 0x295bb1,
 ];

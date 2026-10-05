@@ -1,6 +1,7 @@
 // Pure helpers for the 98 Explorer-style folder windows (My Pictures, Recycle Bin, Presets): sizes and dates
 // the way 98 printed them, status-bar text, sorting, keyboard neighbours among laid-out items, range
 // selection, type-ahead and "Copy of" names. No DOM.
+import { neighborInDir, typeAhead as typeAheadIndex, type Dir } from '../ui/uimath';
 
 export type ViewMode = 'large' | 'small' | 'list' | 'details' | 'thumbs';
 
@@ -103,32 +104,12 @@ export interface ItemBox {
   w: number;
   h: number;
 }
-export type Dir = 'left' | 'right' | 'up' | 'down';
+export type { Dir };
 
 /** The item an arrow key moves to among laid-out boxes: the nearest one whose centre lies in that direction,
  *  sideways distance counting double (so Down stays in the column when there is one). */
 export function neighborBox(boxes: ItemBox[], from: string, dir: Dir): string | null {
-  const f = boxes.find((b) => b.id === from);
-  if (!f) return null;
-  const fx = f.x + f.w / 2;
-  const fy = f.y + f.h / 2;
-  let best: string | null = null;
-  let bestS = Infinity;
-  for (const b of boxes) {
-    if (b.id === from) continue;
-    const dx = b.x + b.w / 2 - fx;
-    const dy = b.y + b.h / 2 - fy;
-    const along = dir === 'right' ? dx : dir === 'left' ? -dx : dir === 'down' ? dy : -dy;
-    const side = dir === 'left' || dir === 'right' ? Math.abs(dy) : Math.abs(dx);
-    // strictly in that direction (items in the same row or column are not "below" or "beside")
-    if (along < 1) continue;
-    const s = along + 2 * side;
-    if (s < bestS) {
-      bestS = s;
-      best = b.id;
-    }
-  }
-  return best;
+  return neighborInDir(boxes.map((b) => ({ id: b.id, x: b.x + b.w / 2, y: b.y + b.h / 2 })), from, dir);
 }
 
 /** Shift+click / Shift+arrow: everything between the anchor and `to` in display order (inclusive). */
@@ -144,12 +125,8 @@ export function rangeSelect(order: string[], anchor: string | null, to: string):
 /** Type-ahead: the next item (after `cur` for a single letter, from `cur` for a longer prefix) whose name
  *  starts with `typed`, wrapping around. */
 export function typeAhead(order: string[], names: (id: string) => string, cur: string | null, typed: string): string | null {
-  if (!typed || !order.length) return null;
-  const t = typed.toLowerCase();
-  const i = cur ? order.indexOf(cur) : -1;
-  const start = i < 0 ? 0 : i + (t.length === 1 ? 1 : 0);
-  const ring = [...order.slice(start), ...order.slice(0, start)];
-  return ring.find((id) => names(id).toLowerCase().startsWith(t)) ?? null;
+  const i = typeAheadIndex(order.map(names), cur ? order.indexOf(cur) : -1, typed);
+  return i < 0 ? null : order[i];
 }
 
 /** 98's names for pasted copies: "Copy of X", then "Copy (2) of X", "Copy (3) of X", … */

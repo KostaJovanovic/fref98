@@ -90,7 +90,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: repeating-conic-gradient(var(--c-sel) 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+  background: var(--dither-sel);
   -webkit-mask-image: var(--mask-src);
   mask-image: var(--mask-src);
   -webkit-mask-size: 32px 32px;
@@ -99,11 +99,7 @@
 /* focus: a 1 px dotted rectangle on the label, XOR-like (difference blend: yellowish on navy, inverted sky) */
 .dicon:focus .lbl::after,
 .rband {
-  background:
-    repeating-linear-gradient(90deg, var(--c-win) 0 1px, transparent 1px 2px) left top / 100% 1px no-repeat,
-    repeating-linear-gradient(90deg, var(--c-win) 0 1px, transparent 1px 2px) left bottom / 100% 1px no-repeat,
-    repeating-linear-gradient(180deg, var(--c-win) 0 1px, transparent 1px 2px) left top / 1px 100% no-repeat,
-    repeating-linear-gradient(180deg, var(--c-win) 0 1px, transparent 1px 2px) right top / 1px 100% no-repeat;
+  background: var(--dotted-frame);
   mix-blend-mode: difference;
   pointer-events: none;
 }
@@ -115,8 +111,8 @@
 /* drag ghost: the icon screen-doored 50% (no alpha in this UI) */
 .dicon.ghost {
   pointer-events: none;
-  -webkit-mask: repeating-conic-gradient(#000 0 25%, transparent 0 50%) 0 0 / 2px 2px;
-  mask: repeating-conic-gradient(#000 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+  -webkit-mask: var(--dither-mask);
+  mask: var(--dither-mask);
 }
 .dicon.ghost .lbl::after {
   content: none;
@@ -160,7 +156,7 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: repeating-conic-gradient(#000 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+  background: var(--dither-mask);
 }
 .shutdown-opts {
   gap: 6px;
