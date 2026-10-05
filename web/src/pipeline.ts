@@ -5,7 +5,7 @@
 import { engine, isCancel, NotAvailableError, CancelledError, type Job } from './engine/client';
 import { LatestRunner, type RunToken } from './latest';
 import { LruCache, defaultBudget } from './engine/cache';
-import { runStack, type NodeResult, type PoolSpec, type StackNode } from './engine/stack';
+import { runStack, poolOrder, type NodeResult, type PoolSpec, type StackNode } from './engine/stack';
 import { hashString, hashBytes } from './engine/hash';
 import type { DecodedImage, EngineCaps, StepInfo } from './engine/types';
 import { store } from './state';
@@ -121,7 +121,7 @@ class Pipeline {
 
   /** Pool handed to steps: every pool photo except `exclude`, each after its own one-level stack. */
   poolSpec(exclude: string | null): PoolSpec {
-    const uids = store.doc.order.filter((u) => u !== exclude && store.photos.has(u));
+    const uids = poolOrder(store.doc.order.filter((u) => store.photos.has(u)), exclude);
     const key = hashString(uids.map((u) => store.photoKey(u)).join('|'));
     return { key, uids, photos: () => Promise.all(uids.map((u) => this.photoBytes(u))) };
   }

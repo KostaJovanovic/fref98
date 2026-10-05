@@ -127,6 +127,14 @@ const rows: Row[] = [];
     expect(new Set(PRESETS.map((p) => p.id)).size).toBe(PRESETS.length);
   });
 
+  // audit B4 (10-11): "Once" asked for 0 stutters, which the step's minimum turned into 1
+  it('the flaky reader has no stutter at the lowest setting', () => {
+    const p = PRESETS.find((x) => x.id === 'flaky-reader')!;
+    const ids = (bad: number) => p.build({ catalog, profiles, bad, seed: SEED }).map((n) => (n.type === 'step' ? n.id : n.type));
+    expect(ids(0)).toEqual(['dropped_sectors']);
+    expect(ids(1)).toEqual(['dropped_sectors', 'stutter_read']);
+  });
+
   it('passes only parameter ids the engine knows', () => {
     const unknown: string[] = [];
     for (const p of PRESETS) {

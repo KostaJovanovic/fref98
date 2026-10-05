@@ -65,7 +65,7 @@ export interface DecodedImage {
 }
 
 export interface DecodeOpts {
-  personality?: 'libjpeg' | 'browser' | 'gdiplus';
+  personality?: 'libjpeg' | 'gdiplus';
   fill?: 'grey' | 'repeat' | 'black' | 'donor';
   fancy_upsampling?: boolean;
   max_dim?: number;

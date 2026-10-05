@@ -400,8 +400,11 @@ impl<'a> Dec<'a> {
                     None if ids == [b'R', b'G', b'B'] => ColorSpace::Rgb,
                     None => ColorSpace::YCbCr,
                 },
-                4 if meta.adobe == Some(2) => ColorSpace::Ycck,
-                4 => ColorSpace::Cmyk,
+                // libjpeg: Adobe transform 0 (or no Adobe marker) is CMYK; 2, and any other value, YCCK
+                4 => match meta.adobe {
+                    Some(0) | None => ColorSpace::Cmyk,
+                    Some(_) => ColorSpace::Ycck,
+                },
                 _ => ColorSpace::Gray,
             };
             for (ci, c) in img.comps.iter_mut().enumerate() {

@@ -161,6 +161,14 @@ export function usesPool(node: StepItem, info: StepInfo | undefined): boolean {
   return info.uses_pool || info.params.some((p) => p.kind === 'photo');
 }
 
+/** The pool for editing `exclude`: the other photos, starting with the one after it (wrapping). A photo param
+ *  of -1 ("next photo in the pool") is pool[0], so editing photo 3 of 4 borrows photo 4 and photo 4 borrows
+ *  photo 1 (docs/ENGINE_API.md). Photos picked by name are found by uid, so the rotation doesn't move them. */
+export function poolOrder(order: string[], exclude: string | null): string[] {
+  const at = exclude ? order.indexOf(exclude) : -1;
+  return [...order.slice(at + 1), ...order.slice(0, Math.max(0, at))];
+}
+
 /** Maps photo params from pool uids to indices in the pool list handed to the engine. */
 export function resolvePhotoParams(params: Record<string, unknown>, info: StepInfo | undefined, uids: string[]): Record<string, unknown> {
   if (!info) return params;

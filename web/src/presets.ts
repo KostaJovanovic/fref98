@@ -315,7 +315,11 @@ export const PRESETS: Preset[] = [
     foldy: 'A skipped 512-byte sector shifts everything after it; a repeated cluster makes a band appear twice.',
     scale: ['Once', 'Constantly'],
     uses: ['dropped_sectors', 'stutter_read'],
-    build: (c) => [step(c, 'dropped_sectors', { count: Math.round(lerp(1, 10, c.bad)) }, 1), step(c, 'stutter_read', { count: Math.round(lerp(0, 4, c.bad)) }, 2)],
+    build: (c) => {
+      // no stutter at the low end ("Once"): the step's own minimum is one repeat
+      const stutters = Math.round(lerp(0, 4, c.bad));
+      return [step(c, 'dropped_sectors', { count: Math.round(lerp(1, 10, c.bad)) }, 1), ...(stutters > 0 ? [step(c, 'stutter_read', { count: stutters }, 2)] : [])];
+    },
   },
   {
     id: 'deep-fried',

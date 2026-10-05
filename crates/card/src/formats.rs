@@ -79,27 +79,7 @@ fn fit(src: &Image, bw: u32, bh: u32, pad: Option<[u8; 3]>, crop_square: bool) -
         }
         return resize_box(&Image { width: s, height: s, rgba: sq }, bw, bh);
     }
-    let scale_w = bw as f64 / src.width as f64;
-    let scale_h = bh as f64 / src.height as f64;
-    let s = scale_w.min(scale_h).min(1.0);
-    let (w, h) = (((src.width as f64 * s).round() as u32).max(1), ((src.height as f64 * s).round() as u32).max(1));
-    let small = resize_box(src, w, h);
-    match pad {
-        None => small,
-        Some(col) => {
-            let mut out = Image { width: bw, height: bh, rgba: vec![255; (bw * bh * 4) as usize] };
-            for p in out.rgba.chunks_mut(4) {
-                p[..3].copy_from_slice(&col);
-            }
-            let (ox, oy) = ((bw - w) / 2, (bh - h) / 2);
-            for y in 0..h {
-                let a = ((y * w) * 4) as usize;
-                let b = (((y + oy) * bw + ox) * 4) as usize;
-                out.rgba[b..b + (w * 4) as usize].copy_from_slice(&small.rgba[a..a + (w * 4) as usize]);
-            }
-            out
-        }
-    }
+    crate::thumbs::fit_box(src, bw, bh, pad)
 }
 
 fn blow_up(input: &[u8], small: &Image, orig: &Image, p: &Value) -> Vec<u8> {
@@ -134,7 +114,7 @@ pub fn catalog() -> Vec<StepInfo> {
         help,
         params,
     };
-    vec![
+    let mut v = vec![
         info(
             "thumbnail_only",
             "Only the thumbnail survived",
@@ -196,7 +176,12 @@ pub fn catalog() -> Vec<StepInfo> {
             "Canon RAW data is compressed with lossless JPEG, so carvers find a JPEG marker and grab it. Decoded as an ordinary photo, the sensor's checkerboard of red, green and blue becomes stripy, coloured garbage.",
             vec![p_int("bits", "Sensor bits", 10, 14, 12).expert()],
         ),
-    ]
+    ];
+    // these two use the seed (scattered/shuffled tiles, the sensor noise), so the UI shows their dice
+    for s in v.iter_mut() {
+        s.random = matches!(s.id, "heic_tiles" | "raw_as_jpeg");
+    }
+    v
 }
 
 pub fn apply(id: &str, p: &Value, input: &[u8], ctx: &StepCtx) -> Option<StepResult> {

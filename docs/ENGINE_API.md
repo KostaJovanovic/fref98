@@ -54,7 +54,7 @@ indices accordingly. `mask` value: `{ w, h, data: number[] }` in MCU units, 0..2
 // Forgiving decode. Never throws for damaged data; returns at least a grey image if the header is unusable
 // but dimensions can be guessed, else throws "unreadable".
 decode(input: Uint8Array, optsJson: string): Decoded
-//   opts: { personality?: "libjpeg"|"browser"|"gdiplus", fill?: "grey"|"repeat"|"black"|"donor",
+//   opts: { personality?: "libjpeg"|"gdiplus" ("browser" is read as libjpeg), fill?: "grey"|"repeat"|"black"|"donor",
 //           fancy_upsampling?: boolean, max_dim?: number /* downscaled preview, nearest/box */ }
 class Decoded { width: number; height: number; rgba(): Uint8Array; events_json(): string; free(): void }
 //   events: [{ kind: "truncated"|"bad_marker"|"resync"|"rst_missing"|"dc_jump"|"fill"|"bad_huffman"|"eoi_early"|"header_repaired"|...,

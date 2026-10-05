@@ -27,6 +27,8 @@ fn list(kind: &[u8; 4], body: &[u8]) -> Vec<u8> {
 
 pub fn write(frames: &[Vec<u8>], w: u32, h: u32, fps: u32) -> Vec<u8> {
     let fps = fps.clamp(1, 240);
+    // as stored: the index and the buffer sizes must count the AVI1 APP0 added to a frame
+    let frames: Vec<Vec<u8>> = frames.iter().map(|f| with_avi1(f)).collect();
     let n = frames.len() as u32;
     let maxf = frames.iter().map(|f| f.len()).max().unwrap_or(0) as u32;
     let mut avih = Vec::new();
@@ -53,13 +55,13 @@ pub fn write(frames: &[Vec<u8>], w: u32, h: u32, fps: u32) -> Vec<u8> {
     let hdrl = list(b"hdrl", &[chunk(b"avih", &avih), strl].concat());
     let mut movi = Vec::new();
     let mut idx = Vec::new();
-    for f in frames {
+    for f in &frames {
         let off = movi.len() as u32 + 4;
         idx.extend_from_slice(b"00dc");
         idx.extend_from_slice(&le32(0x10));
         idx.extend_from_slice(&le32(off));
         idx.extend_from_slice(&le32(f.len() as u32));
-        movi.extend(chunk(b"00dc", &with_avi1(f)));
+        movi.extend(chunk(b"00dc", f));
     }
     let body = [b"AVI ".to_vec(), hdrl, list(b"movi", &movi), chunk(b"idx1", &idx)].concat();
     chunk(b"RIFF", &body)

@@ -65,6 +65,56 @@ fn every_step_runs_and_is_deterministic() {
     }
 }
 
+// Audit B4 (10-1): a step that uses the seed must say `random: true`, or the UI hides its seed/dice.
+#[test]
+fn steps_that_are_not_random_ignore_the_seed() {
+    let a = test_jpeg(203, 157, "420", false);
+    let pool = vec![test_jpeg(160, 120, "444", true)];
+    for inf in catalog().into_iter().filter(|i| !i.random) {
+        let p = defaults(&inf);
+        let run = |seed| apply(inf.id, &p, &a, &StepCtx { seed, pool: &pool }).unwrap().ok();
+        assert_eq!(run(7), run(12345), "{} uses the seed but says random: false", inf.id);
+    }
+}
+
+// Audit B4 (09-5): a camera profile in "Save again and again" used to lose its measured tables
+#[test]
+fn generation_with_a_camera_profile_keeps_its_tables() {
+    let a = test_jpeg(203, 157, "420", false);
+    let p = serde_json::json!({"profile": "canon_ixus400", "quality": 97, "quality_jitter": 0, "generations": 1, "shift": 0});
+    let out = apply("resave", &p, &a, &StepCtx { seed: 1, pool: &[] }).unwrap().unwrap();
+    let ixus = crate::profiles::get("canon_ixus400").unwrap();
+    let parsed = crate::decoder::parse(&out, false);
+    assert_eq!(parsed.meta.qtables[0], Some(ixus.settings.qtables[0]), "the IXUS 400 luminance table");
+    // another quality scales them, it doesn't swap in the standard ones
+    let p90 = serde_json::json!({"profile": "canon_ixus400", "quality": 90, "quality_jitter": 0, "generations": 1, "shift": 0});
+    let out = apply("resave", &p90, &a, &StepCtx { seed: 1, pool: &[] }).unwrap().unwrap();
+    let q = crate::decoder::parse(&out, false).meta.qtables[0].unwrap();
+    assert_ne!(q, crate::tables::scaled_table(&crate::tables::STD_LUMA_Q, 90));
+}
+
+// Audit B4 (08-8): 4 components with an Adobe transform other than 0 or 2 are YCCK in libjpeg
+#[test]
+fn adobe_transform_picks_cmyk_only_for_0() {
+    use crate::coeffs::ColorSpace;
+    use crate::markers::segment;
+    let cmyk = |t: Option<u8>| {
+        // just the header of a four-component frame, with the given Adobe marker
+        let mut j = vec![0xFF, 0xD8];
+        if let Some(t) = t {
+            j.extend(segment(0xEE, &[&b"Adobe"[..], &[0, 100, 0, 0, 0, 0, t]].concat()));
+        }
+        j.extend(segment(0xDB, &[&[0u8][..], &[1u8; 64]].concat()));
+        j.extend(segment(0xC0, &[8, 0, 16, 0, 16, 4, 1, 0x11, 0, 2, 0x11, 0, 3, 0x11, 0, 4, 0x11, 0]));
+        j.extend([0xFF, 0xD9]);
+        crate::decoder::parse(&j, false).img.map(|i| i.color)
+    };
+    assert_eq!(cmyk(None), Some(ColorSpace::Cmyk));
+    assert_eq!(cmyk(Some(0)), Some(ColorSpace::Cmyk));
+    assert_eq!(cmyk(Some(2)), Some(ColorSpace::Ycck));
+    assert_eq!(cmyk(Some(1)), Some(ColorSpace::Ycck));
+}
+
 #[test]
 fn catalog_ids_match_contract() {
     let ids: Vec<&str> = catalog().iter().map(|i| i.id).collect();
@@ -342,4 +392,28 @@ fn gif_and_avi_roundtrip() {
     assert!((i.fps - 12.0).abs() < 1e-6);
     let fr = crate::avi::frame(&a, 1).unwrap();
     assert!(decode(&fr, &DecodeOpts::default()).is_ok());
+}
+
+// Audit B4 (09-2): idx1 recorded the frame length before the AVI1 APP0 was added (16 bytes short), so
+// readers that trust the index lost the end of every frame, EOI included.
+#[test]
+fn avi_index_lengths_match_the_stored_frames() {
+    let j = test_jpeg(32, 24, "420", false);
+    // a frame that starts with something other than APP0 gets the AVI1 marker
+    let no_app0 = [&j[..2], &[0xFF, 0xFE, 0x00, 0x04, b'h', b'i'][..], &j[2..]].concat();
+    for frame in [j.clone(), no_app0] {
+        let a = crate::avi::write(&[frame.clone(), frame], 32, 24, 12);
+        let at = a.windows(4).rposition(|w| w == b"idx1").unwrap();
+        let movi = a.windows(4).position(|w| w == b"movi").unwrap();
+        for k in 0..2 {
+            let e = at + 8 + k * 16;
+            let off = u32::from_le_bytes(a[e + 8..e + 12].try_into().unwrap()) as usize;
+            let len = u32::from_le_bytes(a[e + 12..e + 16].try_into().unwrap()) as usize;
+            // the offset points at the chunk id, relative to "movi"
+            let chunk = movi + off;
+            assert_eq!(&a[chunk..chunk + 4], b"00dc");
+            assert_eq!(len, u32::from_le_bytes(a[chunk + 4..chunk + 8].try_into().unwrap()) as usize);
+            assert_eq!(&a[chunk + 8 + len - 2..chunk + 8 + len], &[0xFF, 0xD9]);
+        }
+    }
 }

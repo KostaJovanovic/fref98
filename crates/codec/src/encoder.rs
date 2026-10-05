@@ -101,10 +101,25 @@ impl EncodeSettings {
         }
     }
 
+    /// Standard (IJG) tables for quality `q`; whatever tables there were are replaced.
     pub fn set_quality(&mut self, q: i32) {
         for (i, c) in self.comps.iter().enumerate() {
             if let Some(t) = self.qtables.get_mut(i) {
                 *t = scaled_table(if c.tq == 0 { &STD_LUMA_Q } else { &STD_CHROMA_Q }, q);
+            }
+        }
+    }
+
+    /// Keeps the tables' own shape (a camera's measured tables) and scales them from the quality they
+    /// stand for to `to`, the way libjpeg scales its tables between qualities.
+    pub fn rescale_quality(&mut self, from: i32, to: i32) {
+        if from == to {
+            return;
+        }
+        let (a, b) = (crate::tables::quality_scale(to).max(1) as i64, crate::tables::quality_scale(from).max(1) as i64);
+        for t in self.qtables.iter_mut() {
+            for v in t.iter_mut() {
+                *v = ((*v as i64 * a + b / 2) / b).clamp(1, 255) as u16;
             }
         }
     }

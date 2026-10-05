@@ -10,7 +10,6 @@ use crate::sample::{upsample, Plane8, UpOpts};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Personality {
     Libjpeg,
-    Browser,
     Gdiplus,
 }
 
@@ -41,8 +40,8 @@ impl Default for DecodeOpts {
 impl DecodeOpts {
     pub fn from_json(v: &serde_json::Value) -> Self {
         DecodeOpts {
+            // ("browser" was a third name for libjpeg's behaviour, kept so old recipes still parse)
             personality: match v.get("personality").and_then(|x| x.as_str()) {
-                Some("browser") => Personality::Browser,
                 Some("gdiplus") => Personality::Gdiplus,
                 _ => Personality::Libjpeg,
             },

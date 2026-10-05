@@ -13,9 +13,9 @@ import { pipeline } from '../pipeline';
 import { settings } from '../settings';
 import { engine, NotAvailableError, isCancel } from '../engine/client';
 import { zipStore } from '../engine/zip';
-import { newSeed } from '../engine/hash';
+import { newSeed, hashBytes } from '../engine/hash';
 import type { CardInfo, CardPreset, CarvedFile, CardEventType, ParamInfo } from '../engine/types';
-import { contactSheet, canvasToPng } from '../contact';
+import { contactSheet, canvasToPng, sheetHit } from '../contact';
 import { thumbUrl } from '../thumbs';
 import { errorBox, message, progressDialog, progressDone, confirmBox } from '../ui/dialog';
 import { ditherBayer } from '../ui/palette';
@@ -25,37 +25,24 @@ import { openApp } from './registry';
 import { foldy } from '../foldy/foldy';
 import { dialog98, wizard98, wizardArt, listBox, pieChart, swatch98 } from './tools98';
 import * as bus from '../bus';
+import { ACCIDENTS, shoot, type ScenarioEvent } from './card-stories';
 
-interface ScenarioEvent {
-  type: string;
-  /** How many photos this event appended to the roll (File ▸ Copy Pictures). Not read by the engine. */
-  _photos?: number;
-  /** What the History shows. Not read by the engine. */
-  _label?: string;
-  [k: string]: unknown;
-}
 
 const STATE_COLORS = ['#202020', '#3366cc', '#2f8f2f', '#ff9933', '#cc0000', '#993399', '#00cccc', '#996633'];
 const STATE_NAMES = ['free', 'filesystem', 'live photo', 'deleted photo', 'overwritten', 'damaged', 'video', 'junk'];
 /** Cluster states the file system counts as used (free and deleted clusters are free space). */
 const USED_STATES = new Set([1, 2, 4, 5, 6, 7]);
 
-const ACCIDENTS: { id: string; label: string; story: string; events: (n: number) => ScenarioEvent[] }[] = [
-  { id: 'deleted', label: 'Deleted by Accident', story: 'Half the photos were deleted in the camera.', events: (n) => [{ type: 'shoot', count: n }, { type: 'delete', which: 'random', count: Math.max(1, Math.floor(n / 2)) }] },
-  { id: 'formatted', label: 'Quick-Formatted, Then Shot More', story: 'The card was formatted in the camera and a few new photos were taken.', events: (n) => [{ type: 'shoot', count: n }, { type: 'quick_format' }, { type: 'shoot', count: Math.max(1, Math.floor(n / 3)) }] },
-  { id: 'fragmented', label: 'Fragmented Card', story: 'Photos were deleted and new ones filled the gaps, so files got split up.', events: (n) => [{ type: 'shoot', count: n }, { type: 'delete', which: 'every_other', count: 1 }, { type: 'shoot', count: n }] },
-  { id: 'powerloss', label: 'Battery Died While Saving', story: 'The camera lost power in the middle of writing a photo.', events: () => [{ type: 'shoot', count: 1 }, { type: 'power_loss' }, { type: 'shoot', count: 1 }] },
-  { id: 'chkdsk', label: 'A PC "Repaired" It', story: 'Windows ran chkdsk on the card and saved the pieces as FOUND.000.', events: (n) => [{ type: 'shoot', count: n }, { type: 'delete', which: 'random', count: Math.max(1, Math.floor(n / 3)) }, { type: 'chkdsk' }] },
-  { id: 'reformat', label: 'Formatted on a PC', story: 'Someone formatted it on a computer (a different filesystem layout).', events: (n) => [{ type: 'shoot', count: n }, { type: 'reformat_pc' }, { type: 'os_junk' }] },
-];
 
 const TOOLS: [string, string, string][] = [
   ['photorec', 'PhotoRec-style carving', 'Ignores the file system and finds every JPEG by its header. Finds the most; fragmented files come out mixed.'],
   ['graft', 'Header-graft rebuild', 'Glues a donor header in front of headerless picture data (what a "repair" service does).'],
-  ['recuva', 'Undelete (Recuva-style)', 'Reads the deleted directory entries and follows their cluster chains.'],
+  ['recuva', 'Undelete (Recuva-style)', 'Reads the deleted directory entries. Follows the cluster chain exFAT keeps for a split file; otherwise reads on from the start, skipping clusters another file uses now.'],
   ['undelete_contiguous', 'Undelete, assuming contiguous', 'Like DOS UNDELETE: takes the clusters after the start, in a row.'],
   ['thumbnails', 'Thumbnails only', 'Pulls out the small EXIF previews when the photos are lost.'],
 ];
+
+const CLUSTER_SIZES = [1, 2, 4, 8, 16, 32, 64, 128, 256];
 
 const LABELS: Record<string, string> = { shoot: 'Take pictures', delete: 'Delete pictures', quick_format: 'Format in camera', reformat_pc: 'Format on a PC', power_loss: 'Battery dies during next save', chkdsk: 'ScanDisk / chkdsk', os_junk: 'Plug into a PC', power_cycle: 'Switch camera off and on', video: 'Record a movie', overwrite: 'Overwrite' };
 
@@ -85,7 +72,7 @@ export function open() {
 class CardWindow {
   win: Win;
   private preset: CardPreset | null = null;
-  private custom = { fs: 'fat32', size_mb: 512, cluster_kb: 32, camera: 'canon2004' };
+  private custom = { fs: 'fat32', size_mb: 512, cluster_kb: 4, camera: 'canon2004' };
   /** The card's whole life, replayed by the engine. */
   private events: ScenarioEvent[] = [];
   /** The photo roll (pool uids), in the order the camera takes them. */
@@ -95,6 +82,7 @@ class CardWindow {
   private card: { handle: number; info: CardInfo; map: Uint8Array; owner: Int32Array } | null = null;
   private carved: CarvedFile[] | null = null;
   private recovered = new Map<number, Uint8Array>();
+  private sheet: { files: CarvedFile[]; canvas: Promise<HTMLCanvasElement>; done: boolean } | null = null;
   private colorBy: 'state' | 'photo' = 'state';
   private folder: Folder = 'root';
   private history: Folder[] = [];
@@ -107,6 +95,8 @@ class CardWindow {
   private label = 'REFRAG';
   private items: Item[] = [];
   private busy = false;
+  /** Closing was confirmed ("Discard this card?"). */
+  private discard = false;
   private list = h('div', { class: 'cd-view', role: 'listbox', tabIndex: 0, 'aria-multiselectable': 'true', 'aria-label': 'Files' });
   private addr = h('span');
   private tb = h('div');
@@ -138,6 +128,15 @@ class CardWindow {
       ],
       status: [this.stObjs, this.stSize, this.stFree],
       onClose: () => {
+        // D7: the card is not saved anywhere, so closing throws it away. Ask first.
+        if (this.events.length && !this.discard) {
+          void confirmBox('Removable Disk (E:)', 'The simulated card and its history are not saved.\nDiscard this card?', 'Discard', 'warning').then((ok) => {
+            if (!ok) return;
+            this.discard = true;
+            this.win.close();
+          });
+          return false;
+        }
         for (const u of this.unreg) u();
         getWin('cardmap')?.close();
         if (this.card) void engine().cardFree(this.card.handle).promise.catch(() => {});
@@ -279,7 +278,8 @@ class CardWindow {
       if (v === 'thumbs' && it.carved) {
         const img = h('img', { alt: '', class: 'cd-thumbimg', draggable: false });
         const bytes = this.recovered.get(it.carved.index);
-        if (bytes) void thumbUrl('rec:' + this.seed + ':' + it.carved.index + ':' + bytes.length, bytes).then((u) => u && (img.src = u));
+        // keyed by content: another tool or card state can give a different file of the same length here
+        if (bytes) void thumbUrl('rec:' + hashBytes(bytes), bytes).then((u) => u && (img.src = u));
         pic = h('span', { class: 'cd-frame' }, img);
       } else pic = iconImg(it.icon, v === 'details' ? 16 : 32);
       const ico = h('span', { class: 'cd-ico' }, pic);
@@ -304,25 +304,49 @@ class CardWindow {
     mount(this.list, rows);
   }
 
+  /** The contact sheet of the current E:\Rebuilt, drawn once per recovery (not on every render). */
+  private sheetFor(files: CarvedFile[], onProgress?: (i: number, n: number) => void, shouldStop?: () => boolean): Promise<HTMLCanvasElement> {
+    // only a finished sheet is shared (one still drawing may be stopped by whoever started it)
+    if (this.sheet?.files === files && this.sheet.done) return this.sheet.canvas;
+    const canvas = contactSheet(
+      files.map((f) => ({ name: f.name, bytes: this.recovered.get(f.index) ?? new Uint8Array() })),
+      'graft',
+      onProgress,
+      shouldStop,
+    );
+    const entry = { files, canvas, done: false };
+    this.sheet = entry;
+    const drop = () => this.sheet === entry && (this.sheet = null);
+    canvas.then(() => (shouldStop?.() ? drop() : (entry.done = true)), drop);
+    return canvas;
+  }
+
   private renderSheet() {
     const files = this.carved ?? [];
-    const holder = h('div', { class: 'cd-sheet' }, h('div', { class: 'cd-none' }, 'Drawing…'));
+    const note = h('div', { class: 'cd-none' }, 'Drawing…');
+    const holder = h('div', { class: 'cd-sheet' }, note);
     mount(this.list, holder);
     if (!files.length) return mount(holder, h('div', { class: 'cd-none' }, 'Nothing could be recovered with that tool.'));
-    void contactSheet(files.map((f) => ({ name: f.name, bytes: this.recovered.get(f.index) ?? new Uint8Array() }))).then((c) => {
-      c.style.width = c.width + 'px';
-      c.classList.add('cd-sheetc');
-      c.dataset.tip = 'Double-click a picture to open it in the editor';
-      c.ondblclick = (e) => {
-        const r = c.getBoundingClientRect();
-        const f = r.width / c.width;
-        const col = Math.floor(((e.clientX - r.left) / f - 6) / 166);
-        const row = Math.floor(((e.clientY - r.top) / f - 6) / (160 + 17 + 6));
-        const i = row * 8 + col;
-        if (files[i]) this.openInEditor(files[i]);
-      };
-      mount(holder, c);
-    });
+    // stops when the view or the recovery changes before it is done
+    const gone = () => this.carved !== files || this.view !== 'sheet' || !holder.isConnected;
+    this.sheetFor(files, (i, n) => setText(note, `Drawing picture ${i + 1} of ${n}…`), gone).then(
+      (c) => {
+        if (gone()) return;
+        const sheet = c.cloneNode() as HTMLCanvasElement;
+        sheet.getContext('2d')!.drawImage(c, 0, 0);
+        sheet.style.width = sheet.width + 'px';
+        sheet.classList.add('cd-sheetc');
+        sheet.dataset.tip = 'Double-click a picture to open it in the editor';
+        sheet.ondblclick = (e) => {
+          const r = sheet.getBoundingClientRect();
+          const f = r.width / sheet.width;
+          const i = sheetHit(files.length, (e.clientX - r.left) / f, (e.clientY - r.top) / f);
+          if (files[i]) this.openInEditor(files[i]);
+        };
+        mount(holder, sheet);
+      },
+      (e) => !gone() && mount(holder, h('div', { class: 'cd-none' }, `The contact sheet could not be drawn (${(e as Error)?.message ?? e}).`)),
+    );
   }
 
   private setSort(s: 'name' | 'size' | 'type') {
@@ -558,7 +582,7 @@ class CardWindow {
     const ev = (e: ScenarioEvent, title: string) => () => void this.addEvents([e], title);
     return [
       { label: '&Take Pictures…', icon: 'camera', disabled: !this.available() || this.busy, onClick: () => this.writeWizard() },
-      { label: 'Record a &Movie', icon: 'video', disabled: no, onClick: ev({ type: 'video', frames: 4 }, 'Recording…') },
+      { label: 'Record a &Movie', icon: 'video', disabled: no, onClick: ev({ type: 'video', frames: 4, photos: shoot(0, 4, this.roll.length).photos }, 'Recording…') },
       {
         label: '&Delete Pictures',
         disabled: no,
@@ -674,8 +698,7 @@ class CardWindow {
     if (!this.roll.length) {
       if (this.card) await engine().cardFree(this.card.handle).promise.catch(() => {});
       this.card = null;
-      this.carved = null;
-      this.recovered.clear();
+      this.forgetCarve();
       this.render();
       return true;
     }
@@ -690,18 +713,16 @@ class CardWindow {
     });
     try {
       const photos = await Promise.all(this.roll.map((u) => pipeline.photoBytes(u)));
-      if (this.card) await engine().cardFree(this.card.handle).promise.catch(() => {});
-      this.card = null;
+      // Cancel pressed while the photos were being read (there was no engine job to cancel yet)
+      if (prog.cancelled) return false;
       job = engine().cardSimulate(this.scenario(), photos, this.seed);
-      this.card = await job.promise;
+      const next = await job.promise;
+      // the old card stays until the new one exists: a failure or a cancel leaves everything as it was
+      const old = this.card;
+      this.card = next;
+      if (old) void engine().cardFree(old.handle).promise.catch(() => {});
       // anything recovered before belonged to the old state of the card
-      if (this.carved) {
-        this.carved = null;
-        this.recovered.clear();
-        if (this.folder === 'rebuilt') this.folder = 'root';
-        this.history = this.history.filter((f) => f === 'root');
-        this.future = [];
-      }
+      this.forgetCarve();
       return true;
     } catch (e) {
       if (e instanceof NotAvailableError) message('Not available yet', 'The card simulator is not in the engine yet.', 'disk');
@@ -714,11 +735,24 @@ class CardWindow {
     }
   }
 
-  private async addEvents(evs: ScenarioEvent[], title: string) {
+  /** E:\Rebuilt and the contact sheet belonged to the card as it was. */
+  private forgetCarve() {
+    this.carved = null;
+    this.recovered.clear();
+    this.sheet = null;
+    if (this.folder === 'rebuilt') this.folder = 'root';
+    this.history = this.history.filter((f) => f === 'root');
+    this.future = [];
+  }
+
+  /** False when the card could not be updated (failed or cancelled): the events are taken back. */
+  private async addEvents(evs: ScenarioEvent[], title: string): Promise<boolean> {
     const before = this.events.length;
     this.events.push(...evs);
-    if (!(await this.simulate(title))) this.events.length = before;
+    const ok = await this.simulate(title);
+    if (!ok) this.events.length = before;
     this.render();
+    return ok;
   }
 
   private async undoEvent() {
@@ -735,14 +769,16 @@ class CardWindow {
     // the card already has pictures: the accident happens to those
     if (evs[0]?.type === 'shoot' && this.events.length) evs = evs.slice(1);
     evs[0] = { ...evs[0], _label: a.label };
-    await this.addEvents(evs, 'Working…');
-    foldy.help(a.story);
+    if (await this.addEvents(evs, 'Working…')) foldy.help(a.story);
   }
 
   private async scandisk() {
-    if (!(await confirmBox('ScanDisk - Removable Disk (E:)', 'ScanDisk will look for lost cluster chains and save them as files in FOUND.000.\nStart now?', 'Start', 'question'))) return;
-    await this.addEvents([{ type: 'chkdsk' }], 'Checking…');
-    message('ScanDisk Results - Removable Disk (E:)', `ScanDisk finished.\n${this.card?.info.files.filter((f) => /\.CHK$/i.test(f.name)).length ?? 0} lost chain(s) were saved in FOUND.000.`, 'info');
+    if (!(await confirmBox('ScanDisk - Removable Disk (E:)', 'ScanDisk will look for lost cluster chains and save them as files in a FOUND folder.\nStart now?', 'Start', 'question'))) return;
+    const chk = () => this.card?.info.files.filter((f) => /\.CHK$/i.test(f.name)).length ?? 0;
+    const before = chk();
+    if (!(await this.addEvents([{ type: 'chkdsk' }], 'Checking…'))) return;
+    const n = chk() - before;
+    message('ScanDisk Results - Removable Disk (E:)', n ? `ScanDisk finished.\n${n} lost chain(s) were saved as files in a FOUND folder.` : 'ScanDisk finished.\nNo lost cluster chains were found.', 'info');
   }
 
   private async deleteSelected() {
@@ -788,7 +824,9 @@ class CardWindow {
                   'Custom card',
                   h('div', { class: 'field-row' }, h('span', { class: 'flbl cd-flbl' }, 'File system:'), selectField(c.fs, [['fat16', 'FAT16'], ['fat32', 'FAT32'], ['exfat', 'exFAT']], (v) => ((c.fs = v), describe()), { label: 'File system' })),
                   h('div', { class: 'field-row' }, h('span', { class: 'flbl cd-flbl' }, 'Size (MB):'), numberField(c.size_mb, (v) => ((c.size_mb = v), describe()), { min: 8, max: 65536, label: 'Size (MB)' })),
-                  h('div', { class: 'field-row' }, h('span', { class: 'flbl cd-flbl' }, 'Cluster (KB):'), numberField(c.cluster_kb, (v) => ((c.cluster_kb = v), describe()), { min: 1, max: 512, label: 'Cluster (KB)' })),
+                  // powers of two only (what a boot sector can say); the engine may still pick another so the
+                  // cluster count fits the file system, and says so in the card's log
+                  h('div', { class: 'field-row' }, h('span', { class: 'flbl cd-flbl' }, 'Cluster:'), selectField(String(c.cluster_kb), CLUSTER_SIZES.map((k) => [String(k), k + ' KB'] as [string, string]), (v) => ((c.cluster_kb = Number(v)), describe()), { label: 'Cluster size' })),
                   h('div', { class: 'field-row' }, h('span', { class: 'flbl cd-flbl' }, 'Camera:'), selectField(c.camera, [['canon2004', '2004 Canon compact'], ['phone', 'Modern phone'], ['generic', 'Generic camera']], (v) => (c.camera = v), { label: 'Camera' })),
                 );
                 custom.style.display = this.preset ? 'none' : '';
@@ -822,8 +860,9 @@ class CardWindow {
         next: async () => {
           const uids = pool.filter((p) => chosen.has(p.uid)).map((p) => p.uid);
           const before = this.events.length;
+          const at = this.roll.length;
           this.roll.push(...uids);
-          this.events.push({ type: 'shoot', count: uids.length, _photos: uids.length, _label: `Copy ${uids.length} picture(s)` });
+          this.events.push({ ...shoot(at, uids.length, this.roll.length), _photos: uids.length, _label: `Copy ${uids.length} picture(s)` });
           wz.win.el.style.visibility = 'hidden';
           const ok = await this.simulate('Copying…', 'Writing your photos onto the card… this can take a moment.');
           if (!ok) {
@@ -979,8 +1018,9 @@ class CardWindow {
           run: () => {
             this.label = noLabel ? '' : label;
             // a quick format in the same file system is the camera's; anything else is a PC format
-            const ev: ScenarioEvent = quick && fs === curFs ? { type: 'quick_format', _label: 'Quick format' } : { type: 'reformat_pc', fs, cluster_kb: fs === 'exfat' ? 32 : 4, _label: `${quick ? 'Quick' : 'Full'} format (${fs.toUpperCase()})` };
-            void this.addEvents([ev], 'Formatting…').then(() => summary && this.card && this.formatSummary());
+            // no cluster size: the engine picks Windows' default for the file system and card size
+            const ev: ScenarioEvent = quick && fs === curFs ? { type: 'quick_format', _label: 'Quick format' } : { type: 'reformat_pc', fs, _label: `${quick ? 'Quick' : 'Full'} format (${fs.toUpperCase()})` };
+            void this.addEvents([ev], 'Formatting…').then((ok) => ok && summary && this.card && this.formatSummary());
           },
         },
         { label: 'Close', cancel: true },
@@ -1100,7 +1140,16 @@ class CardWindow {
               let ctl: HTMLElement;
               if (p.kind === 'enum') ctl = selectField(String(v), p.options ?? [], (nv) => (ev[p.id] = nv), { label: p.label });
               else if (p.kind === 'bool') ctl = checkbox('', !!v, (nv) => (ev[p.id] = nv));
-              else ctl = numberField(Number(v), (nv) => (ev[p.id] = nv), { min: p.min, max: p.max, step: p.step, label: p.label });
+              else
+                ctl = numberField(
+                  Number(v),
+                  (nv) => {
+                    ev[p.id] = nv;
+                    // a shoot or movie that names its photos names as many as it now takes
+                    if ((p.id === 'count' || p.id === 'frames') && Array.isArray(ev.photos)) ev.photos = shoot(Number(ev.photos[0] ?? 0), Math.max(1, Math.round(nv)), this.roll.length).photos;
+                  },
+                  { min: p.min, max: p.max, step: p.step, label: p.label },
+                );
               return h('div', { class: 'field-row cd-param' }, h('span', { class: 'flbl', 'data-tip': p.hint }, p.label), ctl);
             })
           : [];
@@ -1237,8 +1286,17 @@ class CardWindow {
 
   private async sheetPng() {
     const files = this.carved ?? [];
-    const c = await contactSheet(files.map((f) => ({ name: f.name, bytes: this.recovered.get(f.index) ?? new Uint8Array() })));
-    download(await canvasToPng(c), 'rebuilt_contact_sheet.png', 'image/png');
+    if (!files.length) return;
+    let stop = false;
+    const prog = progressDialog('Contact Sheet', { onCancel: () => (stop = true) });
+    try {
+      const c = await this.sheetFor(files, (i, n) => prog.set(i / n, `Drawing picture ${i + 1} of ${n}…`), () => stop);
+      if (!stop) download(await canvasToPng(c), 'rebuilt_contact_sheet.png', 'image/png');
+    } catch (e) {
+      errorBox(`The contact sheet could not be made: ${(e as Error)?.message ?? e}`);
+    } finally {
+      progressDone(prog);
+    }
   }
 
   private async downloadImg() {
