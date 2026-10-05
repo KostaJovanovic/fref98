@@ -6,12 +6,19 @@ use serde_json::json;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    if args.len() < 3 {
+        eprintln!("usage: step_local <photo_dir> <out_dir>   (the first .jpg is the input, the next four its pool)");
+        std::process::exit(2);
+    }
     let out = std::path::PathBuf::from(&args[2]);
     std::fs::create_dir_all(&out).unwrap();
     let mut paths: Vec<_> = std::fs::read_dir(&args[1]).unwrap().filter_map(|e| e.ok()).map(|e| e.path()).collect();
     paths.sort();
-    let jpgs: Vec<Vec<u8>> = paths.iter().filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("jpg"))).skip(20).take(5).map(|p| std::fs::read(p).unwrap()).collect();
-    let input = &jpgs[0];
+    let jpgs: Vec<Vec<u8>> = paths.iter().filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("jpg"))).take(5).map(|p| std::fs::read(p).unwrap()).collect();
+    let Some(input) = jpgs.first() else {
+        eprintln!("no .jpg files in {}", args[1]);
+        std::process::exit(2);
+    };
     let pool = jpgs[1..].to_vec();
     let ctx = StepCtx { seed: 42, pool: &pool };
     for scenario in ["junk_overwrite", "fragmented", "burst", "pc_reformat", "power_loss", "flash_failure", "fat32_undelete"] {

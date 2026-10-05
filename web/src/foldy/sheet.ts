@@ -100,10 +100,6 @@ export function loadSheet(): Promise<HTMLImageElement> {
   return loading;
 }
 
-export function sheetReady(): boolean {
-  return !!img;
-}
-
 /** Draws one layer at 1:1 into a sprite-sized context, offset by (dx, dy). */
 export function drawLayer(ctx: CanvasRenderingContext2D, name: string, dx = 0, dy = 0) {
   const f = frame(name);

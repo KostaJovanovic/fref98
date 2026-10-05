@@ -162,7 +162,7 @@ function undoArrange() {
   }
 }
 
-export function taskbarMenu(): MenuItem[] {
+function taskbarMenu(): MenuItem[] {
   const n = arrangeable().length;
   const items: MenuItem[] = [
     { label: '&Cascade Windows', disabled: !n || ui.phone, onClick: () => arrangeWindows('cascade') },

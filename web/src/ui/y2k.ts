@@ -5,18 +5,12 @@ import { reducedMotion } from '../settings';
 import { makeCanvas, iconCanvas } from './art';
 import { drawText, textWidth } from './pixeltext';
 
-const timers = new Set<ReturnType<typeof setInterval>>();
-
+/** Runs `f` every `ms` until `el` leaves the page. */
 function every(ms: number, f: () => void, el: HTMLElement) {
   const t = setInterval(() => {
-    if (!el.isConnected) {
-      clearInterval(t);
-      timers.delete(t);
-      return;
-    }
+    if (!el.isConnected) return clearInterval(t);
     f();
   }, ms);
-  timers.add(t);
 }
 
 export function marquee(text: string): HTMLElement {
@@ -60,7 +54,8 @@ function spriteWorker(): HTMLElement {
     if (f) x.fillRect(11, 6, 1, 8);
     else x.fillRect(11, 3, 1, 8);
     x.fillStyle = '#999';
-    x.fillRect(f ? 10 : 10, f ? 13 : 10, 4, 2);
+    // the blade at the foot of the handle
+    x.fillRect(10, f ? 13 : 10, 4, 2);
     return c;
   });
   return animSprite(frames, 3);
@@ -104,12 +99,14 @@ export function spinningGlobe(): HTMLElement {
     // shift the land 2 px per frame inside the disc (crude rotation, very 1999)
     const d = x.getImageData(0, 0, 32, 32);
     const src = new Uint8ClampedArray(d.data);
+    // the black outline stays where it is: only inside pixels move, and only other inside pixels move in
+    const inside = (p: number) => src[p + 3] > 0 && (src[p] | src[p + 1] | src[p + 2]) !== 0;
     for (let y = 0; y < 32; y++)
       for (let xx = 4; xx < 28; xx++) {
         const sx = 4 + ((xx - 4 + f * 6) % 24);
         const i = (y * 32 + xx) * 4;
         const j = (y * 32 + sx) * 4;
-        if (src[i + 3] && src[j + 3]) for (let k = 0; k < 4; k++) d.data[i + k] = src[j + k];
+        if (inside(i) && inside(j)) for (let k = 0; k < 4; k++) d.data[i + k] = src[j + k];
       }
     x.putImageData(d, 0, 0);
     return c;

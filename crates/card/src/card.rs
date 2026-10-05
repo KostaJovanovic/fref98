@@ -650,11 +650,6 @@ impl Card {
         }
     }
 
-    /// A PC touches the card: index files, AppleDouble files and Thumbs.db land in the lowest free clusters.
-    pub fn os_junk(&mut self, kb: u64) {
-        self.os_junk_with(kb, "all");
-    }
-
     /// A second-hand card: free clusters (from the start of the data area, `kb` KB worth) still
     /// hold image data of photos deleted long ago. Nothing in the file system points at it, but a
     /// carver reading past a file's real end finds old photo data instead of blank space.

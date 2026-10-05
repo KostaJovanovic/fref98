@@ -394,10 +394,6 @@ export function removeNode(nodes: StackNode[], uidv: string): StackNode[] {
     .map((n) => (n.type === 'repeat' ? { ...n, children: n.children.filter((c) => c.uid !== uidv) } : n));
 }
 
-export function countSteps(nodes: StackNode[]): number {
-  return nodes.reduce((a, n) => a + (n.type === 'repeat' ? n.children.length : 1), 0);
-}
-
 /** Every seed in the stack mapped through f, the steps inside repeat groups included (hex edits have none). */
 export function mapSeeds(nodes: StackNode[], f: (seed: number) => number): StackNode[] {
   return nodes.map((n) =>

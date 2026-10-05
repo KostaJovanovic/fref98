@@ -22,7 +22,8 @@ const TYPES = {
   '.ttf': 'font/ttf',
 };
 
-/** Starts the server on a free port; resolves to its base URL (with a trailing slash) and a close(). */
+/** Starts the server on a free port; resolves to its base URL (with a trailing slash), the app URL the scripts
+ *  open (`?debug` turns on the window.__refrag handle they drive it through) and a close(). */
 export async function serveDist() {
   const server = http.createServer(async (req, res) => {
     let file = null;
@@ -49,8 +50,10 @@ export async function serveDist() {
     }
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const base = `http://127.0.0.1:${server.address().port}/`;
   return {
-    base: `http://127.0.0.1:${server.address().port}/`,
+    base,
+    app: base + '?debug',
     close: () => new Promise((resolve) => server.close(resolve)),
   };
 }

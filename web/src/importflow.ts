@@ -4,6 +4,8 @@ import { classify, importPhotoFile } from './engine/importer';
 import { loadManifest, fetchBundled, makePlaceholder, PLACEHOLDER_IDS } from './engine/bundled';
 import { parseRecipe } from './engine/recipe';
 import { errorBox, confirmBox, progressDialog, progressDone } from './ui/dialog';
+import { openApp } from './apps/registry';
+import { PROJECT_NAME_EXT } from './brand';
 import * as bus from './bus';
 
 export async function importFiles(files: File[], opts: { makeCurrent?: boolean } = {}) {
@@ -15,7 +17,7 @@ export async function importFiles(files: File[], opts: { makeCurrent?: boolean }
     if (kind === 'project') {
       try {
         await store.loadProjectZip(new Uint8Array(await f.arrayBuffer()));
-        store.doc.name = f.name.replace(/\.(rfg|jpegit|zip)$/i, '');
+        store.doc.name = f.name.replace(PROJECT_NAME_EXT, '');
         bus.emit('photo-loaded');
       } catch (e) {
         errorBox(`Could not open ${f.name}: ${(e as Error).message}`);
@@ -28,7 +30,6 @@ export async function importFiles(files: File[], opts: { makeCurrent?: boolean }
         errorBox(`${f.name}: ${(e as Error).message}`);
       }
     } else if (kind === 'avi') {
-      const { openApp } = await import('./apps/registry');
       openApp('video', { file: f });
     } else if (kind === 'photo') photos.push(f);
     else {

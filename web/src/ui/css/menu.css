@@ -34,9 +34,6 @@
   background-repeat: no-repeat;
   background-position: center;
 }
-.menu .mi .mck.narrow {
-  width: 20px;
-}
 .menu .mi .mck img.ico {
   width: 16px;
   height: 16px;
@@ -174,14 +171,5 @@ button.mi:focus-visible {
 .tooltip.help {
   /* the "What's This?" popup is wider and wraps */
   padding: 4px 6px;
-  max-width: 280px;
-}
-
-.balloon {
-  position: absolute;
-  z-index: var(--z-balloon);
-  background: var(--c-tip);
-  border: 1px solid var(--c-dark);
-  padding: 6px 8px;
   max-width: 280px;
 }

@@ -1,4 +1,4 @@
-"""Builds web/public/fonts/refrag-pixel.ttf and refrag-pixel-bold.ttf from scripts/glyphs.txt.
+"""Builds web/src/assets/fonts/refrag-pixel.ttf and refrag-pixel-bold.ttf from scripts/glyphs.txt.
 
 Every outline sits exactly on a pixel grid (100 font units per pixel, 13 px em), so at font-size 13px
 (or any whole multiple) the text has no partial-coverage edges: no antialiasing.
@@ -172,7 +172,7 @@ def build(glyphs, bold, path, family):
         sxHeight=6 * PX, sCapHeight=8 * PX,
         fsSelection=(0x20 if bold else 0x40) | 0x80,  # bold/regular + USE_TYPO_METRICS
         usWeightClass=700 if bold else 400,
-        achVendID='JPGT',
+        achVendID='RFRG',  # (the committed .ttf files still say JPGT, the old name, until they are rebuilt)
     )
     fb.setupPost()
     fb.setupHead(unitsPerEm=EM)
@@ -189,7 +189,8 @@ def build(glyphs, bold, path, family):
 
 
 # Embedded bitmap strikes (EBLC/EBDT). Tested: browsers' font sanitiser (OTS) drops them from web fonts, so
-# they are off. The web app instead thresholds text alpha with an SVG filter (see src/ui/theme.css `.tx`).
+# they are off. The web app instead thresholds text alpha with an SVG filter and snaps every `.tx` run to whole device pixels (src/ui/dom.ts
+# ensureCrispFilter and initTextSnap).
 STRIKES = []
 
 

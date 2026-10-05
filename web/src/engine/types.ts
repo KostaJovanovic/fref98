@@ -148,7 +148,3 @@ export interface EngineCaps {
   cardPresets: CardPreset[];
   cardEvents: CardEventType[];
 }
-
-export function hasExport(caps: EngineCaps | null | undefined, name: string): boolean {
-  return !!caps && caps.exports.includes(name);
-}

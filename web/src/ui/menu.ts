@@ -12,24 +12,21 @@ export interface MenuItem {
   /** Text; a single & marks the mnemonic letter ("&Open"), && is a literal &. */
   label?: string;
   icon?: string;
-  /** Shortcut text, right-aligned ("Ctrl+O"). `shortcut` is the same as the older `acc`. */
+  /** Shortcut text, right-aligned ("Ctrl+O"). */
   acc?: string;
-  shortcut?: string;
   disabled?: boolean;
   /** Shows a check mark (or the radio bullet when `radio`); `false` reserves the column. */
   checked?: boolean;
   radio?: boolean;
   /** The default item, drawn bold (what a double-click would do). */
   default?: boolean;
-  /** A separator line. `sep` is the same as the older spelling. */
+  /** A separator line. */
   sep?: boolean;
-  separator?: boolean;
   /** A non-selectable bold heading (the phone layout folds the menu bar into one menu with headings). */
   head?: string;
   onClick?: () => void;
-  /** Cascading submenu (an array, or a function called each time it opens). `sub` is the older name. */
+  /** Cascading submenu (an array, or a function called each time it opens). */
   sub?: MenuItem[] | (() => MenuItem[]);
-  submenu?: MenuItem[] | (() => MenuItem[]);
 }
 
 export interface MenuOpts {
@@ -86,8 +83,8 @@ export function isMenuOpen(): boolean {
   return !!session;
 }
 
-const subOf = (it: MenuItem) => it.submenu ?? it.sub;
-const isSep = (it: MenuItem) => !!(it.sep || it.separator);
+const subOf = (it: MenuItem) => it.sub;
+const isSep = (it: MenuItem) => !!it.sep;
 const selectable = (it: MenuItem) => !isSep(it) && !it.head;
 
 /** A label with its mnemonic letter underlined, as one crisp text run. Use it for menu-bar titles too. */
@@ -108,7 +105,6 @@ function buildLevel(items: MenuItem[], parent: Level | null, opts: MenuOpts): Le
   const el = h('div', { class: 'menu', role: 'menu', 'aria-label': parseMnemonic(opts.label ?? 'Menu').text, tabIndex: -1 });
   if (opts.minWidth && !parent) el.style.minWidth = opts.minWidth + 'px';
   const lv: Level = { el, items, rows: [], hl: -1, parent, child: null, ci: -1, openTimer: null, closeTimer: null };
-  const hasCheck = items.some((it) => it.checked !== undefined || it.icon);
   items.forEach((it, i) => {
     if (isSep(it)) {
       el.appendChild(h('div', { class: 'msep', role: 'separator' }));
@@ -127,7 +123,7 @@ function buildLevel(items: MenuItem[], parent: Level | null, opts: MenuOpts): Le
     if (it.default) cls.push('def');
     if (sub) cls.push('sub');
     if (it.checked) cls.push(it.radio ? 'rad' : 'chk');
-    const shortcut = it.shortcut ?? it.acc;
+    const shortcut = it.acc;
     const row = h(
       'div',
       {
@@ -137,7 +133,7 @@ function buildLevel(items: MenuItem[], parent: Level | null, opts: MenuOpts): Le
         'aria-checked': it.checked !== undefined ? String(!!it.checked) : undefined,
         'aria-haspopup': sub ? 'menu' : undefined,
       },
-      h('span', { class: 'mck' + (hasCheck ? '' : ' narrow'), 'aria-hidden': 'true' }, it.icon && it.checked === undefined ? iconImg(it.icon, 16) : null),
+      h('span', { class: 'mck', 'aria-hidden': 'true' }, it.icon && it.checked === undefined ? iconImg(it.icon, 16) : null),
       h('span', { class: 'mlabel' }, mnemonicLabel(it.label ?? '')),
       shortcut ? h('span', { class: 'macc' }, shortcut) : null,
       h('span', { class: 'marr', 'aria-hidden': 'true' }),

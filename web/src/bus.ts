@@ -3,7 +3,6 @@
 export type BusEvent =
   | 'photo-loaded'
   | 'preset-chosen'
-  | 'stack-changed'
   | 'exported'
   | 'long-start'
   | 'long-end'
@@ -15,9 +14,7 @@ export type BusEvent =
   | 'undo'
   /** A dropped or picked file is not something the app can open. */
   | 'unreadable'
-  | 'clean'
-  | 'decode-events'
-  | 'step-added'
+  /** Emitted by the card workspace after a carve (no listener yet: the card's Foldy reactions come with the card rework). */
   | 'card-carved'
   | 'error'
   | 'explain-image'

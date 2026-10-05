@@ -73,22 +73,6 @@ impl EncodeSettings {
         }
     }
 
-    pub fn subsampling_name(&self) -> &'static str {
-        if self.comps.len() < 3 {
-            return "444";
-        }
-        let (h0, v0) = (self.comps[0].h, self.comps[0].v);
-        let (h1, v1) = (self.comps[1].h.max(1), self.comps[1].v.max(1));
-        match (h0 / h1, v0 / v1) {
-            (1, 1) => "444",
-            (2, 1) => "422",
-            (2, 2) => "420",
-            (4, 1) => "411",
-            (1, 2) => "440",
-            _ => "420",
-        }
-    }
-
     pub fn set_subsampling(&mut self, sub: &str) {
         let (h, v) = sampling_factors(sub);
         if let Some(c) = self.comps.first_mut() {
@@ -736,6 +720,8 @@ pub fn write(img: &CoeffImage, s: &EncodeSettings) -> Vec<u8> {
 
 /// Write a complete arithmetic-coded JPEG (SOF9 sequential / SOF10 progressive, default
 /// conditioning, no DAC). Same headers and scan script as `write`; Huffman settings are ignored.
+/// Not used by any step or wasm export (the app only writes Huffman JPEGs): it makes arithmetic-coded
+/// test files for the decoder's tests and `examples/refrag.rs arith`.
 pub fn write_arith(img: &CoeffImage, s: &EncodeSettings) -> Vec<u8> {
     use crate::arith::{ArithEncoder, Conditioning, AC_BINS, DC_BINS};
     let (mut out, scans) = header(img, s, true);

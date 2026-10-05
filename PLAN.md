@@ -341,7 +341,7 @@ The reference material is private: real people's photos, used locally only.
 5. Which viewers' handling of broken files should we emulate?
    *Two "decoder personalities": libjpeg-turbo and Windows GDI+/WIC. (A third, "browser-style grey fill", decoded exactly like libjpeg and was dropped in v0.24; the editor's three-way compare shows the real browser instead.)*
 6. Which JPEG variants are in scope (arithmetic coding, 12-bit, lossless, CMYK)?
-   *The decoder forgivingly handles CMYK/YCCK and arithmetic coding; the encoder writes 8-bit baseline and progressive Huffman only.*
+   *The decoder forgivingly handles CMYK/YCCK and arithmetic coding; the encoder writes 8-bit baseline and progressive Huffman only (`encoder::write_arith` makes arithmetic-coded files for the decoder's tests and the dev example, never for the app).*
 7. Which Huffman tables do we encode with?
    *The profile's tables, falling back to the standard Annex K ones.*
 8. What is the determinism contract?

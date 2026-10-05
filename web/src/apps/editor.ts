@@ -10,6 +10,7 @@ import { Viewer, toCanvas, paintCanvas, type Pane } from '../ui/viewer';
 import { sizeNote } from '../ui/compare';
 import { registerContext } from '../ui/contextmenu';
 import { setWallpaperImage } from '../shell/wallpaper';
+import { saveProject } from '../shell/startmenu';
 import { store } from '../state';
 import { pipeline, type PipelineResult } from '../pipeline';
 import { settings, setSettings } from '../settings';
@@ -222,7 +223,7 @@ class Editor {
       { label: 'Open Pro&ject or Recipe…', icon: 'project', onClick: async () => importFiles(await pickFiles('.rfg,.jpegit,.zip,.json,application/json', false)) },
       { sep: true },
       { label: 'Save &As…', icon: 'export', onClick: () => openApp('export') },
-      { label: 'Save &Project (.rfg)', icon: 'project', onClick: () => void import('../shell/shell').then((m) => m.saveProject()) },
+      { label: 'Save &Project (.rfg)', icon: 'project', onClick: () => void saveProject() },
       { sep: true },
       { label: '&My Pictures', icon: 'pictures', onClick: () => openApp('pictures') },
       { sep: true },

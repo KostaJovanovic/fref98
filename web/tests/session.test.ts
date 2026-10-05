@@ -18,6 +18,9 @@ vi.mock('../src/engine/bundled', () => ({
   makePlaceholder: async (id: string) => ({ uid: id, name: id + '.jpg', bytes: new Uint8Array([1]) }),
 }));
 
+// importflow opens dropped AVIs in Video Lab; the app registry (and every window behind it) isn't needed here
+vi.mock('../src/apps/registry', () => ({ APPS: {}, openApp: () => {} }));
+
 const KEY = 'refragmenter.settings.v1';
 
 function fakeStorage(init: Record<string, string>) {

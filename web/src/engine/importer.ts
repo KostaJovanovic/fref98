@@ -1,8 +1,7 @@
 // Getting photos in: JPEGs keep their original bytes as step 0; other formats are decoded by the browser
-// and encoded with our encoder at the camera profile's size unless "keep original" is on (Q9, Q24).
+// and encoded with our encoder at the first camera profile's size (Q9, Q24).
 import { engine } from './client';
 import { isJpeg } from './jpegmeta';
-import { settings } from '../settings';
 import type { Profile } from './types';
 
 export interface ImportedPhoto {
@@ -24,13 +23,8 @@ export function classify(file: File, head: Uint8Array): ImportKind {
   return 'unknown';
 }
 
-export function chooseProfile(profiles: Profile[]): Profile | null {
-  if (!profiles.length) return null;
-  return (
-    profiles.find((p) => p.id === settings.importProfile) ??
-    profiles.find((p) => p.kind === 'camera') ??
-    profiles[0]
-  );
+function chooseProfile(profiles: Profile[]): Profile | null {
+  return profiles.find((p) => p.kind === 'camera') ?? profiles[0] ?? null;
 }
 
 /** Fit (w,h) inside the profile's frame, matching orientation; never upscale. */
@@ -56,12 +50,7 @@ export async function importPhotoFile(file: File): Promise<ImportedPhoto> {
   const eng = engine();
   const caps = await eng.ready;
   const prof = chooseProfile(caps.profiles);
-  let w = bmp.width;
-  let h = bmp.height;
-  if (!settings.keepOriginal) {
-    const [pw, ph] = prof ? [prof.width, prof.height] : [2272, 1704];
-    [w, h] = fitSize(w, h, pw, ph);
-  }
+  const [w, h] = fitSize(bmp.width, bmp.height, prof?.width ?? 2272, prof?.height ?? 1704);
   const c = document.createElement('canvas');
   c.width = w;
   c.height = h;
@@ -72,23 +61,4 @@ export async function importPhotoFile(file: File): Promise<ImportedPhoto> {
   const rgba = ctx.getImageData(0, 0, w, h).data;
   const bytes = await eng.encodeRgba(w, h, rgba, prof ? { profile: prof.id } : { quality: 92 }).promise;
   return { name, bytes, width: w, height: h, note: prof ? `encoded like ${prof.label}` : 'encoded at quality 92' };
-}
-
-/** Downscale an existing JPEG to the profile size, re-encoding "like" itself (keeps its tables). */
-export async function shrinkJpeg(bytes: Uint8Array, maxW: number, maxH: number): Promise<Uint8Array> {
-  const eng = engine();
-  const d = await eng.decode(bytes, {}).promise;
-  const [w, h] = fitSize(d.width, d.height, maxW, maxH);
-  if (w === d.width && h === d.height) return bytes;
-  const src = document.createElement('canvas');
-  src.width = d.width;
-  src.height = d.height;
-  src.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(d.rgba), d.width, d.height), 0, 0);
-  const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
-  const ctx = c.getContext('2d', { willReadFrequently: true })!;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(src, 0, 0, w, h);
-  return eng.encodeLike(w, h, ctx.getImageData(0, 0, w, h).data, bytes).promise;
 }

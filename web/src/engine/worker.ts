@@ -166,14 +166,6 @@ async function handle(op: string, a: any): Promise<{ result: unknown; transfer?:
       const out = await encodeRgba(a.width, a.height, a.rgba, a.opts ?? {});
       return { result: out, transfer: [out.buffer] };
     }
-    case 'encodeLike': {
-      if (!has('encode_like')) {
-        const out = await encodeRgba(a.width, a.height, a.rgba, { quality: 90 });
-        return { result: out, transfer: [out.buffer] };
-      }
-      const out: Uint8Array = wasm!.encode_like(a.width, a.height, a.rgba, a.like);
-      return { result: out, transfer: [out.buffer] };
-    }
     case 'inspect': {
       if (has('inspect')) {
         try {
@@ -282,8 +274,6 @@ async function handle(op: string, a: any): Promise<{ result: unknown; transfer?:
       if (!p.noDither) ditherSky(out, p.width, p.height, p.depth);
       return { result: { rgba: out, via }, transfer: [out.buffer] };
     }
-    case 'ping':
-      return { result: 'pong' };
     default:
       throw new Error('unknown op ' + op);
   }

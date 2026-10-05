@@ -73,29 +73,6 @@ export function zoneClip(e: Edge, b = RZ_EDGE, c = RZ_CORNER): string | null {
   }
 }
 
-/** Which resize zone (if any) a point inside a w×h window falls in. Corner zones are L-shaped: only their
- *  outer b px belong to the corner, the rest of the square is window. */
-export function edgeAt(px: number, py: number, w: number, h: number, b = RZ_EDGE, c = RZ_CORNER): Edge | null {
-  if (px < 0 || py < 0 || px >= w || py >= h) return null;
-  const n = py < b;
-  const s = py >= h - b;
-  const W = px < b;
-  const E = px >= w - b;
-  const nearL = px < c;
-  const nearR = px >= w - c;
-  const nearT = py < c;
-  const nearB = py >= h - c;
-  if ((n && nearL) || (W && nearT)) return 'nw';
-  if ((n && nearR) || (E && nearT)) return 'ne';
-  if ((s && nearL) || (W && nearB)) return 'sw';
-  if ((s && nearR) || (E && nearB)) return 'se';
-  if (n) return 'n';
-  if (s) return 's';
-  if (W) return 'w';
-  if (E) return 'e';
-  return null;
-}
-
 /** The rect after dragging `edge` by (dx, dy), respecting the minimum size and keeping the top edge on the
  *  desktop (y ≥ 0). The opposite edges stay put. */
 export function resizeRect(r: Rect, edge: Edge, dx: number, dy: number, min: { w: number; h: number }, top = 0): Rect {

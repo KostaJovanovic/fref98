@@ -1,5 +1,5 @@
 // Tiny DOM helpers. String children are wrapped in <span class="tx">, which carries the alpha-threshold
-// filter that keeps the pixel font free of antialiasing (see theme.css).
+// filter that keeps the pixel font free of antialiasing (the `.tx` rule in css/base.css).
 
 export type Child = Node | string | number | null | undefined | false | Child[];
 export type Props = Record<string, any> | null | undefined;
@@ -77,9 +77,6 @@ export function setText(el: HTMLElement, s: string) {
   } else mount(el, s);
 }
 
-export function $(sel: string, root: ParentNode = document): HTMLElement | null {
-  return root.querySelector(sel);
-}
 
 export function clamp(v: number, a: number, b: number): number {
   return v < a ? a : v > b ? b : v;
@@ -253,7 +250,7 @@ function queueSnap() {
 }
 
 /** Queues one .tx (or every .tx inside an element) for snapping at the next frame. */
-export function snapLater(el: Element) {
+function snapLater(el: Element) {
   if (!snapRoot) return;
   if (el.classList.contains('tx')) pendingTx.add(el as HTMLElement);
   else for (const t of el.querySelectorAll<HTMLElement>('.tx')) pendingTx.add(t);
@@ -299,15 +296,3 @@ export function initTextSnap(root: HTMLElement, getScale: () => { dpr: number; z
   return refresh;
 }
 
-export function on<K extends keyof WindowEventMap>(t: Window, ev: K, f: (e: WindowEventMap[K]) => void, opts?: AddEventListenerOptions): () => void {
-  t.addEventListener(ev, f, opts);
-  return () => t.removeEventListener(ev, f, opts);
-}
-
-export function nextFrame(): Promise<void> {
-  return new Promise((r) => requestAnimationFrame(() => r()));
-}
-
-export function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
-}

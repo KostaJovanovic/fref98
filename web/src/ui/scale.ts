@@ -21,14 +21,14 @@ type Listener = (m: UiMetrics) => void;
 const listeners = new Set<Listener>();
 let root: HTMLElement | null = null;
 
-export function isPhoneViewport(): boolean {
+function isPhoneViewport(): boolean {
   const coarse = matchMedia('(pointer: coarse)').matches;
   const w = innerWidth;
   const h = innerHeight;
   return w < 700 || (coarse && Math.min(w, h) < 560);
 }
 
-export function computeMetrics(): UiMetrics {
+function computeMetrics(): UiMetrics {
   const dpr = window.devicePixelRatio || 1;
   const phone = isPhoneViewport();
   const s = settings.uiScale === 'auto' ? 1 : settings.uiScale;
@@ -38,7 +38,7 @@ export function computeMetrics(): UiMetrics {
   return { k, zoom, w: Math.floor(innerWidth / zoom), h: Math.floor(innerHeight / zoom), phone, ts, dpr };
 }
 
-export function applyScale() {
+function applyScale() {
   if (!root) return;
   const m = computeMetrics();
   Object.assign(ui, m);

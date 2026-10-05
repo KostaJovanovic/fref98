@@ -10,7 +10,7 @@ import { store } from './state';
 import { pipeline } from './pipeline';
 import { ensureSamples, importFiles, applyRecipe } from './importflow';
 import { recipeFromFragment } from './engine/recipe';
-import { openApp } from './apps/registry';
+import { APPS, openApp } from './apps/registry';
 import { foldy } from './foldy/foldy';
 import { engine } from './engine/client';
 import { showSplash } from './apps/splash';
@@ -88,7 +88,9 @@ async function boot() {
     }
   }
 
-  (window as any).__refrag = { store, pipeline, engine, ui, foldy, openApp, settings, setSettings };
+  // the handle web/scripts (uicheck, audit, shots) drive the app through: dev builds, or any build with ?debug
+  if (import.meta.env.DEV || new URLSearchParams(location.search).has('debug'))
+    (window as any).__refrag = { store, pipeline, engine, ui, foldy, openApp, settings, setSettings, apps: Object.keys(APPS) };
   // Foldy starts talking once the splash is gone
   await splash;
   foldy.startTutorial(!!store.current);

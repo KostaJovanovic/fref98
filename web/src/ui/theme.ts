@@ -1,6 +1,6 @@
 // Generates the theme's art at startup and exposes it to CSS as custom properties on the app root; redraws it
 // in the colour scheme's system colours when the scheme changes (ui/scheme.ts).
-import { checker, tilePattern, y2kTile, ascii, cached, makeCanvas, controlArtVars, setArtColors, C98 } from './art';
+import { checker, y2kTile, ascii, cached, makeCanvas, controlArtVars, setArtColors, C98 } from './art';
 import { GRIP_ROWS, applyChromeVars } from './art-chrome';
 import { onScale } from './scale';
 import { initCursors, refreshCursors } from './cursors';
@@ -10,16 +10,6 @@ import { COLORS98 } from './palette';
 
 function dots(): string {
   return cached('grip', () => ascii(GRIP_ROWS, { W: C98.hi, G: C98.shadow }, makeCanvas(8, 18)));
-}
-
-function tailBorder(): string {
-  return cached('tailb', () => {
-    const c = makeCanvas(16, 12);
-    // the tooltip's own colours (its frame and fill follow the scheme like the tooltip)
-    ascii(['', 'X..........XXXXX', '.X........X', '.X......XX', '..X...XX', '..X..X', '..X.X', '..XX', '..X'], { X: C98.text }, c);
-    ascii(['', '.YYYYYYYYYY', '..YYYYYYYY', '..YYYYYY', '...YYY', '...YY', '...Y'], { Y: C98.tip }, c);
-    return c;
-  });
 }
 
 function hazard(): string {
@@ -47,17 +37,13 @@ function viewerBg(): string {
   });
 }
 
-export function applyTheme(root: HTMLElement) {
+function applyTheme(root: HTMLElement) {
   const set = (k: string, v: string) => root.style.setProperty(k, v);
   const url = (u: string) => `url("${u}")`;
-  set('--img-checker-black', url(checker(COLORS98.black)));
-  set('--img-checker-white', url(checker(COLORS98.white)));
   set('--img-checker-sel', url(checker(C98.sel)));
-  set('--img-tiles', url(tilePattern()));
   set('--img-y2k', url(y2kTile()));
   set('--img-hazard', url(hazard()));
   set('--img-dots', url(dots()));
-  set('--img-tail', url(tailBorder()));
   set('--img-viewer-bg', url(viewerBg()));
   // 98 control sprites (checkbox, radio, trackbar, progress, scroll bar, glyphs): ui/art.ts controlArtVars
   for (const [k, v] of Object.entries(controlArtVars())) set(k, v);
@@ -81,6 +67,6 @@ export function initTheme(root: HTMLElement) {
     if (ch.includes('scheme')) applyScheme(root, s.scheme);
   });
   // 98 cursors, drawn 1:1 in device pixels (ui/cursors.ts)
-  initCursors(root);
+  initCursors();
   onScale(() => refreshCursors());
 }

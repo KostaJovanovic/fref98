@@ -122,7 +122,7 @@ pub fn upsample(src: &Plane8, dw: usize, dh: usize, h: usize, v: usize, hmax: us
             let r = (y / 2).min(dh - 1);
             let near = row(r);
             let far = if y % 2 == 0 { row(r.saturating_sub(1)) } else { row((r + 1).min(dh - 1)) };
-            h2v2_fancy(near, far, dw, y % 2 == 1, &mut tmp);
+            h2v2_fancy(near, far, dw, &mut tmp);
             let n = out_w.min(tmp.len());
             out.data[y * out_w..y * out_w + n].copy_from_slice(&tmp[..n]);
         }
@@ -167,7 +167,7 @@ fn h2v1_fancy(inp: &[u8], dw: usize, out: &mut [u8]) {
     out[l * 2 + 1] = inp[l];
 }
 
-fn h2v2_fancy(near: &[u8], far: &[u8], dw: usize, _below: bool, out: &mut [u8]) {
+fn h2v2_fancy(near: &[u8], far: &[u8], dw: usize, out: &mut [u8]) {
     let sum = |i: usize| near[i] as u32 * 3 + far[i] as u32;
     let mut this = sum(0);
     let mut next = sum(1);

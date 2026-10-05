@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { captionRect, CAPTION_H } from '../src/ui/wm-anim';
-import { edgeAt, resizeRect, moveRect, zoneBox, zoneClip, edgeCursor, EDGES, RZ_EDGE, RZ_CORNER, RZ_TOUCH_OUT, type Edge } from '../src/ui/wm-drag';
+import { resizeRect, moveRect, zoneBox, zoneClip, edgeCursor, EDGES, RZ_EDGE, RZ_CORNER, RZ_TOUCH_OUT, type Edge } from '../src/ui/wm-drag';
 import { captionButtonRows, sizeGripRows, GRIP_ROWS } from '../src/ui/art-chrome';
 
 // 02-3: the stack-row grip was a 7×15 XP-grey sprite stretched to 8×18 (16×36 on phones), so it blurred
@@ -62,6 +62,33 @@ describe('touch resize zones', () => {
 describe('resize hit zones', () => {
   const W = 300;
   const H = 200;
+  // hit-tests the zones the window really has: each zone's box (zoneBox) and, for corners, its L clip
+  // polygon (zoneClip), the way the browser does (01-22: no second model of the zones)
+  const inPoly = (x: number, y: number, pts: [number, number][]) => {
+    let inside = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const [xi, yi] = pts[i];
+      const [xj, yj] = pts[j];
+      if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  };
+  const edgeAt = (px: number, py: number, w: number, h: number): Edge | null => {
+    for (const e of EDGES) {
+      const b = zoneBox(e);
+      const left = b.left ?? w - (b.right ?? 0) - (b.width ?? 0);
+      const top = b.top ?? h - (b.bottom ?? 0) - (b.height ?? 0);
+      const zw = b.width ?? w - (b.left ?? 0) - (b.right ?? 0);
+      const zh = b.height ?? h - (b.top ?? 0) - (b.bottom ?? 0);
+      if (px < left || py < top || px >= left + zw || py >= top + zh) continue;
+      const clip = zoneClip(e);
+      if (!clip) return e;
+      const pts = [...clip.matchAll(/(-?[\d.]+)px (-?[\d.]+)px/g)].map((m) => [Number(m[1]), Number(m[2])] as [number, number]);
+      // the pixel's centre inside the polygon
+      if (inPoly(px - left + 0.5, py - top + 0.5, pts)) return e;
+    }
+    return null;
+  };
   it('maps the frame to the 8 edges', () => {
     const cases: [number, number, Edge | null][] = [
       [0, 0, 'nw'], [RZ_CORNER - 1, 0, 'nw'], [0, RZ_CORNER - 1, 'nw'],

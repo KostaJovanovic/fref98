@@ -74,7 +74,8 @@ export class LruCache<V extends Sized> {
   }
 }
 
-/** 1 GB on desktop, 400 MB on phones (Q25); step results are JPEG bytes so this is generous. */
+/** Half of Q25's 1 GB desktop / 400 MB phone figure: 512 MB and 200 MB, which is still generous for step
+ *  results that are JPEG bytes (the other half is left to decoded previews and the rest of the page). */
 export function defaultBudget(): number {
   const phone = typeof navigator !== 'undefined' && /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
   return (phone ? 400 : 1024) * 1024 * 1024 * 0.5;
