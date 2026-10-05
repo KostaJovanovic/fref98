@@ -6,7 +6,7 @@
 import { h, clamp } from './dom';
 import { ui, onScale } from './scale';
 import { heatColor } from './art';
-import { compareRects, boxToImage, fitZoom, ZOOMS, type Box } from './compare';
+import { compareRects, boxToImage, fitZoom, ZOOMS, type PaneBox } from './compare';
 import type { DecodedImage } from '../engine/types';
 
 export interface Pane {
@@ -167,7 +167,7 @@ export class Viewer {
 
   /** Device-pixel box a pane is drawn into: the main pane's box (at the same place in its pane rectangle), so
    *  differently sized results are stretched over the same area and line up. */
-  private paneBox(p: Pane, rc: { x: number; y: number; w: number; h: number }, z: number): Box {
+  private paneBox(p: Pane, rc: { x: number; y: number; w: number; h: number }, z: number): PaneBox {
     const m = this.main() ?? p;
     const r = compareRects(p.w, p.h, m.w, m.h, { x: rc.x, y: rc.y, w: rc.w, h: rc.h, zoom: z, cx: this.cx, cy: this.cy });
     return p === m ? r.after : r.before;
@@ -297,7 +297,7 @@ export class Viewer {
     }
   }
 
-  private drawOverlays(x: CanvasRenderingContext2D, b: Box, p: Pane) {
+  private drawOverlays(x: CanvasRenderingContext2D, b: PaneBox, p: Pane) {
     const k = ui.k;
     const ox = b.x;
     const oy = b.y;

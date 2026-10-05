@@ -169,7 +169,7 @@
   padding: 4px;
   border: 0;
   background: var(--face);
-  box-shadow: inset -1px -1px var(--c-dark), inset 1px 1px var(--c-hi), inset -2px -2px var(--c-shadow), inset 2px 2px var(--c-light);
+  box-shadow: var(--bevel-raised);
   text-align: left;
   min-height: 42px;
 }

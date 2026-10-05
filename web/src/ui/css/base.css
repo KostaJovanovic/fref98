@@ -46,6 +46,30 @@
   --field-border: var(--c-shadow);
   /* the dotted focus rectangle is XOR'd: black on white, and #FFFF7F (navy XOR white) on a selected item */
   --focus-on-sel: #ffff7f;
+  /* the 98 bevels as box-shadows (the far corners take the bottom-right shade) and the 2×2 screen door */
+  --bevel-sunken: inset -1px -1px var(--c-hi), inset 1px 1px var(--c-shadow), inset -2px -2px var(--c-light), inset 2px 2px var(--c-dark);
+  --bevel-frame: inset -1px -1px var(--c-dark), inset 1px 1px var(--c-light), inset -2px -2px var(--c-shadow), inset 2px 2px var(--c-hi);
+  --bevel-raised: inset -1px -1px var(--c-dark), inset 1px 1px var(--c-hi), inset -2px -2px var(--c-shadow), inset 2px 2px var(--c-light);
+  --bevel-pushed: inset -1px -1px var(--c-hi), inset 1px 1px var(--c-dark), inset -2px -2px var(--c-light), inset 2px 2px var(--c-shadow);
+  --bevel-thin-in: inset 1px 1px var(--c-shadow), inset -1px -1px var(--c-hi);
+  --bevel-thin-out: inset 1px 1px var(--c-hi), inset -1px -1px var(--c-shadow);
+  --dither-mask: repeating-conic-gradient(#000 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+  --dither-sel: repeating-conic-gradient(var(--c-sel) 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+  /* dialog margins: plain dialogs and wizards, and the tighter tabbed property sheets */
+  --dlg-pad: 10px;
+  --sheet-pad: 6px;
+  /* etched separators: 2 px, shadow then highlight (horizontal rules, vertical toolbar dividers) */
+  --etch-h: inset 0 1px var(--c-shadow), inset 0 -1px var(--c-hi);
+  --etch-v: inset 1px 0 var(--c-shadow), inset -1px 0 var(--c-hi);
+  /* the caption gradients (windows and the tool-window captions) */
+  --cap-grad: linear-gradient(to right, var(--c-cap1), var(--c-cap2));
+  --cap-grad-inactive: linear-gradient(to right, var(--c-icap1), var(--c-icap2));
+  /* a 1 px dotted rectangle on the four edges (rubber bands, icon focus) in --c-win dots */
+  --dotted-frame:
+    repeating-linear-gradient(90deg, var(--c-win) 0 1px, transparent 1px 2px) left top / 100% 1px no-repeat,
+    repeating-linear-gradient(90deg, var(--c-win) 0 1px, transparent 1px 2px) left bottom / 100% 1px no-repeat,
+    repeating-linear-gradient(180deg, var(--c-win) 0 1px, transparent 1px 2px) left top / 1px 100% no-repeat,
+    repeating-linear-gradient(180deg, var(--c-win) 0 1px, transparent 1px 2px) right top / 1px 100% no-repeat;
   /* (desktop.css and phone.css set it for each layout) */
   --taskbar-h: 28px;
   --ts: 1;

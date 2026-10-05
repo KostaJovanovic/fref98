@@ -2,6 +2,7 @@
 // bundled one, Q42).
 import type { StackNode, StepItem } from './stack';
 import { uid } from './hash';
+import { inflateRaw } from './zip';
 
 export { VERSION as APP_VERSION } from '../version';
 
@@ -126,6 +127,6 @@ export async function recipeFromFragment(hash: string): Promise<Recipe | null> {
   const m = /^#?(r|j)=([A-Za-z0-9_-]+)/.exec(hash);
   if (!m) return null;
   let bytes = unb64url(m[2]);
-  if (m[1] === 'r') bytes = await pipe(bytes, new DecompressionStream('deflate-raw'));
+  if (m[1] === 'r') bytes = await inflateRaw(bytes);
   return parseRecipe(new TextDecoder().decode(bytes));
 }

@@ -2,7 +2,6 @@
 
 use crate::decoder::be16;
 use crate::markers::{is_sof, name, walk, Segment};
-use crate::tables::NATURAL_ORDER;
 use serde_json::{json, Value};
 
 fn summary(d: &[u8], s: &Segment) -> String {
@@ -105,34 +104,19 @@ pub fn inspect_value(d: &[u8]) -> Value {
     let scans: Vec<Value> = l
         .scans()
         .map(|s| {
-            let p = s.payload(d);
-            let n = p.first().copied().unwrap_or(0) as usize;
-            let comps: Vec<u8> = (0..n).filter_map(|k| p.get(1 + 2 * k).copied()).collect();
-            let b = 1 + 2 * n;
-            json!({
-                "offset": s.offset, "length": s.scan_end - s.offset, "components": comps,
-                "ss": p.get(b).copied().unwrap_or(0), "se": p.get(b + 1).copied().unwrap_or(0),
-                "ah": p.get(b + 2).map(|x| x >> 4).unwrap_or(0), "al": p.get(b + 2).map(|x| x & 15).unwrap_or(0),
-            })
+            // the decoder's own parser, so the view shows the scan the decoder uses
+            let h = crate::markers::parse_sos(s.payload(d));
+            let comps: Vec<u8> = h.comps.iter().map(|c| c.0).collect();
+            json!({ "offset": s.offset, "length": s.scan_end - s.offset, "components": comps, "ss": h.ss, "se": h.se, "ah": h.ah, "al": h.al })
         })
         .collect();
-    let mut qtables = Vec::new();
-    for s in l.segments.iter().filter(|s| s.marker == 0xDB) {
-        let p = s.payload(d);
-        let mut i = 0;
-        while i < p.len() {
-            let pq = p[i] >> 4;
-            let id = p[i] & 15;
-            i += 1;
-            let mut nat = vec![0u16; 64];
-            for k in 0..64 {
-                let v = if pq == 0 { p.get(i + k).map(|&b| b as u16) } else { p.get(i + 2 * k..i + 2 * k + 2).map(|b| ((b[0] as u16) << 8) | b[1] as u16) };
-                nat[NATURAL_ORDER[k]] = v.unwrap_or(0);
-            }
-            i += if pq == 0 { 64 } else { 128 };
-            qtables.push(json!({ "id": id, "values": nat }));
-        }
-    }
+    let qtables: Vec<Value> = l
+        .segments
+        .iter()
+        .filter(|s| s.marker == 0xDB)
+        .flat_map(|s| crate::markers::parse_dqt(s.payload(d)))
+        .map(|t| json!({ "id": t.id, "values": t.values.to_vec() }))
+        .collect();
     let mut v = json!({
         "size": d.len(),
         "segments": segments,

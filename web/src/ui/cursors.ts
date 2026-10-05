@@ -488,8 +488,8 @@ function busyStart(el: HTMLElement) {
   }
 }
 
-/** Sets every --cur-* variable on `root` (and the document element) and keeps them right when the screen
- *  resolution or page zoom changes. */
+/** Sets every --cur-* variable on `root` (and the document element). Resolution and page-zoom changes come
+ *  through scale.ts's onScale (theme.ts calls refreshCursors), the one place that watches them. */
 export function initCursors(root: HTMLElement) {
   host = document.documentElement;
   void root;
@@ -502,23 +502,6 @@ export function initCursors(root: HTMLElement) {
     },
     true,
   );
-  const watch = () => {
-    const mq = matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
-    mq.addEventListener(
-      'change',
-      () => {
-        apply();
-        watch();
-      },
-      { once: true },
-    );
-  };
-  watch();
-  let t: ReturnType<typeof setTimeout> | null = null;
-  addEventListener('resize', () => {
-    if (t) clearTimeout(t);
-    t = setTimeout(() => apply(), 100);
-  });
 }
 
 /** Re-applies (e.g. after a scale change); cheap when nothing changed. */

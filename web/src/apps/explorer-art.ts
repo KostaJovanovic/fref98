@@ -2,26 +2,28 @@
 // Undo, Delete, Properties, Views) and the media player's transport glyphs. As in IE4/98, a toolbar icon is
 // grey ("cold") until the pointer is over it, then in colour ("hot"); disabled ones are embossed.
 import { ascii, cached, makeCanvas, iconCanvas } from '../ui/art';
+import { COLORS98 } from '../ui/palette';
 
+const P = COLORS98;
 const PAL: Record<string, string> = {
-  K: '#000000',
-  W: '#ffffff',
-  S: '#c0c0c0',
-  L: '#dfdfdf',
-  G: '#808080',
-  V: '#000080',
-  B: '#0000ff',
-  R: '#ff0000',
-  M: '#800000',
-  N: '#008000',
-  E: '#00ff00',
-  Y: '#ffff00',
-  A: '#f0d878',
-  a: '#fff8c0',
-  c: '#b89840',
-  O: '#804000',
-  T: '#008080',
-  C: '#00ffff',
+  K: P.black,
+  W: P.white,
+  S: P.silver,
+  L: P.light,
+  G: P.gray,
+  V: P.navy,
+  B: P.blue,
+  R: P.red,
+  M: P.maroon,
+  N: P.green,
+  E: P.lime,
+  Y: P.yellow,
+  A: P.manila,
+  a: P.manilaLight,
+  c: P.manilaShade,
+  O: P.brown,
+  T: P.teal,
+  C: P.cyan,
 };
 
 type Ctx = CanvasRenderingContext2D;

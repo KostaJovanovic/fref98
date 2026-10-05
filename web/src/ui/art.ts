@@ -2,18 +2,14 @@
 // 256-colour palette (icons98.ts snaps icons to the VGA colours by majority vote; Atkinson dithers photo
 // thumbnails; Bayer dithers the sky and the fades), alpha made binary (screen-door, never blended). Results are
 // cached as PNG data URLs and exposed to CSS as custom properties.
-import { ditherAtkinson, ditherBayer, nearest, PALETTE } from './palette';
+import { bayerOn, ditherAtkinson, ditherBayer, nearest, PALETTE } from './palette';
 import { drawText } from './pixeltext';
 import { schemeColors, type SchemeColors } from './scheme';
+import { bevelRows, cachedUrl, makeCanvas, type BevelKind } from './canvas';
 
 type Ctx = CanvasRenderingContext2D;
 
-export function makeCanvas(w: number, h: number): HTMLCanvasElement {
-  const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
-  return c;
-}
+export { makeCanvas };
 
 function ctx2d(c: HTMLCanvasElement): Ctx {
   return c.getContext('2d', { willReadFrequently: true })!;
@@ -28,17 +24,10 @@ export function scaleCanvas(src: HTMLCanvasElement, k: number): HTMLCanvasElemen
   return c;
 }
 
-const urlCache = new Map<string, string>();
 /** The colour scheme the sprites are drawn in (part of every cache key, so a scheme change redraws them). */
 let artScheme = 'standard';
 export function cached(key: string, make: () => HTMLCanvasElement): string {
-  const k = artScheme + '|' + key;
-  let u = urlCache.get(k);
-  if (!u) {
-    u = make().toDataURL('image/png');
-    urlCache.set(k, u);
-  }
-  return u;
+  return cachedUrl(artScheme + '|' + key, make);
 }
 
 export function dither(c: HTMLCanvasElement, mode: 'atkinson' | 'bayer' | 'none', spread = 40) {
@@ -114,8 +103,7 @@ export function bayerMask(level: number, k = 1): string {
     const c = makeCanvas(8 * k, 8 * k);
     const x = ctx2d(c);
     x.fillStyle = '#000';
-    const B = [0, 32, 8, 40, 2, 34, 10, 42, 48, 16, 56, 24, 50, 18, 58, 26, 12, 44, 4, 36, 14, 46, 6, 38, 60, 28, 52, 20, 62, 30, 54, 22, 3, 35, 11, 43, 1, 33, 9, 41, 51, 19, 59, 27, 49, 17, 57, 25, 15, 47, 7, 39, 13, 45, 5, 37, 63, 31, 55, 23, 61, 29, 53, 21];
-    for (let y = 0; y < 8; y++) for (let xx = 0; xx < 8; xx++) if (B[y * 8 + xx] < level) x.fillRect(xx * k, y * k, k, k);
+    for (let y = 0; y < 8; y++) for (let xx = 0; xx < 8; xx++) if (bayerOn(xx, y, level)) x.fillRect(xx * k, y * k, k, k);
     return c;
   });
 }
@@ -201,28 +189,8 @@ export function glyph98(kind: Glyph98 | string, color = C98.text, emboss = false
 
 /** Draws the two-ring 98 bevel into a canvas. kind: raised (push button), frame (window, scroll button,
  *  thumb), sunken (field, checkbox), pressed (flat 1 px shadow, the pressed scroll/combo button). */
-function bevel(c: HTMLCanvasElement, kind: 'raised' | 'frame' | 'sunken' | 'pressed', x0 = 0, y0 = 0, w = c.width, h = c.height) {
-  const x = ctx2d(c);
-  const ring = (i: number, tl: string, br: string) => {
-    x.fillStyle = tl;
-    x.fillRect(x0 + i, y0 + i, w - i * 2 - 1, 1);
-    x.fillRect(x0 + i, y0 + i, 1, h - i * 2 - 1);
-    x.fillStyle = br;
-    x.fillRect(x0 + i, y0 + h - 1 - i, w - i * 2, 1);
-    x.fillRect(x0 + w - 1 - i, y0 + i, 1, h - i * 2);
-  };
-  if (kind === 'raised') {
-    ring(0, C98.hi, C98.dark);
-    ring(1, C98.light, C98.shadow);
-  } else if (kind === 'frame') {
-    ring(0, C98.light, C98.dark);
-    ring(1, C98.hi, C98.shadow);
-  } else if (kind === 'sunken') {
-    ring(0, C98.shadow, C98.hi);
-    ring(1, C98.dark, C98.light);
-  } else {
-    ring(0, C98.shadow, C98.shadow);
-  }
+function bevel(c: HTMLCanvasElement, kind: BevelKind, x0 = 0, y0 = 0, w = c.width, h = c.height) {
+  ascii(bevelRows(w, h, kind), { W: C98.hi, L: C98.light, G: C98.shadow, K: C98.dark }, c, x0, y0);
 }
 
 /** 98 checkbox: 13×13 sunken white box with a 7×7 black check. d = disabled, p = pressed (grey inside). */

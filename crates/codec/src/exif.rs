@@ -283,6 +283,18 @@ pub fn read(d: &[u8]) -> Option<Tiff> {
     Tiff::parse(&d[start..end])
 }
 
+/// Where the Exif thumbnail (IFD1 JPEGInterchangeFormat) lies in the file, as (offset, length), when it lies
+/// inside the Exif block. The one thumbnail reader: the card crate uses it too.
+pub fn thumbnail_range(d: &[u8]) -> Option<(usize, usize)> {
+    let (_, end, start) = exif_segment(d)?;
+    let t = Tiff::parse(&d[start..end])?;
+    let get = |tag: u16| t.ifd1.iter().find(|e| e.tag == tag).and_then(|e| entry_u32(e, t.le)).map(|v| v as usize);
+    let (off, len) = (get(TAG_THUMB_OFF)?, get(TAG_THUMB_LEN)?);
+    // the TIFF header starts after "Exif\0\0"
+    let at = start.checked_add(6)?.checked_add(off)?;
+    (len > 0 && at.checked_add(len)? <= end).then_some((at, len))
+}
+
 /// Replace (or insert after SOI / APP0) the Exif APP1 with a new payload.
 pub fn replace_app1(d: &[u8], payload: Option<Vec<u8>>) -> Vec<u8> {
     let new_seg = payload.map(|p| segment(APP1, &p)).unwrap_or_default();
@@ -468,6 +480,16 @@ pub fn flat(d: &[u8]) -> Option<serde_json::Map<String, serde_json::Value>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    // Audit B9 (09-11): one thumbnail reader; its range points at the bytes with_thumbnail wrote
+    #[test]
+    fn thumbnail_range_finds_the_written_thumbnail() {
+        let thumb = [0xFF, 0xD8, 7, 8, 9, 0xFF, 0xD9];
+        let j = with_thumbnail(&[0xFF, 0xD8, 0xFF, 0xD9], &thumb).unwrap();
+        let (o, l) = thumbnail_range(&j).unwrap();
+        assert_eq!(&j[o..o + l], &thumb[..]);
+        assert_eq!(thumbnail_range(&[0xFF, 0xD8, 0xFF, 0xD9]), None);
+    }
+
     #[test]
     fn roundtrip_orientation_and_thumb() {
         let jpeg = [0xFF, 0xD8, 0xFF, 0xD9];

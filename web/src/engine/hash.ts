@@ -39,12 +39,27 @@ export function newSeed(): number {
   return a[0] >>> 0;
 }
 
-/** Deterministic seed for repeat r of a child step inside a repeat group. */
-export function repeatSeed(childSeed: number, groupSeed: number, r: number): number {
-  let h = (childSeed ^ Math.imul(groupSeed, 0x9e3779b1) ^ Math.imul(r + 1, 0x85ebca6b)) >>> 0;
+/** The lowbias32 finalizer: scrambles a 32-bit value into a well-spread one (the app's one integer mixer). */
+export function mix32(h: number): number {
   h = Math.imul(h ^ (h >>> 16), 0x7feb352d);
   h = Math.imul(h ^ (h >>> 15), 0x846ca68b);
   return (h ^ (h >>> 16)) >>> 0;
+}
+
+/** The app's small seeded PRNG (mulberry32): 0..1, reproducible per seed. */
+export function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Deterministic seed for repeat r of a child step inside a repeat group. */
+export function repeatSeed(childSeed: number, groupSeed: number, r: number): number {
+  return mix32((childSeed ^ Math.imul(groupSeed, 0x9e3779b1) ^ Math.imul(r + 1, 0x85ebca6b)) >>> 0);
 }
 
 let uidCounter = 0;

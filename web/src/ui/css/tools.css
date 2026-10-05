@@ -11,7 +11,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 10px;
+  padding: var(--dlg-pad);
   height: 100%;
 }
 .dlg98 > :first-child {
@@ -22,9 +22,6 @@
   flex-direction: row;
 }
 .dlg-btns {
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
   flex: none;
 }
 .dlg-btns.col {
@@ -79,7 +76,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 10px 10px 10px;
+  padding: var(--dlg-pad);
 }
 .wiz-main {
   flex: 1;
@@ -89,7 +86,7 @@
 }
 .wiz-art {
   flex: none;
-  box-shadow: inset 1px 1px var(--c-shadow), inset -1px -1px var(--c-hi);
+  box-shadow: var(--bevel-thin-in);
   padding: 1px;
   align-self: flex-start;
 }
@@ -111,13 +108,10 @@
   flex: none;
   height: 2px;
   margin: 10px 0 10px;
-  border-top: 1px solid var(--c-shadow);
-  border-bottom: 1px solid var(--c-hi);
+  box-shadow: var(--etch-h);
 }
 .wiz-btns {
   flex: none;
-  display: flex;
-  justify-content: flex-end;
 }
 .wiz-gap {
   width: 8px;
@@ -135,7 +129,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 6px 6px 6px;
+  padding: var(--sheet-pad);
 }
 .dp-page {
   flex: 1;
@@ -147,9 +141,6 @@
 }
 .dp-btns {
   flex: none;
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
   padding-top: 6px;
 }
 .crt-wrap {
@@ -210,8 +201,8 @@
 }
 .dp-sw:disabled .dp-chip {
   border-color: var(--c-shadow);
-  -webkit-mask: repeating-conic-gradient(#000 0 25%, transparent 0 50%) 0 0 / 2px 2px;
-  mask: repeating-conic-gradient(#000 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+  -webkit-mask: var(--dither-mask);
+  mask: var(--dither-mask);
 }
 .phone .dp-row {
   flex-direction: column;
@@ -257,7 +248,7 @@
     #000000 0 9px, #800000 0 18px, #008000 0 27px, #808000 0 36px, #000080 0 45px, #800080 0 54px, #008080 0 63px, #c0c0c0 0 72px,
     #808080 0 81px, #ff0000 0 90px, #00ff00 0 99px, #ffff00 0 108px, #0000ff 0 117px, #ff00ff 0 126px, #00ffff 0 135px, #ffffff 0
   );
-  box-shadow: inset 1px 1px var(--c-shadow), inset -1px -1px var(--c-hi);
+  box-shadow: var(--bevel-thin-in);
 }
 /* 256 colours: the hues in 4 px steps; High and True Color: one smooth run, as 98's sample bar */
 .dp-pal.dp-pal-256 {
@@ -330,7 +321,7 @@
   min-height: 0;
   overflow: auto;
   background: var(--c-win);
-  box-shadow: inset -1px -1px var(--c-hi), inset 1px 1px var(--c-shadow), inset -2px -2px var(--c-light), inset 2px 2px var(--c-dark);
+  box-shadow: var(--bevel-sunken);
   padding: 4px;
   outline: none;
   margin: 0 2px 2px;
@@ -410,7 +401,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: repeating-conic-gradient(var(--c-sel) 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+  background: var(--dither-sel);
   -webkit-mask-image: var(--mask-src);
   mask-image: var(--mask-src);
   -webkit-mask-size: 100% 100%;
@@ -421,8 +412,8 @@
 }
 /* deleted files: screen-doored 50 %, like a cut file in 98 */
 .cd-item.ghost .cd-ico img {
-  -webkit-mask: repeating-conic-gradient(#000 0 25%, transparent 0 50%) 0 0 / 2px 2px;
-  mask: repeating-conic-gradient(#000 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+  -webkit-mask: var(--dither-mask);
+  mask: var(--dither-mask);
 }
 .cd-item.ghost .cd-name {
   color: var(--c-gray);
@@ -648,7 +639,7 @@
   min-height: 0;
   overflow: auto;
   background: #000;
-  box-shadow: inset -1px -1px var(--c-hi), inset 1px 1px var(--c-shadow), inset -2px -2px var(--c-light), inset 2px 2px var(--c-dark);
+  box-shadow: var(--bevel-sunken);
   padding: 2px;
 }
 .cd-legend {
@@ -687,7 +678,7 @@
   min-height: 0;
   background: var(--c-win);
   padding: 3px;
-  box-shadow: inset -1px -1px var(--c-hi), inset 1px 1px var(--c-shadow), inset -2px -2px var(--c-light), inset 2px 2px var(--c-dark);
+  box-shadow: var(--bevel-sunken);
   display: flex;
   flex-direction: column;
   flex-wrap: wrap;
@@ -760,9 +751,6 @@
   grid-template-columns: auto 1fr auto;
   gap: 6px 8px;
   align-items: center;
-}
-.sa-grid .btn {
-  min-width: 75px;
 }
 .sa-grid > .field {
   width: 100%;
@@ -845,7 +833,7 @@
   overflow: auto;
   background: var(--c-win);
   padding: 3px;
-  box-shadow: inset -1px -1px var(--c-hi), inset 1px 1px var(--c-shadow), inset -2px -2px var(--c-light), inset 2px 2px var(--c-dark);
+  box-shadow: var(--bevel-sunken);
   outline: none;
 }
 .hh-node {
@@ -883,10 +871,6 @@
   cursor: var(--cur-arrow, default);
   white-space: nowrap;
 }
-.hh-btnrow {
-  display: flex;
-  justify-content: flex-end;
-}
 .hh-searchrow {
   display: flex;
   gap: 4px;
@@ -901,7 +885,7 @@
   min-height: 0;
   overflow: auto;
   outline: none;
-  box-shadow: inset -1px -1px var(--c-hi), inset 1px 1px var(--c-shadow), inset -2px -2px var(--c-light), inset 2px 2px var(--c-dark);
+  box-shadow: var(--bevel-sunken);
   padding: 10px 12px;
 }
 .hh-head {
@@ -938,6 +922,8 @@
   height: 100%;
 }
 .hx-wrap {
+  display: flex;
+  height: 100%;
   min-height: 0;
 }
 .hx-left {
@@ -948,9 +934,14 @@
   gap: 4px;
   padding: 2px;
 }
-.hx-grid.hexscroll {
+.hx-grid {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  background: var(--c-win);
+  touch-action: pan-y;
   border: 0;
-  box-shadow: inset -1px -1px var(--c-hi), inset 1px 1px var(--c-shadow), inset -2px -2px var(--c-light), inset 2px 2px var(--c-dark);
+  box-shadow: var(--bevel-sunken);
   padding: 2px;
   outline: none;
 }
@@ -958,15 +949,20 @@
   position: relative;
 }
 .hx-spacer > canvas {
+  display: block;
   position: sticky;
   top: 0;
 }
 .hx-keypad {
   gap: 2px;
 }
-.hx-side.hexside {
+.hx-side {
   width: 240px;
-  border-left: 0;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
   padding: 2px 4px 4px;
   gap: 3px;
 }
@@ -1008,14 +1004,14 @@
   height: 150px;
   flex: none;
   background: #008080;
-  box-shadow: inset 1px 1px var(--c-shadow), inset -1px -1px var(--c-hi), inset 2px 2px var(--c-dark), inset -2px -2px var(--c-light);
+  box-shadow: var(--bevel-sunken);
   overflow: hidden;
 }
 .ap-win {
   position: absolute;
   background: var(--c-face);
   padding: 3px;
-  box-shadow: inset -1px -1px var(--c-dark), inset 1px 1px var(--c-light), inset -2px -2px var(--c-shadow), inset 2px 2px var(--c-hi);
+  box-shadow: var(--bevel-frame);
 }
 .ap-cap {
   height: 18px;
@@ -1023,7 +1019,7 @@
   align-items: center;
   padding: 0 3px;
   font-weight: 700;
-  background: linear-gradient(to right, var(--c-cap1), var(--c-cap2));
+  background: var(--cap-grad);
   color: var(--c-captext);
 }
 .ap-inactive {
@@ -1033,7 +1029,7 @@
   height: 80px;
 }
 .ap-inactive .ap-cap {
-  background: linear-gradient(to right, var(--c-icap1), var(--c-icap2));
+  background: var(--cap-grad-inactive);
   color: var(--c-icaptext);
 }
 .ap-active {
@@ -1060,7 +1056,7 @@
   height: 52px;
   background: var(--c-win);
   padding: 4px;
-  box-shadow: inset -1px -1px var(--c-hi), inset 1px 1px var(--c-shadow), inset -2px -2px var(--c-light), inset 2px 2px var(--c-dark);
+  box-shadow: var(--bevel-sunken);
 }
 .ap-msg {
   left: 120px;

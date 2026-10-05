@@ -148,11 +148,75 @@ pub fn scan_data_end(d: &[u8], mut p: usize) -> usize {
     d.len()
 }
 
-/// Walk all segments. Never fails; garbage is skipped until the next plausible marker.
+/// One table of a DQT segment, as the decoder uses it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct QTable {
+    /// Table slot (Tq); values above 3 are kept so callers can report them.
+    pub id: u8,
+    /// 0 = 8-bit entries, 1 = 16-bit.
+    pub precision: u8,
+    /// Natural (row-major) order. Entries missing from a cut-short table are 1.
+    pub values: [u16; 64],
+    /// The segment ended inside this table.
+    pub short: bool,
+}
+
+/// Every table in a DQT payload (the one parser for the decoder and inspect()).
+pub fn parse_dqt(p: &[u8]) -> Vec<QTable> {
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < p.len() {
+        let precision = p[i] >> 4;
+        let id = p[i] & 15;
+        i += 1;
+        let n = if precision == 0 { 64 } else { 128 };
+        let mut z = [1u16; 64];
+        for (k, zk) in z.iter_mut().enumerate() {
+            let v = if precision == 0 { p.get(i + k).map(|&b| b as u16) } else { p.get(i + 2 * k..i + 2 * k + 2).map(|b| ((b[0] as u16) << 8) | b[1] as u16) };
+            if let Some(v) = v {
+                *zk = v;
+            }
+        }
+        out.push(QTable { id, precision, values: crate::tables::zigzag_to_natural(&z), short: i + n > p.len() });
+        i += n;
+    }
+    out
+}
+
+/// A start-of-scan header.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ScanHeader {
+    /// (component id, Td/Ta table byte) for the first min(Ns, 4) components; bytes past the end of a cut-short
+    /// payload read as 0 (what the decoder then repairs).
+    pub comps: Vec<(u8, u8)>,
+    /// Ns as written (the spectral fields follow 1 + 2·Ns bytes in).
+    pub ns: usize,
+    pub ss: u8,
+    /// End of the spectral band; 63 when the payload stops before it (a baseline scan).
+    pub se: u8,
+    pub ah: u8,
+    pub al: u8,
+}
+
+/// The one SOS parser for the decoder and inspect().
+pub fn parse_sos(p: &[u8]) -> ScanHeader {
+    let ns = p.first().copied().unwrap_or(0) as usize;
+    let comps = (0..ns.min(4)).map(|k| (p.get(1 + 2 * k).copied().unwrap_or(0), p.get(2 + 2 * k).copied().unwrap_or(0))).collect();
+    let b = 1 + 2 * ns;
+    let a = p.get(b + 2).copied().unwrap_or(0);
+    ScanHeader { comps, ns, ss: p.get(b).copied().unwrap_or(0), se: p.get(b + 1).copied().unwrap_or(63), ah: a >> 4, al: a & 15 }
+}
+
+/// Walk all segments. Never fails; garbage is skipped until the next plausible marker. 0xFF fill bytes before
+/// a marker (FF FF D8) are legal padding, not garbage.
 pub fn walk(d: &[u8]) -> Layout {
     let mut l = Layout::default();
     let mut p = 0usize;
     while p + 1 < d.len() {
+        if d[p] == 0xFF && d[p + 1] == 0xFF {
+            p += 1;
+            continue;
+        }
         if d[p] != 0xFF || !is_known(d[p + 1]) {
             l.garbage += 1;
             p += 1;
@@ -223,6 +287,33 @@ pub fn segment(m: u8, payload: &[u8]) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    // Audit B9 (08-9): one DQT/SOS parser, with the decoder's defaults (missing table values 1, Se 63)
+    #[test]
+    fn short_dqt_and_sos_use_the_decoder_defaults() {
+        let mut p = vec![0x01];
+        p.extend(1..=10u8); // table 1, only 10 of its 64 zigzag values
+        let t = parse_dqt(&p);
+        assert_eq!(t.len(), 1);
+        assert!(t[0].short);
+        assert_eq!(t[0].id, 1);
+        assert_eq!(t[0].values[0], 1);
+        assert_eq!(t[0].values[1], 2); // zigzag 1 -> natural 1
+        assert_eq!(t[0].values[8], 3); // zigzag 2 -> natural 8
+        assert_eq!(t[0].values[63], 1);
+        let s = parse_sos(&[1, 1, 0x00]);
+        assert_eq!((s.ns, s.comps.clone(), s.ss, s.se), (1, vec![(1, 0)], 0, 63));
+        let s = parse_sos(&[3, 1, 0, 2, 0x11, 3, 0x11, 0, 63, 0x21]);
+        assert_eq!((s.comps.len(), s.ss, s.se, s.ah, s.al), (3, 0, 63, 2, 1));
+    }
+
+    #[test]
+    fn ff_fill_bytes_are_not_garbage() {
+        let d = [0xFF, 0xD8, 0xFF, 0xFF, 0xFF, 0xFE, 0x00, 0x03, 1, 0xFF, 0xD9];
+        let l = walk(&d);
+        assert_eq!(l.garbage, 0);
+        assert_eq!(l.segments.iter().map(|s| s.marker).collect::<Vec<_>>(), vec![SOI, COM, EOI]);
+    }
+
     #[test]
     fn walk_garbage() {
         let d = [0x00, 0x12, 0xFF, 0xD8, 0xFF, 0xFE, 0x00, 0x04, 1, 2, 0xFF, 0xD9, 9, 9];

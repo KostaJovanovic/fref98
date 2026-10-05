@@ -6,6 +6,7 @@ import { onScale } from './scale';
 import { initCursors, refreshCursors } from './cursors';
 import { applySchemeVars, schemeColors } from './scheme';
 import { settings, onSettings } from '../settings';
+import { COLORS98 } from './palette';
 
 function dots(): string {
   return cached('grip', () => ascii(GRIP_ROWS, { W: C98.hi, G: C98.shadow }, makeCanvas(8, 18)));
@@ -14,8 +15,9 @@ function dots(): string {
 function tailBorder(): string {
   return cached('tailb', () => {
     const c = makeCanvas(16, 12);
-    ascii(['', 'X..........XXXXX', '.X........X', '.X......XX', '..X...XX', '..X..X', '..X.X', '..XX', '..X'], { X: '#000000' }, c);
-    ascii(['', '.YYYYYYYYYY', '..YYYYYYYY', '..YYYYYY', '...YYY', '...YY', '...Y'], { Y: '#ffffe1' }, c);
+    // the tooltip's own colours (its frame and fill follow the scheme like the tooltip)
+    ascii(['', 'X..........XXXXX', '.X........X', '.X......XX', '..X...XX', '..X..X', '..X.X', '..XX', '..X'], { X: C98.text }, c);
+    ascii(['', '.YYYYYYYYYY', '..YYYYYYYY', '..YYYYYY', '...YYY', '...YY', '...Y'], { Y: C98.tip }, c);
     return c;
   });
 }
@@ -24,9 +26,9 @@ function hazard(): string {
   return cached('hazard', () => {
     const c = makeCanvas(16, 16);
     const x = c.getContext('2d')!;
-    x.fillStyle = '#ffff00';
+    x.fillStyle = COLORS98.yellow;
     x.fillRect(0, 0, 16, 16);
-    x.fillStyle = '#000';
+    x.fillStyle = COLORS98.black;
     for (let y = 0; y < 16; y++) for (let xx = 0; xx < 16; xx++) if (((xx + y) & 15) < 6) x.fillRect(xx, y, 1, 1);
     return c;
   });
@@ -48,8 +50,8 @@ function viewerBg(): string {
 export function applyTheme(root: HTMLElement) {
   const set = (k: string, v: string) => root.style.setProperty(k, v);
   const url = (u: string) => `url("${u}")`;
-  set('--img-checker-black', url(checker('#000000')));
-  set('--img-checker-white', url(checker('#ffffff')));
+  set('--img-checker-black', url(checker(COLORS98.black)));
+  set('--img-checker-white', url(checker(COLORS98.white)));
   set('--img-checker-sel', url(checker(C98.sel)));
   set('--img-tiles', url(tilePattern()));
   set('--img-y2k', url(y2kTile()));

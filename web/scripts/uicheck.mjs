@@ -631,6 +631,49 @@ await pg.waitForTimeout(300);
   await pg.evaluate(() => window.__refrag.foldy.hideBalloon());
   await closeAll();
   await pg.waitForTimeout(300);
+
+  // ---------------------------------------------------------------- one set of tokens and classes (audit B9)
+  const css = await pg.evaluate(() => {
+    const probe = (cls, tag = 'div') => {
+      const e = document.createElement(tag);
+      e.className = cls;
+      document.getElementById('app').append(e);
+      const cs = getComputedStyle(e);
+      const r = { h: e.getBoundingClientRect().height, shadow: cs.boxShadow, gap: cs.columnGap, jc: cs.justifyContent };
+      e.remove();
+      return r;
+    };
+    return { sep: probe('sep'), btns: probe('dlg-btns'), msg: probe('msg-btns'), wiz: probe('wiz-btns'), field: probe('field') };
+  });
+  // 03-16: .sep was 1 px tall (border-box ate the grey line): now the 2 px etch, shadow over highlight
+  check('separators are the 2 px etch (03-16)', css.sep.h === 2 && /128, 128, 128.*255, 255, 255/.test(css.sep.shadow), `${css.sep.h}px ${css.sep.shadow}`);
+  check('button rows share one rule: right-aligned, 6 px apart; message boxes centred (03-16)', css.btns.jc === 'flex-end' && css.btns.gap === '6px' && css.msg.jc === 'center' && css.wiz.gap === '0px', JSON.stringify([css.btns, css.msg.jc, css.wiz.gap]));
+  check('bevel tokens resolve (03-13)', /inset/.test(css.field.shadow) || css.field.shadow !== 'none', css.field.shadow);
+  // 06-28: Hex Doctor laid out by the hx-* rules alone
+  await pg.evaluate(() => window.__refrag.openApp('hex'));
+  await pg.waitForTimeout(800);
+  const hx = await pg.evaluate(() => {
+    const side = document.querySelector('.win.active .hx-side');
+    const grid = document.querySelector('.win.active .hx-grid');
+    return side && grid ? { side: side.getBoundingClientRect().width, flow: getComputedStyle(grid).overflowY, old: document.querySelectorAll('.hexside, .hexscroll, .hexwrap').length } : null;
+  });
+  check('Hex Doctor uses one set of classes (06-28)', !!hx && hx.side === 240 && hx.flow === 'auto' && hx.old === 0, JSON.stringify(hx));
+  // 03-11: a message box never shows Foldy's panel
+  await closeAll();
+  await pg.evaluate(() => window.__refrag.openApp('export'));
+  await pg.waitForTimeout(500);
+  await pg.locator('.win.active [aria-label="Create New Folder"]').click();
+  await pg.waitForTimeout(400);
+  const mb = await pg.evaluate(() => {
+    const w = [...document.querySelectorAll('.win')].find((x) => x.querySelector('.msgbox'));
+    const f = w?.querySelector('.win-foldy');
+    return w ? (f ? getComputedStyle(f).display : 'no slot') : 'no message box';
+  });
+  check('a message box never shows Foldy’s panel (03-11)', mb === 'none' || mb === 'no slot', mb);
+  await pg.keyboard.press('Escape');
+  await pg.waitForTimeout(200);
+  await closeAll();
+  await pg.waitForTimeout(300);
 }
 
 await audits('after interaction');

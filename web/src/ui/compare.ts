@@ -1,12 +1,10 @@
 // Compare geometry (pure). Every pane is drawn into the main (After) image's on-screen box, stretched to fit it
 // exactly, so before/after line up whatever their pixel sizes: MMS shrinks, Wrong size widens, a thumbnail
 // survivor is tiny. `sx`/`sy` are device px per image px of that pane, so a screen point maps back per pane.
+import type { Box } from './uimath';
 
-export interface Box {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
+/** A pane's box on the canvas: uimath's Box plus its scale. */
+export interface PaneBox extends Box {
   /** Device px per image px, horizontally and vertically (differ when the aspect ratios differ). */
   sx: number;
   sy: number;
@@ -35,7 +33,7 @@ export function fitZoom(raw: number): number {
   return 1 / Math.ceil(1 / Math.max(raw, 1e-6) - 1e-9);
 }
 
-export function compareRects(beforeW: number, beforeH: number, afterW: number, afterH: number, view: CompareView): { before: Box; after: Box } {
+export function compareRects(beforeW: number, beforeH: number, afterW: number, afterH: number, view: CompareView): { before: PaneBox; after: PaneBox } {
   const aw = Math.max(1, afterW);
   const ah = Math.max(1, afterH);
   const z = view.zoom;
@@ -50,7 +48,7 @@ export function compareRects(beforeW: number, beforeH: number, afterW: number, a
 }
 
 /** Image coordinates (of the pane drawn into `box`) under device point (px, py). */
-export function boxToImage(box: Box, px: number, py: number): { x: number; y: number } {
+export function boxToImage(box: PaneBox, px: number, py: number): { x: number; y: number } {
   return { x: (px - box.x) / box.sx, y: (py - box.y) / box.sy };
 }
 
