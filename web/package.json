@@ -1,7 +1,8 @@
 {
   "name": "refragmenter-web",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.0.0",
+  "description": "File Refragmenter 98 Gold. The app's version is web/src/version.ts (stamped by save.bat); this private package's npm version is not used.",
   "type": "module",
   "license": "MIT OR Apache-2.0",
   "scripts": {
@@ -12,6 +13,8 @@
     "test": "vitest run",
     "test:full": "npm run wasm && vitest run",
     "shots": "node scripts/shots.mjs",
+    "uicheck": "node scripts/uicheck.mjs",
+    "audit": "node scripts/audit.mjs",
     "font": "python scripts/build_font.py",
     "lines": "node scripts/foldy-lines.mjs"
   },

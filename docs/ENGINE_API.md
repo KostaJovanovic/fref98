@@ -18,17 +18,19 @@ then `wasm-bindgen --target web --out-dir web/src/wasm/pkg`. The web app loads t
 ## Core model
 
 * The working representation of an image is always **JPEG bytes** (`Uint8Array`). Non-JPEG uploads are decoded by
-  the browser (createImageBitmap → canvas → RGBA), downscaled to the chosen camera profile size (unless "keep
-  original"), and encoded with `encode_rgba`. JPEG uploads keep their original bytes as step 0, downscaled only if
-  the user asks (then re-encoded with `encode_like`).
+  the browser (createImageBitmap → canvas → RGBA), fitted into the first camera profile's frame, and encoded with
+  `encode_rgba`. JPEG uploads keep their original bytes as step 0. (`encode_like` is exported for the API; the web
+  app doesn't call it, the `encode_like_photo` step does the same inside the engine.)
 * A **step** = JPEG bytes in → JPEG bytes out, `apply_step(id, paramsJson, input, seed, pool)`. Broken output is
   normal and expected; steps only throw for invalid parameters or completely unusable input (e.g. not a JPEG at all
   when the step needs to parse it). Steps that need to parse a broken input should be as forgiving as the decoder.
 * Pixel- and coefficient-level steps decode, operate and re-encode **with the input's own settings** (quant tables,
   subsampling, Huffman tables, restart interval, progressive or not) unless the step changes them. If the input is too
   broken to read its header, they use the default profile.
-* **Determinism:** same input + params + seed ⇒ identical bytes in every browser. Integer maths in codec paths, PCG32
-  (`step::Pcg32`) for randomness, no HashMap iteration order, no float where it changes output bits.
+* **Determinism:** same input + params + seed ⇒ identical bytes in every browser. Integer maths in the codec paths
+  (DCT, colour, quantisation, entropy coding), PCG32 (`step::Pcg32`) for randomness, no HashMap iteration order. A
+  few steps use f64 (icc_loss's `powf`, sensor_noise's Gaussian noise, displace and the region percentages); WASM
+  floats are IEEE-754 with no fast-math, so their output is still the same everywhere.
 
 ## Shared entry points (`crates/wasm/src/lib.rs`)
 
@@ -44,8 +46,9 @@ StepInfo JSON shape:
   params: Array<{ id, label, kind: "int"|"float"|"bool"|"enum"|"photo"|"table"|"text"|"mask",
                   min?, max?, step?, options?: [value,label][], default: any, expert: boolean, hint: string }> }
 ```
-`photo` params hold a pool index; -1 means "the next pool photo after the current one" (wraps). The UI passes
-`pool` = every pool photo's current bytes **except** the image being edited, in pool order, and rewrites photo
+`photo` params hold a pool index; -1 means pool[0]. The UI passes `pool` = every pool photo's current bytes
+**except** the image being edited, starting with the photo after it in project order and wrapping
+(`poolOrder` in web/src/engine/stack.ts), so -1 is "the next photo after the current one". It rewrites photo
 indices accordingly. `mask` value: `{ w, h, data: number[] }` in MCU units, 0..255.
 
 ## Codec bindings (`codec_api.rs`)
@@ -75,10 +78,11 @@ decode_with_donor(input: Uint8Array, optsJson: string, donor: Uint8Array): Decod
 //   Same as decode, but `fill: "donor"` paints blocks that never got data with `donor` (any JPEG, decoded and
 //   stretched nearest-neighbour to this image's size). Empty donor = same as decode.
 
-encode_rgba(width: number, height: number, rgba: Uint8Array, optsJson: string): Uint8Array
+encode_rgba(width: number, height: number, rgba: Uint8Array, optsJson: string): Uint8Array  // throws string
 //   opts: { profile?: string /* profile id */, quality?: 1..100, subsampling?: "444"|"422"|"420"|"411"|"440",
-//           progressive?: boolean, restart_interval?: number, optimize_huffman?: boolean, keep_exif_from?: never }
-encode_like(width: number, height: number, rgba: Uint8Array, like: Uint8Array): Uint8Array  // copy tables/subsampling/etc from a JPEG
+//           progressive?: boolean, restart_interval?: number, optimize_huffman?: boolean }
+encode_like(width: number, height: number, rgba: Uint8Array, like: Uint8Array): Uint8Array  // throws string; copy tables/subsampling/etc from a JPEG
+//   (both throw "rgba buffer does not match width x height")
 profiles(): string     // JSON [{ id, label, kind: "camera"|"phone"|"app"|"generic", year?, width, height, quality_note }]
 inspect(input: Uint8Array): string
 //   JSON { size, segments: [{ offset, length, marker: number, name, summary }], frame?: { width, height, progressive,
@@ -95,13 +99,14 @@ strip_private_exif(input: Uint8Array): Uint8Array  // removes GPS, serials, owne
 encode_gif(width: number, height: number, frames: Uint8Array[] /*rgba*/, delayCs: number): Uint8Array
 avi_write(jpegFrames: Uint8Array[], width: number, height: number, fps: number): Uint8Array   // MJPEG AVI
 avi_read(avi: Uint8Array): string   // JSON { width, height, fps, frames: number } ; frames via avi_frame
-avi_frame(avi: Uint8Array, index: number): Uint8Array   // the JPEG of frame i (DHT inserted if missing)
+avi_frame(avi: Uint8Array, index: number): Uint8Array   // the JPEG of frame i (DHT inserted if missing); throws "no such frame"
 ```
 
 ## Card bindings (`card_api.rs`)
 
 ```ts
-card_presets(): string   // JSON [{ id, label, fs: "fat16"|"fat32"|"exfat", size_mb, cluster_kb, camera, description }]
+card_presets(): string   // JSON [{ id, label, fs: "fat16"|"fat32"|"exfat", size_mb, cluster_kb, camera, description,
+                         //         events: [...] /* a suggested story; the card window builds its own today */ }]
 card_events(): string    // JSON catalogue of scenario event types with params (same ParamInfo shape)
 class Card {
   // scenario: { fs, size_mb, cluster_kb?, camera: "canon2004"|"phone"|"generic",
@@ -115,12 +120,13 @@ class Card {
   //   os_junk (System Volume Information, ._ files, and a real Thumbs.db compound file with 96 px JPEG
   //   thumbnails; param thumbs_of: "all"|"live"), flash_fault, overwrite (new shots into the first free
   //   clusters, i.e. over deleted photos; the log says which deleted file lost how many clusters).
-  static simulate(scenarioJson: string, photos: Uint8Array[], seed: number): Card
+  static simulate(scenarioJson: string, photos: Uint8Array[], seed: number): Card   // throws on bad scenario JSON
   info_json(): string        // { fs, size_bytes, cluster_bytes, cluster_count, data_start, files: [{ name, first_cluster, size, deleted, photo_index }], log: string[] }
   cluster_map(): Uint8Array  // one byte per cluster: 0 free, 1 fs metadata, 2 live file, 3 deleted file, 4 overwritten, 5 damaged, 6 video, 7 junk
-  cluster_owner(): Int32Array // photo/file index occupying each cluster (-1 none)
+  cluster_owner(): Int32Array // index into info_json().files of the file occupying each cluster (-1 none)
   carve(methodJson: string): string
-  //   method: { tool: "photorec"|"graft"|"recuva"|"thumbnails"|"undelete_contiguous", ... }
+  //   method: { tool: "photorec"|"graft"|"fat"|"recuva"|"thumbnails"|"undelete_contiguous", ... }
+  //   ("fat" reads the live files through the file system, no undelete; pass_through_card's tool option uses it)
   //   returns JSON [{ index, name, size, source_clusters: number[], note }]
   //   "thumbnails" notes: "embedded EXIF thumbnail" | "small JPEG file (.THM sidecar)" |
   //   "thumbnail from a Windows Thumbs.db cache" | "MJPEG movie frame (no Huffman tables; standard ones inserted)"

@@ -23,6 +23,8 @@ if /i "%~1"=="--port"  (set "PORT=%~2" & shift & shift & goto args)
 echo [err]  unknown option %1
 goto fail
 :argsdone
+rem --port needs a number (a bare "--port" left PORT empty)
+echo(%PORT%| findstr /r "^[1-9][0-9]*$" >nul || (echo [err]  --port needs a port number, e.g. --port 9000 & goto fail)
 
 where node >nul 2>nul || (echo [err]  Node.js is not installed or not in PATH & goto fail)
 
@@ -67,13 +69,12 @@ if errorlevel 1 (
   call npm run wasm || (popd & goto fail)
 )
 
-rem Find local IP for phone access
+rem Find the local IP for phone access: the adapter with a default gateway (the
+rem real network), not the first IPv4 line ipconfig prints (often a vEthernet or
+rem WSL adapter)
 set "LOCAL_IP="
-for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4"') do (
-  if not defined LOCAL_IP (
-    for /f "tokens=* delims= " %%b in ("%%a") do set "LOCAL_IP=%%b"
-  )
-)
+for /f "delims=" %%a in ('powershell -NoProfile -Command "Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -and $_.NetAdapter.Status -eq 'Up' } | ForEach-Object { $_.IPv4Address.IPAddress } | Select-Object -First 1"') do set "LOCAL_IP=%%a"
+if not defined LOCAL_IP set "LOCAL_IP=(no network found)"
 
 echo.
 echo ============================================

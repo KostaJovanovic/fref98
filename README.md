@@ -53,4 +53,5 @@ Photos never leave the browser.
 
 ## License
 
-Code: MIT or Apache-2.0, at your option. Bundled photos have their own licence (see `web/public/bundled/`).
+Code: MIT or Apache-2.0, at your option. Art: see `web/LICENSES-ASSETS.md`. No photos are bundled yet (the app
+generates placeholder samples); when they are, they get their own licence in `web/public/bundled/`.

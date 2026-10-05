@@ -48,7 +48,8 @@ pub enum ParamKind {
     Bool,
     /// Options are (value, label).
     Enum { options: Vec<(String, String)> },
-    /// Index into the photo pool (-1 = "next photo after the current one", UI shows a photo picker).
+    /// Index into the photo pool (-1 = pool[0], which the web makes "the next photo after the current one" by
+    /// rotating the pool, see web/src/engine/stack.ts poolOrder; the UI shows a photo picker).
     Photo,
     /// 64 numbers (8x8 quantisation table, natural order). UI shows the paintable table editor.
     Table,
