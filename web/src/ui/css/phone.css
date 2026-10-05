@@ -30,9 +30,9 @@
 }
 .tmenu {
   display: none;
-  border: 1px solid #fff;
+  border: 1px solid var(--c-hi);
   background: transparent;
-  color: #fff;
+  color: var(--c-seltext);
   font-weight: 700;
   min-height: var(--tap, 34px);
   padding: 0 8px;

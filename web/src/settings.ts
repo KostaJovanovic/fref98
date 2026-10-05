@@ -1,7 +1,13 @@
 // User preferences (localStorage). Session content lives in IndexedDB (see engine/storage.ts).
 import type { FoldyTiming } from './foldy/timeline';
+import { SCHEMES } from './ui/scheme';
 
 export type Wallpaper = 'sky' | 'solid' | 'tiles' | 'photo';
+export const SAVER_KINDS = ['starfield', 'folders', 'mystify', 'marquee', 'pipes', 'corrupt'] as const;
+export type SaverKind = (typeof SAVER_KINDS)[number];
+/** Display ▸ Settings ▸ Colors: how the desktop, wallpaper and screen savers are drawn. */
+export const COLOR_DEPTHS = ['16', '256', 'high', 'true'] as const;
+export type ColorDepth = (typeof COLOR_DEPTHS)[number];
 
 export interface Settings {
   uiScale: 'auto' | 1 | 2 | 3;
@@ -9,7 +15,11 @@ export interface Settings {
   wallpaper: Wallpaper;
   solidColor: string;
   cloudSpeed: number; // 0..3
-  screensaver: { enabled: boolean; minutes: number; kind: 'starfield' | 'folders' };
+  /** speed 1..5 (Settings… in the Screen Saver tab); text: what the marquee scrolls */
+  screensaver: { enabled: boolean; minutes: number; kind: SaverKind; speed: number; text: string };
+  /** Display ▸ Appearance ▸ Scheme (ui/scheme.ts SCHEMES). */
+  scheme: string;
+  colorDepth: ColorDepth;
   foldy: { enabled: boolean; glitches: boolean; tutorialDone: boolean; expertIntroDone?: boolean };
   /** Foldy's animation timing as tuned in the hidden Ctrl+Shift+F panel (only the changed values; see
    *  foldy/timeline.ts DEFAULT_TIMING for the rest). */
@@ -41,7 +51,9 @@ const DEFAULTS: Settings = {
   wallpaper: 'sky',
   solidColor: '#008080',
   cloudSpeed: 1,
-  screensaver: { enabled: true, minutes: 5, kind: 'starfield' },
+  screensaver: { enabled: true, minutes: 5, kind: 'starfield', speed: 3, text: 'File Refragmenter 98 Gold' },
+  scheme: 'standard',
+  colorDepth: '256',
   foldy: { enabled: true, glitches: true, tutorialDone: false },
   foldyTiming: {},
   expert: false,
@@ -90,21 +102,34 @@ function load(): Settings {
           /* ignore */
         }
       }
-      return {
-        ...DEFAULTS,
-        ...s,
-        screensaver: { ...DEFAULTS.screensaver, ...(s.screensaver ?? {}) },
-        foldy: { ...DEFAULTS.foldy, ...(s.foldy ?? {}) },
-        foldyTiming: s.foldyTiming && typeof s.foldyTiming === 'object' ? s.foldyTiming : {},
-        iconPos: s.iconPos && typeof s.iconPos === 'object' ? s.iconPos : {},
-        iconNames: s.iconNames && typeof s.iconNames === 'object' ? s.iconNames : {},
-        personality: s.personality === 'gdiplus' ? 'gdiplus' : 'libjpeg',
-      };
+      return normalizeSettings(s);
     }
   } catch {
     /* storage may be blocked */
   }
   return JSON.parse(JSON.stringify(DEFAULTS));
+}
+
+/** A stored settings object as this version reads it: defaults filled in, values it can't use replaced. */
+export function normalizeSettings(s: any): Settings {
+  const ss = { ...DEFAULTS.screensaver, ...(s.screensaver ?? {}) };
+  return {
+    ...DEFAULTS,
+    ...s,
+    screensaver: {
+      ...ss,
+      kind: SAVER_KINDS.includes(ss.kind) ? ss.kind : 'starfield',
+      speed: Math.max(1, Math.min(5, Math.round(Number(ss.speed)) || 3)),
+      text: typeof ss.text === 'string' ? ss.text.slice(0, 80) : DEFAULTS.screensaver.text,
+    },
+    scheme: typeof s.scheme === 'string' && Object.prototype.hasOwnProperty.call(SCHEMES, s.scheme) ? s.scheme : 'standard',
+    colorDepth: COLOR_DEPTHS.includes(s.colorDepth) ? s.colorDepth : '256',
+    foldy: { ...DEFAULTS.foldy, ...(s.foldy ?? {}) },
+    foldyTiming: s.foldyTiming && typeof s.foldyTiming === 'object' ? s.foldyTiming : {},
+    iconPos: s.iconPos && typeof s.iconPos === 'object' ? s.iconPos : {},
+    iconNames: s.iconNames && typeof s.iconNames === 'object' ? s.iconNames : {},
+    personality: s.personality === 'gdiplus' ? 'gdiplus' : 'libjpeg',
+  };
 }
 
 export const settings: Settings = load();

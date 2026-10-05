@@ -3,6 +3,34 @@
 // runner starts at once (no debounce). `supersede` cancels the run in flight (its result would be useless, e.g.
 // another photo); `cancel()` drops the pending value and cancels the run in flight.
 
+/** The lighter form for async loads that may overlap: each `begin()` makes every older ticket stale, so after
+ *  each await a load checks `stale()` and drops a result that a newer load has overtaken. `end()` makes them
+ *  all stale (window closed, feature switched off). */
+export class Sequence {
+  private n = 0;
+  begin(): { stale(): boolean } {
+    const mine = ++this.n;
+    return { stale: () => mine !== this.n };
+  }
+  end() {
+    this.n++;
+  }
+}
+
+/** A cache holding only the latest version per key: a new version replaces the old entry, so edits don't
+ *  pile up entries. */
+export class LatestCache<V> {
+  private m = new Map<string, { version: number; v: V }>();
+  get(key: string, version: number, make: () => V): V {
+    let e = this.m.get(key);
+    if (!e || e.version !== version) this.m.set(key, (e = { version, v: make() }));
+    return e.v;
+  }
+  get size() {
+    return this.m.size;
+  }
+}
+
 export interface RunToken {
   readonly cancelled: boolean;
   /** Called once when the run is cancelled (immediately if it already was). */

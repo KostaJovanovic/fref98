@@ -52,7 +52,7 @@ const TOPICS: Topic[] = [
     id: 'modes',
     title: 'Simple and expert mode',
     body: () => [
-      'Simple mode builds a real list of steps from a story. "Show me how" opens the same steps in expert mode.',
+      'Simple mode builds a real list of steps from a story. "Show Me How" opens the same steps in expert mode.',
       'Expert mode shows the step stack: steps run from top to bottom. Reorder them by dragging the dotted grip or with the ▲▼ buttons (keyboard: Alt+↑/↓). Every random step has its own seed and dice.',
       'Badges show what a step works on: pixel, coeff (DCT coefficients), byte (the file itself), card (a simulated memory card), meta (EXIF). "sim" marks the few effects that are simulated looks rather than real data damage.',
       'A dashed "automatic re-encode" marker shows where the engine has to decode a damaged file and save it again before a pixel step can run.',
@@ -89,16 +89,48 @@ const TOPICS: Topic[] = [
       'File ▸ Save As… opens the Save As dialog. Pick the kind of file in "Save as type": the broken JPEG, a PNG of the preview, the whole project (.rfg), the recipe (the steps only), a ZIP of all your pictures broken the same way, a GIF, AVI or MP4 animation of the damage, or a contact sheet.',
       'Options… holds the settings of each kind (privacy for JPEGs, which pictures go in a ZIP, the animation frames).',
       'Files go to your browser’s Downloads folder. "Save in: My Pictures" keeps a JPEG inside File Refragmenter instead.',
+      'Video Lab saves its damaged clip with File ▸ Save As… (an MJPEG .avi). Camera Wizard records an .avi with Record and saves it when you stop recording, stop the camera or close the window.',
     ],
-    see: ['privacy'],
+    see: ['privacy', 'video', 'webcam'],
+  },
+  {
+    id: 'folders',
+    title: 'My Pictures, Presets and the Recycle Bin',
+    body: () => [
+      'My Pictures holds every photo you opened, as a 98 folder: View switches between Large Icons, Small Icons, List, Details and Thumbnails. Double-click a picture to open it in the editor.',
+      'Presets lists every story the editor knows. "Show Me How" opens its steps in the editor’s expert mode.',
+      'Deleted photos, steps and projects go to the Recycle Bin. Restore puts them back where they were; Empty Recycle Bin removes them for good.',
+    ],
+    see: ['save', 'modes'],
+  },
+  {
+    id: 'video',
+    title: 'Video Lab',
+    body: () => [
+      'Video Lab opens an MJPEG .avi (File ▸ Open…, or drop one on it): every frame of those is a JPEG of its own.',
+      'Effects ▸ Apply Recipe to Every Frame… runs the editor’s steps on each frame, each with its own seed. The Play menu and the buttons play, pause, stop and step through the frames; Effects switches between the damaged and the original frames.',
+      'File ▸ Save As… writes the damaged clip as a new .avi.',
+    ],
+    see: ['save', 'webcam'],
+  },
+  {
+    id: 'webcam',
+    title: 'Camera Wizard',
+    body: () => [
+      'Camera Wizard turns your camera’s picture into JPEGs as you watch, with our own encoder at the quality you pick. The browser asks first whether the page may use the camera; nothing is sent anywhere.',
+      'With "Use the editor’s recipe" on, the quick steps of your recipe (byte damage, re-quantising, channel tricks) run on every frame.',
+      'Snapshot keeps the current frame in My Pictures. Record collects frames into an .avi, saved when you stop.',
+    ],
+    see: ['video', 'privacy'],
   },
   {
     id: 'display',
     title: 'Display Properties',
     body: () => [
-      'Right-click the desktop and choose Properties. Background picks the wallpaper (our own low-quality sky, a colour, tiles or your broken photo); Screen Saver picks the screen saver and how long to wait; Appearance and Settings set the animations, the screen area and the font size.',
+      'Right-click the desktop and choose Properties. Background picks the wallpaper (our own low-quality sky, a colour, tiles or your broken photo).',
+      'Screen Saver picks one of six screen savers and how long to wait; Settings… sets its speed (and the marquee’s text). Preview starts it now: move the mouse or press a key to stop it. It stays away while a video plays, the camera runs or a long job works.',
+      'Appearance picks a colour scheme (Windows Standard, Brick, Desert… High Contrast) and the animations. Settings sets the colours of the desktop (16, 256, High Color or True Color: the wallpaper and the screen saver are drawn in them; the photos in the editor always keep their true colours), the screen area and the font size.',
       'Changes show at once, but are only kept when you press OK or Apply. Cancel puts everything back.',
-      'Screen Saver ▸ Preview starts it now. Move the mouse or press a key to stop it.',
     ],
   },
   {
@@ -126,7 +158,7 @@ const TOPICS: Topic[] = [
 
 const BOOKS: { title: string; topics: string[] }[] = [
   { title: 'Introducing File Refragmenter', topics: ['start', 'real'] },
-  { title: 'Using the Programs', topics: ['modes', 'hex', 'card', 'save', 'display'] },
+  { title: 'Using the Programs', topics: ['modes', 'hex', 'card', 'folders', 'video', 'webcam', 'save', 'display'] },
   { title: 'Privacy and the Keyboard', topics: ['privacy', 'keys'] },
 ];
 

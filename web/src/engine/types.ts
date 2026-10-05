@@ -124,6 +124,8 @@ export interface CardInfo {
   cluster_bytes: number;
   cluster_count: number;
   data_start: number;
+  /** The volume label (empty: none). Older engines don't send it. */
+  label?: string;
   files: { name: string; first_cluster: number; size: number; deleted: boolean; photo_index: number }[];
   log: string[];
 }

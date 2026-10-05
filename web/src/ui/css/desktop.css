@@ -44,7 +44,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  color: #fff;
+  color: var(--c-seltext);
   pointer-events: auto;
   outline: none;
   cursor: var(--cur-arrow, default);
@@ -81,7 +81,7 @@
 }
 /* selected: navy label, and the icon dithered with navy (a 1:1 checker masked by the icon's own shape) */
 .dicon.sel .lbl {
-  background: #000080;
+  background: var(--c-sel);
 }
 .dicon.sel .lbl .tx {
   text-shadow: none;
@@ -90,7 +90,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: repeating-conic-gradient(#000080 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+  background: repeating-conic-gradient(var(--c-sel) 0 25%, transparent 0 50%) 0 0 / 2px 2px;
   -webkit-mask-image: var(--mask-src);
   mask-image: var(--mask-src);
   -webkit-mask-size: 32px 32px;
@@ -100,10 +100,10 @@
 .dicon:focus .lbl::after,
 .rband {
   background:
-    repeating-linear-gradient(90deg, #fff 0 1px, transparent 1px 2px) left top / 100% 1px no-repeat,
-    repeating-linear-gradient(90deg, #fff 0 1px, transparent 1px 2px) left bottom / 100% 1px no-repeat,
-    repeating-linear-gradient(180deg, #fff 0 1px, transparent 1px 2px) left top / 1px 100% no-repeat,
-    repeating-linear-gradient(180deg, #fff 0 1px, transparent 1px 2px) right top / 1px 100% no-repeat;
+    repeating-linear-gradient(90deg, var(--c-win) 0 1px, transparent 1px 2px) left top / 100% 1px no-repeat,
+    repeating-linear-gradient(90deg, var(--c-win) 0 1px, transparent 1px 2px) left bottom / 100% 1px no-repeat,
+    repeating-linear-gradient(180deg, var(--c-win) 0 1px, transparent 1px 2px) left top / 1px 100% no-repeat,
+    repeating-linear-gradient(180deg, var(--c-win) 0 1px, transparent 1px 2px) right top / 1px 100% no-repeat;
   mix-blend-mode: difference;
   pointer-events: none;
 }
@@ -139,9 +139,9 @@
   width: 73px;
   height: auto;
   padding: 0 1px;
-  border: 1px solid #000;
-  background: #fff;
-  color: #000;
+  border: 1px solid var(--c-dark);
+  background: var(--c-win);
+  color: var(--c-text);
   text-align: center;
   outline: none;
   user-select: text;

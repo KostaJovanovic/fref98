@@ -177,7 +177,9 @@ follow that engine default and the user's answers; check them against Let's Play
   - Between words he **freezes** on the exact frame he was on, even open: ~300 ms between words, ~500 ms after a
     comma, ~1 s at a sentence end. Measured freezes were 300–1100 ms.
   - The bob resumes only when he is completely idle. Plain text in the panel types out at about 40 chars/s,
-  pausing 250 ms at `,` and 400 ms at `. ! ?`. A click finishes the line. No sound.
+  pausing 250 ms at `,` and 400 ms at `. ! ?` (Ctrl+Shift+F tunes all three). The text runs ahead of the
+  mouth, and the line ends when the last letter is typed: the mouth stops there too. A click finishes the line.
+  No sound.
 - **Size:** 64×64, drawn after the user's sketch (v2 mockup). The eyes are tall capsules with pupils looking left.
   The folder is a rounded front cover (the mouth) with the back panel and tab receding to the right. Shading is
   Bayer-dithered, light at the top and dark at the bottom.

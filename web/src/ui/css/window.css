@@ -7,10 +7,10 @@
   min-width: 112px;
   min-height: 27px;
   padding: 4px;
-  background: #c0c0c0;
-  color: #000;
+  background: var(--c-face);
+  color: var(--c-text);
   /* window frame: outer ring #DFDFDF / #000, inner ring #FFF / #808080 */
-  box-shadow: inset -1px -1px #000, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #fff;
+  box-shadow: inset -1px -1px var(--c-dark), inset 1px 1px var(--c-light), inset -2px -2px var(--c-shadow), inset 2px 2px var(--c-hi);
 }
 .win.fixed {
   padding: 3px;
@@ -27,7 +27,7 @@
   box-sizing: border-box;
   padding: 4px;
   pointer-events: none;
-  background: repeating-conic-gradient(#fff 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+  background: repeating-conic-gradient(var(--c-win) 0 25%, transparent 0 50%) 0 0 / 2px 2px;
   mix-blend-mode: difference;
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
@@ -64,8 +64,8 @@
   align-items: center;
   gap: 3px;
   padding: 0 2px;
-  background: linear-gradient(to right, #000080, #1084d0);
-  color: #fff;
+  background: linear-gradient(to right, var(--c-cap1), var(--c-cap2));
+  color: var(--c-captext);
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
@@ -80,8 +80,8 @@
 .win:not(.active) .win-title,
 .win.active.flash .win-title,
 .win-zoom.inactive {
-  background: linear-gradient(to right, #808080, #b5b5b5);
-  color: #c0c0c0;
+  background: linear-gradient(to right, var(--c-icap1), var(--c-icap2));
+  color: var(--c-icaptext);
 }
 .win-title .ttl,
 .win-zoom .ttl {
@@ -106,7 +106,7 @@
   height: 14px;
   border: 0;
   padding: 0;
-  background-color: #c0c0c0;
+  background-color: var(--c-face);
   background-repeat: no-repeat;
   background-size: 16px 14px;
   cursor: var(--cur-arrow, default);
@@ -197,10 +197,10 @@
   cursor: var(--cur-arrow, default);
 }
 .win-menu > button:hover {
-  box-shadow: inset -1px -1px #808080, inset 1px 1px #fff;
+  box-shadow: inset -1px -1px var(--c-shadow), inset 1px 1px var(--c-hi);
 }
 .win-menu > button.open {
-  box-shadow: inset 1px 1px #808080, inset -1px -1px #fff;
+  box-shadow: inset 1px 1px var(--c-shadow), inset -1px -1px var(--c-hi);
 }
 .win-body {
   flex: 1;
@@ -226,7 +226,7 @@
   height: calc(16px * var(--ts) + 2px);
   padding: 0 4px;
   overflow: hidden;
-  box-shadow: inset 1px 1px #808080, inset -1px -1px #fff;
+  box-shadow: inset 1px 1px var(--c-shadow), inset -1px -1px var(--c-hi);
 }
 .win-status > .grow {
   flex: 1;
@@ -237,8 +237,8 @@
   align-items: flex-start;
   gap: 6px;
   padding: 4px 6px;
-  border-top: 1px solid #808080;
-  background: #ffffe1;
+  border-top: 1px solid var(--c-shadow);
+  background: var(--c-tip);
 }
 .win-foldy.on {
   display: flex;

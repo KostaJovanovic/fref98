@@ -8,7 +8,7 @@ import { showMenu, type MenuItem } from '../ui/menu';
 import { toUi } from '../ui/scale';
 import { trackDrag } from '../ui/wm-drag';
 import type { ParamInfo, StepInfo } from '../engine/types';
-import { makeRepeat, makeStep, moveNode, removeNode, replaceNode, reencodeMarkers, findNode, type NodeResult, type StackNode, type StepItem } from '../engine/stack';
+import { makeRepeat, makeStep, moveNode, removeNode, replaceNode, reencodeMarkers, findNode, photoChoices, type NodeResult, type StackNode, type StepItem } from '../engine/stack';
 import { newSeed } from '../engine/hash';
 
 export interface StackViewOpts {
@@ -284,8 +284,7 @@ export class StackView {
         ctl = selectField(String(v), p.options ?? [], (s) => setv(s, null), { label: p.label });
         break;
       case 'photo': {
-        const opts: [string, string][] = [['-1', 'Next photo in the pool']];
-        for (const ph of this.o.pool()) opts.push([ph.uid, ph.name]);
+        const opts = photoChoices(v, this.o.pool());
         const cur = typeof v === 'string' ? v : '-1';
         ctl = selectField(cur, opts, (s) => setv(s === '-1' ? -1 : s, null), { label: p.label });
         break;

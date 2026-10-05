@@ -16,15 +16,34 @@
 }
 
 :root {
-  /* Windows 98 "Windows Standard" scheme (docs/WIN98_METRICS.md) */
-  --face: #c0c0c0;
-  --face-hi: #ffffff;
-  --face-lo: #808080;
+  /* the system colours of the colour scheme (Display ▸ Appearance; ui/scheme.ts sets them on #app). These
+     defaults are the Windows Standard scheme (docs/WIN98_METRICS.md). */
+  --c-face: #c0c0c0;
+  --c-hi: #ffffff;
+  --c-light: #dfdfdf;
+  --c-shadow: #808080;
+  --c-dark: #000000;
+  --c-text: #000000;
+  --c-win: #ffffff;
+  --c-wtext: #000000;
+  --c-sel: #000080;
+  --c-seltext: #ffffff;
+  --c-gray: #808080;
+  --c-tip: #ffffe1;
+  --c-cap1: #000080;
+  --c-cap2: #1084d0;
+  --c-captext: #ffffff;
+  --c-icap1: #808080;
+  --c-icap2: #b5b5b5;
+  --c-icaptext: #c0c0c0;
+  --face: var(--c-face);
+  --face-hi: var(--c-hi);
+  --face-lo: var(--c-shadow);
   --face-dk: #404040;
-  --sel: #000080;
-  --text: #000000;
+  --sel: var(--c-sel);
+  --text: var(--c-text);
   --link: #0000ff;
-  --field-border: #808080;
+  --field-border: var(--c-shadow);
   /* the dotted focus rectangle is XOR'd: black on white, and #FFFF7F (navy XOR white) on a selected item */
   --focus-on-sel: #ffff7f;
   /* (desktop.css and phone.css set it for each layout) */
@@ -145,6 +164,6 @@ textarea,
   outline: none;
 }
 :focus-visible {
-  outline: 1px dotted #000;
+  outline: 1px dotted var(--c-text);
   outline-offset: -3px;
 }

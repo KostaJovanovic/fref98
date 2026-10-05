@@ -471,19 +471,14 @@ async function deleteSelected() {
 
 function properties(id: string) {
   const name = iconLabel(id);
-  if (id === 'recycle') {
-    const n = store.bin.length;
-    message('Recycle Bin Properties', `Recycle Bin\n\nContains ${n} item${n === 1 ? '' : 's'}: deleted photos, steps and projects.\nIt lives in this browser only. Nothing is uploaded.`, 'recycle');
-    return;
-  }
+  // the bin's own sheet and confirmation live in the Recycle Bin app (loaded on demand): one wording
+  if (id === 'recycle') return void import('../apps/recycle').then((m) => m.binProperties());
   const app = APPS[id];
   message(`${name} Properties`, `${name}\n\nType: ${appType(id)}\nOpens: ${app.title}${name !== app.title ? `\nLabel: renamed on this desktop` : ''}`, app.icon);
 }
 
 async function emptyBin() {
-  const n = store.bin.length;
-  if (!n) return;
-  if (await confirmBox('Confirm Multiple File Delete', `Are you sure you want to delete ${n === 1 ? 'this item' : `these ${n} items`}?`, 'Yes', 'recycle')) store.emptyBin();
+  if (store.bin.length) await (await import('../apps/recycle')).emptyBin();
 }
 
 /** The desktop's own menu (right-click on empty desktop). */

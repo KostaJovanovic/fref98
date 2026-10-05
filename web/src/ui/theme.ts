@@ -1,12 +1,14 @@
-// Generates the theme's art at startup and exposes it to CSS as custom properties on the app root.
-import { checker, tilePattern, y2kTile, ascii, cached, makeCanvas, controlArtVars } from './art';
-import { GRIP_ROWS } from './art-chrome';
+// Generates the theme's art at startup and exposes it to CSS as custom properties on the app root; redraws it
+// in the colour scheme's system colours when the scheme changes (ui/scheme.ts).
+import { checker, tilePattern, y2kTile, ascii, cached, makeCanvas, controlArtVars, setArtColors, C98 } from './art';
+import { GRIP_ROWS, applyChromeVars } from './art-chrome';
 import { onScale } from './scale';
 import { initCursors, refreshCursors } from './cursors';
-import { settings } from '../settings';
+import { applySchemeVars, schemeColors } from './scheme';
+import { settings, onSettings } from '../settings';
 
 function dots(): string {
-  return cached('grip', () => ascii(GRIP_ROWS, { W: '#ffffff', G: '#808080' }, makeCanvas(8, 18)));
+  return cached('grip', () => ascii(GRIP_ROWS, { W: C98.hi, G: C98.shadow }, makeCanvas(8, 18)));
 }
 
 function tailBorder(): string {
@@ -48,7 +50,7 @@ export function applyTheme(root: HTMLElement) {
   const url = (u: string) => `url("${u}")`;
   set('--img-checker-black', url(checker('#000000')));
   set('--img-checker-white', url(checker('#ffffff')));
-  set('--img-checker-sel', url(checker('#000080')));
+  set('--img-checker-sel', url(checker(C98.sel)));
   set('--img-tiles', url(tilePattern()));
   set('--img-y2k', url(y2kTile()));
   set('--img-hazard', url(hazard()));
@@ -59,10 +61,24 @@ export function applyTheme(root: HTMLElement) {
   for (const [k, v] of Object.entries(controlArtVars())) set(k, v);
 }
 
-export function initTheme(root: HTMLElement) {
+/** Switches the colour scheme: the --c-* variables on the document root, then every sprite redrawn in it. */
+export function applyScheme(root: HTMLElement, id: string) {
+  setArtColors(id, schemeColors(id));
+  applySchemeVars(id);
   applyTheme(root);
+  applyChromeVars(document.documentElement);
+  root.dataset.scheme = id;
+}
+
+export function initTheme(root: HTMLElement) {
+  if (settings.scheme !== 'standard') setArtColors(settings.scheme, schemeColors(settings.scheme));
+  applySchemeVars(settings.scheme);
+  applyTheme(root);
+  root.dataset.scheme = settings.scheme;
+  onSettings((s, ch) => {
+    if (ch.includes('scheme')) applyScheme(root, s.scheme);
+  });
   // 98 cursors, drawn 1:1 in device pixels (ui/cursors.ts)
   initCursors(root);
   onScale(() => refreshCursors());
-  void settings;
 }

@@ -3,10 +3,10 @@
 .menu {
   position: absolute;
   z-index: var(--z-menu);
-  background: #c0c0c0;
-  color: #000;
+  background: var(--c-face);
+  color: var(--c-text);
   /* raised window-frame bevel: outer #DFDFDF / #000, inner #FFF / #808080 */
-  box-shadow: inset -1px -1px #000, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #fff;
+  box-shadow: inset -1px -1px var(--c-dark), inset 1px 1px var(--c-light), inset -2px -2px var(--c-shadow), inset 2px 2px var(--c-hi);
   padding: 3px;
   min-width: 0;
   overflow-x: hidden;
@@ -20,7 +20,7 @@
   align-items: center;
   min-height: calc(17px * var(--ts));
   padding: 0;
-  color: #000;
+  color: var(--c-text);
   background: transparent;
   cursor: var(--cur-arrow, default);
 }
@@ -76,8 +76,8 @@
 }
 /* highlight: navy bar, white text and glyphs */
 .menu .mi.hl {
-  background: #000080;
-  color: #fff;
+  background: var(--c-sel);
+  color: var(--c-seltext);
 }
 .menu .mi.hl.sub .marr {
   background-image: var(--img-g-arrow-r-w);
@@ -90,10 +90,10 @@
 }
 /* disabled: embossed grey (white copy 1 px down-right); highlighted disabled items stay grey, flat */
 .menu .mi.dis {
-  color: #808080;
+  color: var(--c-gray);
 }
 .menu .mi.dis .tx {
-  text-shadow: 1px 1px 0 #fff;
+  text-shadow: 1px 1px 0 var(--c-hi);
 }
 .menu .mi.dis.sub .marr {
   background-image: var(--img-g-arrow-r-d);
@@ -105,7 +105,7 @@
   background-image: var(--img-g-radio-d);
 }
 .menu .mi.dis.hl {
-  color: #808080;
+  color: var(--c-gray);
 }
 .menu .mi.dis.hl .tx {
   text-shadow: none;
@@ -121,15 +121,15 @@
 }
 .mhead {
   padding: 2px 6px 1px 20px;
-  color: #000;
+  color: var(--c-text);
   font-weight: 700;
 }
 /* etched separator: 1 px #808080 over 1 px #FFFFFF */
 .msep {
   height: 2px;
   margin: 3px 1px 4px;
-  border-top: 1px solid #808080;
-  border-bottom: 1px solid #fff;
+  border-top: 1px solid var(--c-shadow);
+  border-bottom: 1px solid var(--c-hi);
 }
 
 /* menu-bar titles: mnemonic underline like the popup items; while a menu is open, hovering just tracks */
@@ -139,7 +139,7 @@
   text-decoration-thickness: 1px;
 }
 .win-menu > button.open:hover {
-  box-shadow: inset 1px 1px #808080, inset -1px -1px #fff;
+  box-shadow: inset 1px 1px var(--c-shadow), inset -1px -1px var(--c-hi);
 }
 
 /* list rows that borrow the menu look (Hex Doctor's segment list) */
@@ -156,17 +156,17 @@ button.mi {
 }
 button.mi:hover,
 button.mi:focus-visible {
-  background: #000080;
-  color: #fff;
+  background: var(--c-sel);
+  color: var(--c-seltext);
 }
 
 /* ------------------------------------------------------------------ tooltip (98: #FFFFE1, 1 px black) */
 .tooltip {
   position: absolute;
   z-index: var(--z-tooltip);
-  background: #ffffe1;
-  color: #000;
-  border: 1px solid #000;
+  background: var(--c-tip);
+  color: var(--c-text);
+  border: 1px solid var(--c-dark);
   padding: 1px 3px 2px;
   max-width: 320px;
   white-space: pre-line;
@@ -181,8 +181,8 @@ button.mi:focus-visible {
 .balloon {
   position: absolute;
   z-index: var(--z-balloon);
-  background: #ffffe1;
-  border: 1px solid #000;
+  background: var(--c-tip);
+  border: 1px solid var(--c-dark);
   padding: 6px 8px;
   max-width: 280px;
 }

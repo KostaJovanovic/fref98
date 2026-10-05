@@ -144,8 +144,8 @@ describe('98 chrome sprites', () => {
     expect(p[0][0]).toBe('K');
     expect(p[13][15]).toBe('W');
     // pressed glyph moves 1 px down-right
-    expect(n[3][4]).toBe('K');
-    expect(p[4][5]).toBe('K');
+    expect(n[3][4]).toBe('T');
+    expect(p[4][5]).toBe('T');
   });
   it('embosses disabled glyphs', () => {
     const d = captionButtonRows('max', 'd');

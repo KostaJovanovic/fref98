@@ -16,6 +16,8 @@ import { mediaGlyph, type MediaGlyph } from './explorer-art';
 import { fmtClock } from './explorer-model';
 import { Folder, propertySheet } from './explorer';
 import * as bus from '../bus';
+import { Sequence } from '../latest';
+import { keepAwake } from '../shell/screensaver';
 
 type State = 'stopped' | 'playing' | 'paused';
 
@@ -50,14 +52,21 @@ export function open(arg?: { file?: File }) {
         { label: '&File', items: fileMenu },
         { label: '&Play', items: playMenu },
         { label: '&Effects', items: () => [{ label: '&Apply Recipe to Every Frame…', disabled: !info, onClick: () => void apply() }, { sep: true }, ...showItems()] },
-        { label: '&Help', items: () => Folder.helpMenu() },
+        { label: '&Help', items: () => Folder.helpMenu({ id: 'video', label: '&Video Lab Help' }) },
       ],
       status: [h('div', { class: 'grow' })],
       onClose: () => {
         state = 'stopped';
         playRun++;
+        awake(false);
+        shows.end();
         win = null;
         view = seek = lcd = null;
+        // the clip goes with the window: a reopened Video Lab starts empty, and the frames are freed
+        avi = info = null;
+        outFrames = [];
+        pos = 0;
+        name = 'video';
         unreg?.();
         unreg = null;
       },
@@ -228,11 +237,16 @@ async function frameBytes(i: number): Promise<Uint8Array> {
   return engine().aviFrame(avi!, i).promise;
 }
 
+const shows = new Sequence();
+
 async function showFrame(i: number) {
   const c = view;
   if (!c || !avi) return;
+  // decodes finish in any order: only the newest request paints (a fast seek-bar drag)
+  const t = shows.begin();
   try {
     const d = await engine().decode(await frameBytes(i), {}).promise;
+    if (t.stale() || c !== view) return;
     const resized = c.width !== d.width || c.height !== d.height;
     c.width = d.width;
     c.height = d.height;
@@ -249,6 +263,16 @@ function tick() {
   status();
 }
 
+/** Playing keeps the screen saver away (released on pause, stop, the end and close). */
+let release: (() => void) | null = null;
+function awake(on: boolean) {
+  if (on) release ??= keepAwake();
+  else {
+    release?.();
+    release = null;
+  }
+}
+
 function play() {
   if (!info || state === 'playing') return;
   if (pos >= info.frames - 1) pos = 0;
@@ -258,6 +282,15 @@ function play() {
 }
 
 async function loop(run: number) {
+  awake(true);
+  try {
+    await playLoop(run);
+  } finally {
+    if (run === playRun || state !== 'playing') awake(false);
+  }
+}
+
+async function playLoop(run: number) {
   while (state === 'playing' && run === playRun && win && info) {
     const t = performance.now();
     await showFrame(pos);
@@ -322,14 +355,18 @@ async function apply() {
   let cancelled = false;
   const prog = progressDialog('Video Lab', { onCancel: () => (cancelled = true), say: 'Breaking every single frame…' });
   const out: Uint8Array[] = [];
+  // this clip (the window may close, or another clip load, meanwhile: then the run stops)
+  const clip = avi;
+  const frames = info.frames;
+  const gone = () => cancelled || avi !== clip;
   try {
-    for (let i = 0; i < info.frames && !cancelled; i++) {
-      prog.set(i / info.frames, `Frame ${i + 1} of ${info.frames}…`);
-      const src = await engine().aviFrame(avi, i).promise;
-      const r = await pipeline.runOn('avi:' + name + ':' + i, src, offsetSeeds(store.doc.stack, i), null, () => cancelled);
+    for (let i = 0; i < frames && !gone(); i++) {
+      prog.set(i / frames, `Frame ${i + 1} of ${frames}…`);
+      const src = await engine().aviFrame(clip, i).promise;
+      const r = await pipeline.runOn('avi:' + name + ':' + i, src, offsetSeeds(store.doc.stack, i), null, gone);
       out.push(r.output);
     }
-    if (!cancelled) {
+    if (!gone()) {
       outFrames = out;
       showDamaged = true;
     }
@@ -344,7 +381,8 @@ async function apply() {
 async function save() {
   if (!info || !outFrames.length) return;
   try {
-    const bytes = await engine().aviWrite(outFrames, info.width, info.height, info.fps || 10).promise;
+    // (the engine takes a whole number: 29.97 is written as 30, not cut to 29)
+    const bytes = await engine().aviWrite(outFrames, info.width, info.height, Math.max(1, Math.round(info.fps || 10))).promise;
     download(bytes, name + '_refrag.avi', 'video/x-msvideo');
     bus.emit('exported');
   } catch (e) {

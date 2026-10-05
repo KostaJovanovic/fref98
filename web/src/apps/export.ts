@@ -14,7 +14,8 @@ import { engine, NotAvailableError, isCancel } from '../engine/client';
 import { insertComment, stripExifFallback } from '../engine/jpegmeta';
 import { zipStore } from '../engine/zip';
 import { toRecipe, canShareAsLink, linkRecipe, recipeToFragment, APP_VERSION } from '../engine/recipe';
-import type { StackNode } from '../engine/stack';
+import { mapSeeds, type StackNode } from '../engine/stack';
+import { safeFileName, stripKnownExt } from '../filenames';
 import { contactSheet, canvasToPng, type SheetStyle } from '../contact';
 import { canEncodeMp4, encodeMp4 } from '../engine/mp4';
 import { errorBox, message, confirmBox, progressDialog, progressDone } from '../ui/dialog';
@@ -34,7 +35,7 @@ interface TypeInfo {
 const TYPES: Record<Kind, TypeInfo> = {
   jpg: { label: 'JPEG Image, broken (*.jpg)', ext: 'jpg', icon: 'jpeg', suffix: () => baseName() + '_refrag' },
   png: { label: 'PNG of the Preview (*.png)', ext: 'png', icon: 'pictures', suffix: () => baseName() + '_refrag_preview' },
-  rfg: { label: 'Refragmenter Project (*.rfg)', ext: 'rfg', icon: 'project', suffix: () => (store.doc.name || 'Untitled').replace(/[^\w .-]+/g, '_') },
+  rfg: { label: 'Refragmenter Project (*.rfg)', ext: 'rfg', icon: 'project', suffix: () => safeFileName(store.doc.name || 'Untitled') },
   json: { label: 'Recipe, steps only (*.json)', ext: 'json', icon: 'documents', suffix: () => baseName() + '_recipe' },
   zip: { label: 'ZIP of All Pictures, batch (*.zip)', ext: 'zip', icon: 'project', suffix: () => 'refrag_batch' },
   gif: { label: 'GIF Animation (*.gif)', ext: 'gif', icon: 'video', suffix: () => baseName() + (anim.mode === 'gen' ? '_generations' : '_steps'), available: () => engine().has('encode_gif') },
@@ -43,7 +44,6 @@ const TYPES: Record<Kind, TypeInfo> = {
   sheet: { label: 'Contact Sheet of My Pictures (*.png)', ext: 'png', icon: 'pictures', suffix: () => 'contact_sheet' },
 };
 const ORDER: Kind[] = ['jpg', 'png', 'rfg', 'json', 'zip', 'gif', 'avi', 'mp4', 'sheet'];
-const TAB_KIND: Kind[] = ['jpg', 'zip', 'gif', 'json'];
 
 type Place = 'downloads' | 'pictures';
 const PLACES: [Place, string][] = [
@@ -60,8 +60,8 @@ const savedNames: { name: string; kind: Kind }[] = [];
 
 let sa: SaveAs | null = null;
 
-export function open(arg?: { tab?: number; kind?: Kind }) {
-  const k = arg?.kind ?? (arg?.tab !== undefined ? TAB_KIND[arg.tab] : undefined);
+export function open(arg?: { kind?: Kind }) {
+  const k = arg?.kind;
   if (sa && getWin('export')) {
     if (k) sa.setKind(k);
     sa.win.focus();
@@ -72,7 +72,7 @@ export function open(arg?: { tab?: number; kind?: Kind }) {
 
 function baseName(): string {
   const p = store.current;
-  return (p?.name ?? 'photo').replace(/[^\w.-]+/g, '_').replace(/\.(jpe?g|png)$/i, '');
+  return safeFileName(stripKnownExt(p?.name ?? 'photo'), 'photo');
 }
 
 class SaveAs {
@@ -175,7 +175,8 @@ class SaveAs {
   }
 
   private fileName(): string {
-    return this.name.replace(/\.[^.\\/]*$/, '') + '.' + TYPES[this.kind].ext;
+    // only an extension we know comes off ("holiday.v2" is a name, not a type)
+    return stripKnownExt(this.name) + '.' + TYPES[this.kind].ext;
   }
 
   private renderCombos() {
@@ -223,7 +224,7 @@ class SaveAs {
       r.setAttribute('aria-selected', String(on));
     }
     if (name === 'My Pictures') return;
-    this.name = name.replace(/\.[^.]+$/, '');
+    this.name = stripKnownExt(name);
     this.nameInput.value = this.fileName();
   }
 
@@ -411,10 +412,9 @@ async function savePng(name: string): Promise<boolean> {
 }
 
 async function saveRfg(name: string): Promise<boolean> {
-  const zip = store.projectZip();
-  download(zip, name + '.rfg', 'application/zip');
+  // the one project save (File ▸ Save Project uses it too)
   const m = await import('../shell/shell');
-  await m.rememberProject(name, zip);
+  await m.saveProject(name);
   return true;
 }
 
@@ -481,7 +481,7 @@ async function saveBatch(name: string): Promise<boolean> {
 }
 
 export function offsetSeeds(nodes: StackNode[], add: number): StackNode[] {
-  return nodes.map((n) => (n.type === 'step' ? { ...n, seed: (n.seed + add) >>> 0 } : n.type === 'repeat' ? { ...n, seed: (n.seed + add) >>> 0, children: n.children.map((c) => ({ ...c, seed: (c.seed + add) >>> 0 })) } : n));
+  return mapSeeds(nodes, (s) => (s + add) >>> 0);
 }
 
 async function saveAnim(fmt: 'gif' | 'avi' | 'mp4', name: string): Promise<boolean> {

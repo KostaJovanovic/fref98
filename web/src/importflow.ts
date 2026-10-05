@@ -31,7 +31,10 @@ export async function importFiles(files: File[], opts: { makeCurrent?: boolean }
       const { openApp } = await import('./apps/registry');
       openApp('video', { file: f });
     } else if (kind === 'photo') photos.push(f);
-    else errorBox(`${f.name}: File Refragmenter can't use this kind of file.`);
+    else {
+      bus.emit('unreadable');
+      errorBox(`${f.name}: File Refragmenter can't use this kind of file.`);
+    }
   }
   if (!photos.length) return;
   const prog = photos.length > 2 ? progressDialog('Copying photos', { say: 'Copying your photos into My Pictures… they stay on this computer.' }) : null;
@@ -45,6 +48,7 @@ export async function importFiles(files: File[], opts: { makeCurrent?: boolean }
       store.addPhoto({ name: p.name, source: 'user', bytes: p.bytes, note: p.note, width: p.width, height: p.height }, { makeCurrent: first && opts.makeCurrent !== false, front: false });
       first = false;
     } catch (e) {
+      bus.emit('unreadable');
       errorBox(`${f.name}: ${(e as Error).message}`);
     }
     i++;
@@ -99,6 +103,8 @@ export function ensureSamples(): Promise<void> {
     store.history.reset(store.doc);
     store.emit('photos');
   })();
+  // a failed load (no network, storage full) is tried again next time instead of failing for good
+  samplesP.catch(() => (samplesP = null));
   return samplesP;
 }
 

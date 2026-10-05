@@ -501,6 +501,138 @@ await pg.waitForTimeout(300);
   check('focus on a selected Help topic is the XOR colour', fo === 'dotted rgb(255, 255, 127)', fo);
 }
 
+// ------------------------------------------------------------------ apps, schemes and savers (audit B8)
+{
+  const closeAll = () => pg.evaluate(() => {
+    for (const m of document.querySelectorAll('.menu')) m.remove();
+    for (const w of [...document.querySelectorAll('.win')]) w.querySelector('.tbtn.close')?.click();
+  });
+  await closeAll();
+  await pg.waitForTimeout(400);
+
+  // D10: a colour scheme recolours the chrome (caption, face), and Standard brings the 98 colours back
+  await pg.evaluate(() => window.__refrag.openApp('about'));
+  await pg.waitForTimeout(500);
+  const look = () => pg.evaluate(() => {
+    const t = document.querySelector('.win.active .win-title');
+    return { cap: t ? getComputedStyle(t).backgroundImage + getComputedStyle(t).backgroundColor : '', face: getComputedStyle(document.documentElement).getPropertyValue('--c-face').trim() };
+  });
+  const std = await look();
+  await pg.evaluate(() => window.__refrag.setSettings({ scheme: 'brick' }));
+  await pg.waitForTimeout(300);
+  const brick = await look();
+  await shot(pg, 'scheme-brick');
+  await pg.evaluate(() => window.__refrag.setSettings({ scheme: 'standard' }));
+  await pg.waitForTimeout(300);
+  const back = await look();
+  check('a colour scheme recolours captions and faces (D10)', brick.cap !== std.cap && brick.face !== std.face && back.face === std.face && back.face === '#c0c0c0', `${std.face} → ${brick.face} → ${back.face}`);
+  await closeAll();
+
+  // D10: Display lists the six savers and the four colour depths
+  await pg.evaluate(() => window.__refrag.openApp('display'));
+  await pg.waitForTimeout(500);
+  const opts = () => pg.evaluate(() => [...document.querySelectorAll('.win.active select option')].map((o) => o.textContent.trim()));
+  await pg.locator('.win.active .tab', { hasText: 'Screen Saver' }).first().click();
+  await pg.waitForTimeout(300);
+  const so = await opts();
+  check('Display lists the six screen savers (D10)', ['JPEG Starfield', 'Mystify', 'Marquee', 'Pipes'].every((n) => so.some((o) => o.includes(n))) && so.length >= 7, so.join(' | '));
+  await pg.locator('.win.active .tab', { hasText: 'Settings' }).first().click();
+  await pg.waitForTimeout(300);
+  const co = await opts();
+  check('Display ▸ Settings ▸ Colors has 16 / 256 / High / True Color (D10)', ['16 Colors', '256 Colors', 'High Color (16 bit)', 'True Color (24 bit)'].every((n) => co.includes(n)), co.join(' | '));
+  await closeAll();
+
+  // D10, 04-18: every saver draws something in the Display preview (the frames really run)
+  const drawn = [];
+  for (const kind of ['starfield', 'folders', 'mystify', 'marquee', 'pipes', 'corrupt']) {
+    await pg.evaluate((kind) => window.__refrag.setSettings({ screensaver: { enabled: true, minutes: 5, kind, speed: 3, text: 'Hello' } }), kind);
+    await pg.evaluate(() => window.__refrag.openApp('display'));
+    await pg.waitForTimeout(400);
+    await pg.locator('.win.active .tab', { hasText: 'Screen Saver' }).first().click();
+    await pg.waitForTimeout(1500);
+    const lit = await pg.evaluate(() => {
+      const c = document.querySelector('.win.active canvas');
+      if (!c) return -1;
+      const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      const seen = new Set();
+      for (let i = 0; i < d.length; i += 16) seen.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]);
+      return seen.size;
+    });
+    drawn.push(`${kind}:${lit}`);
+    await closeAll();
+    await pg.waitForTimeout(200);
+  }
+  check('every screen saver draws in the preview (D10)', drawn.every((s) => Number(s.split(':')[1]) > 3), drawn.join(' '));
+  await pg.evaluate(() => window.__refrag.setSettings({ screensaver: { enabled: true, minutes: 5, kind: 'starfield', speed: 3, text: 'File Refragmenter 98 Gold' } }));
+
+  // 06-24 / 04-27: Save As is not a program in Start ▸ Programs
+  await pg.locator('.start').click();
+  await pg.waitForTimeout(300);
+  await pg.locator('.menu .mi', { hasText: 'Programs' }).first().hover();
+  await pg.waitForTimeout(600);
+  const progs = (await pg.locator('.menu').last().locator('.mi').allInnerTexts()).map((s) => s.trim());
+  check('Start ▸ Programs has no Save As (06-24)', progs.length > 0 && !progs.some((p) => /Save As|Export/.test(p)), progs.join(' | '));
+  await pg.keyboard.press('Escape');
+  await pg.keyboard.press('Escape');
+  await closeAll();
+
+  // 06-13: Hex Doctor has Redo next to Undo
+  await pg.evaluate(() => window.__refrag.openApp('hex'));
+  await pg.waitForTimeout(800);
+  const redo = await pg.locator('.win.active [data-tip="Redo (Ctrl+Y)"]').count();
+  check('Hex Doctor has a Redo button (06-13)', redo === 1, `${redo}`);
+  await closeAll();
+
+  // 05-24: a photo dragged from My Pictures onto the desktop Recycle Bin asks to send it there
+  await pg.evaluate(() => window.__refrag.openApp('pictures'));
+  await pg.waitForTimeout(900);
+  const item = await pg.locator('.win.active .fv-item').first().boundingBox();
+  const bin = await pg.locator('.dicon[data-app="recycle"]').first().boundingBox();
+  let asked = 'no item or no bin icon';
+  if (item && bin) {
+    await pg.mouse.move(item.x + item.width / 2, item.y + 12);
+    await pg.mouse.down();
+    await pg.mouse.move(item.x + item.width / 2 + 30, item.y + 30, { steps: 3 });
+    const ghost = await pg.locator('.fv-dragghost').count();
+    await pg.mouse.move(bin.x + bin.width / 2, bin.y + bin.height / 2, { steps: 8 });
+    await pg.mouse.up();
+    await pg.waitForTimeout(400);
+    asked = `ghost ${ghost}; ` + ((await pg.locator('.win:not(.closing) .msgbox').allInnerTexts()).join(' ').replace(/\s+/g, ' ') || 'no box');
+    await pg.keyboard.press('Escape');
+    await pg.waitForTimeout(300);
+  }
+  check('dragging a photo onto the Recycle Bin asks to delete it (05-24)', /ghost 1; .*send .* to the Recycle Bin/.test(asked), asked);
+  // a plain double-click on an item still opens it (the drag watches the page, no pointer capture)
+  await pg.evaluate(() => window.__refrag.openApp('pictures'));
+  await pg.waitForTimeout(400);
+  const n0 = await pg.locator('.win').count();
+  await pg.locator('.win.active .fv-item').first().dblclick();
+  await pg.waitForTimeout(900);
+  check('double-click still opens a photo after the drag change (05-24)', (await pg.locator('.win').count()) > n0 || (await pg.locator('.win.active .ed-toolbar').count()) > 0);
+  await closeAll();
+  await pg.waitForTimeout(300);
+
+  // 07-15: the "…sorry, where was I?" follow-up never replaces a message that arrived after the glitch line
+  await pg.evaluate(() => window.__refrag.openApp('pictures'));
+  await pg.waitForTimeout(500);
+  const said = await pg.evaluate(async () => {
+    const r = window.__refrag;
+    r.setSettings({ foldy: { ...r.settings.foldy, enabled: true, glitches: true, tutorialDone: true } });
+    const rnd = Math.random;
+    Math.random = () => 0; // forces the rare nonsense-before-a-tip path
+    r.foldy.say('A tip about blocks.', { kind: 'tip' });
+    Math.random = rnd;
+    r.foldy.player.skip(); // the nonsense line ends now; its follow-up waits 1.6 s
+    r.foldy.help('Help that arrived meanwhile.');
+    await new Promise((res) => setTimeout(res, 2500));
+    return document.querySelector('.win.active .foldy-text')?.textContent ?? '';
+  });
+  check('a glitch follow-up does not overwrite a newer message (07-15)', said.includes('Help that arrived meanwhile.') && !said.includes('where was I'), said);
+  await pg.evaluate(() => window.__refrag.foldy.hideBalloon());
+  await closeAll();
+  await pg.waitForTimeout(300);
+}
+
 await audits('after interaction');
 await shot(pg, 'desktop');
 

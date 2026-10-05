@@ -260,7 +260,7 @@ async function handle(op: string, a: any): Promise<{ result: unknown; transfer?:
     }
     // ---- ambient: the desktop sky, made of a real low-quality JPEG ----
     case 'sky': {
-      const p = a as SkyParams & { quality: number; damage: number; seed: number };
+      const p = a as SkyParams & { quality: number; damage: number; seed: number; depth?: string };
       const frame = renderSkyFrame(p);
       let out = frame;
       let via = 'raw';
@@ -279,7 +279,7 @@ async function handle(op: string, a: any): Promise<{ result: unknown; transfer?:
           via = 'ours';
         }
       }
-      if (!p.noDither) ditherSky(out, p.width, p.height);
+      if (!p.noDither) ditherSky(out, p.width, p.height, p.depth);
       return { result: { rgba: out, via }, transfer: [out.buffer] };
     }
     case 'ping':

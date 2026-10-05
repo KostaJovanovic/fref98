@@ -19,6 +19,7 @@ import { foldy } from '../foldy/foldy';
 import { Folder, propertySheet, standardButtons, getClip, setClip, type FolderSpec } from './explorer';
 import * as M from './explorer-model';
 import { restoreItems } from './recycle';
+import { LatestCache } from '../latest';
 
 const LOCATION = 'C:\\My Documents';
 const ADDRESS = LOCATION + '\\My Pictures';
@@ -27,23 +28,24 @@ let f: Folder<PhotoData> | null = null;
 let unsub: (() => void) | null = null;
 /** Edit ▸ Undo: the last delete or rename. */
 let undo: { label: string; run: () => void } | null = null;
-const dims = new Map<string, { w: number; h: number } | null>();
+/** Dimensions read from the JPEG, one entry per photo (an edit replaces it, so old versions don't pile up). */
+const dims = new LatestCache<{ w: number; h: number } | null>();
 
 export function open() {
   if (f && getWin('pictures')) return f.win.focus();
   f = new Folder<PhotoData>(spec());
   unsub = store.on((why) => (why === 'photos' || why === 'load' || why === 'undo' || why === 'redo' || why === 'bin') && f?.render());
-  void ensureSamples().then(() => f?.render());
+  ensureSamples()
+    .then(() => f?.render())
+    .catch((e) => errorBox(`Cannot load the sample photos: ${e instanceof Error ? e.message : e}`));
 }
 
 function dimsOf(p: PhotoData): { w: number; h: number } | null {
   if (p.width && p.height) return { w: p.width, h: p.height };
-  const k = p.uid + '@' + p.version;
-  if (!dims.has(k)) {
+  return dims.get(p.uid, p.version, () => {
     const fr = inspectJpeg(p.bytes).frame;
-    dims.set(k, fr ? { w: fr.width, h: fr.height } : null);
-  }
-  return dims.get(k)!;
+    return fr ? { w: fr.width, h: fr.height } : null;
+  });
 }
 
 const created = (p: PhotoData) => M.uidTime(p.uid);
@@ -99,7 +101,7 @@ function spec(): FolderSpec<PhotoData> {
       { label: '&File', items: () => fileMenu(fo) },
       { label: '&Edit', items: () => editMenu(fo) },
       { label: '&View', items: () => fo.viewMenu() },
-      { label: '&Help', items: () => Folder.helpMenu() },
+      { label: '&Help', items: () => Folder.helpMenu({ id: 'folders', label: 'My &Pictures Help' }) },
     ],
     toolbar: (fo) =>
       standardButtons({
@@ -116,6 +118,9 @@ function spec(): FolderSpec<PhotoData> {
         canDel: () => fo.sel.size > 0,
       }),
     onDelete: (items) => void del(items),
+    // drag a picture onto the Recycle Bin (its window or the desktop icon) to delete it
+    dropRole: 'pictures',
+    onDragTo: (items, t) => t === 'bin' && void del(items),
     rename: (p, name) => rename(p, name),
     onCut: cut,
     onCopy: copy,
@@ -142,7 +147,7 @@ function itemMenu(items: PhotoData[]): MenuItem[] {
   return [
     { label: '&Open', default: true, onClick: () => openIn(items[0]) },
     { label: 'Open in He&x Doctor', disabled: !one, onClick: () => one && openHex(one) },
-    { label: 'Own &Steps…', disabled: !one, onClick: () => one && ownSteps(one) },
+    { label: 'Own S&teps…', disabled: !one, onClick: () => one && ownSteps(one) },
     { label: 'Set as &Wallpaper', disabled: !one, onClick: () => one && void wallpaper(one) },
     { sep: true },
     { label: 'Cu&t', onClick: () => cut(items) },
@@ -162,7 +167,7 @@ function fileMenu(fo: Folder<PhotoData>): MenuItem[] {
     ? [
         { label: '&Open', default: true, onClick: () => openIn(items[0]) },
         { label: 'Open in He&x Doctor', disabled: !one, onClick: () => one && openHex(one) },
-        { label: 'Own &Steps…', disabled: !one, onClick: () => one && ownSteps(one) },
+        { label: 'Own S&teps…', disabled: !one, onClick: () => one && ownSteps(one) },
         { sep: true },
       ]
     : [];
@@ -197,7 +202,11 @@ function editMenu(fo: Folder<PhotoData>): MenuItem[] {
 // ------------------------------------------------------------------ commands
 
 async function addPhotos() {
-  await importFiles(await pickFiles('image/*,.jpg,.jpeg'), { makeCurrent: false });
+  try {
+    await importFiles(await pickFiles('image/*,.jpg,.jpeg'), { makeCurrent: false });
+  } catch (e) {
+    errorBox(`Cannot add the photos: ${e instanceof Error ? e.message : e}`);
+  }
 }
 
 function openIn(p: PhotoData | undefined) {

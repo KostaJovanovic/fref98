@@ -95,7 +95,7 @@ function spec(): FolderSpec<RecycleItem> {
         ],
       },
       { label: '&View', items: () => fo.viewMenu() },
-      { label: '&Help', items: () => Folder.helpMenu() },
+      { label: '&Help', items: () => Folder.helpMenu({ id: 'folders', label: '&Recycle Bin Help' }) },
     ],
     toolbar: (fo) =>
       standardButtons({
@@ -107,6 +107,9 @@ function spec(): FolderSpec<RecycleItem> {
         canProps: () => fo.sel.size > 0,
       }),
     onDelete: (items) => void purge(items),
+    // drag items out onto My Pictures to restore them (they go back where they were)
+    dropRole: 'bin',
+    onDragTo: (items, t) => t === 'pictures' && restore(items),
     onCut: cut,
     onProperties: (items) => properties(items),
     onClose: () => {
@@ -206,7 +209,8 @@ function properties(items: RecycleItem[]) {
   });
 }
 
-function binProperties() {
+/** Recycle Bin Properties. Also used by the desktop's Recycle Bin icon. */
+export function binProperties() {
   const total = store.bin.reduce((a, it) => a + itemSize(it), 0);
   propertySheet({
     id: 'props:recycle:bin',

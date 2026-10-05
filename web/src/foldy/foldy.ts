@@ -8,10 +8,10 @@ import { h } from '../ui/dom';
 import { ui, onScale } from '../ui/scale';
 import { settings, setSubSettings, onSettings, reducedMotion } from '../settings';
 import { windows, activeWin, onWm, type Win } from '../ui/wm';
-import { nonsense, TIPS, TUTORIAL } from './lines';
+import { jumbled, nonsense, presetLine, reaction, tip, tutorial, type ReactionId, type TutorialStep } from './lines';
 import { Player, type Mood } from './player';
 import { SPRITE_W, SPRITE_H } from './sheet';
-import { sanitizeTiming } from './timeline';
+import { sanitizeTiming, textDelay } from './timeline';
 import * as bus from '../bus';
 
 /** 'blink' is accepted for old callers and means 'normal'. */
@@ -63,11 +63,12 @@ class Foldy {
   private pending: { text: string; opts: SayOpts } | null = null;
   private hideTimer: ReturnType<typeof setTimeout> | null = null;
   private moodTimer: ReturnType<typeof setTimeout> | null = null;
-  private typing: ReturnType<typeof setInterval> | null = null;
+  private typing: ReturnType<typeof setTimeout> | null = null;
   private lastInput = Date.now();
   private clicks: number[] = [];
   private moodHold: Mood | null = null;
-  private tutorialStep: keyof typeof TUTORIAL | null = null;
+  private tutorialStep: TutorialStep | null = null;
+  private undos: number[] = [];
   private helpOverride = false;
   hiddenForSession = false;
 
@@ -88,10 +89,17 @@ class Foldy {
     for (const ev of ['pointerdown', 'keydown'] as const)
       addEventListener(ev, () => {
         this.lastInput = Date.now();
-        if (this.player.mood === 'asleep' && !this.moodHold) this.setFace('normal');
+        if (this.player.mood === 'asleep' && !this.moodHold) {
+          this.setFace('normal');
+          this.say(reaction('wake'), { kind: 'reaction' });
+        }
       }, true);
     setInterval(() => {
-      if (!this.msg && !this.moodHold && Date.now() - this.lastInput > 90_000 && this.player.mood !== 'asleep') this.setFace('asleep');
+      if (!this.msg && !this.moodHold && Date.now() - this.lastInput > 90_000 && this.player.mood !== 'asleep') {
+        // his own line, if the user wrote one, first; the face stays asleep after it
+        this.say(reaction('idle_asleep'), { kind: 'reaction', mood: 'asleep' });
+        this.setFace('asleep');
+      }
     }, 5000);
     // the hidden tuning panel
     addEventListener('keydown', (e) => {
@@ -120,7 +128,7 @@ class Foldy {
     this.hiddenForSession = false;
     if (!settings.foldy.enabled) setSubSettings('foldy', { enabled: true });
     this.applyEnabled();
-    this.say('I’m back. Click me any time for help.', { kind: 'reaction', mood: 'happy' });
+    this.say(reaction('back'), { kind: 'reaction', mood: 'happy' });
   }
 
   hide() {
@@ -267,7 +275,7 @@ class Foldy {
   // ------------------------------------------------------------ talking
 
   private stopTyping() {
-    if (this.typing) clearInterval(this.typing);
+    if (this.typing) clearTimeout(this.typing);
     this.typing = null;
   }
 
@@ -296,14 +304,30 @@ class Foldy {
       return;
     }
     const tutorial = kind === 'tutorial' || !settings.foldy.tutorialDone;
+    const glitchy = settings.foldy.glitches && !tutorial && (kind === 'chatter' || kind === 'tip');
     // toned down: a rare bit of nonsense before a tip or chatter, never instead of it
-    if (settings.foldy.glitches && !tutorial && (kind === 'chatter' || kind === 'tip') && Math.random() < 0.03) {
-      return this.speak(nonsense(), { ...o, sticky: true }, () => setTimeout(() => this.msg && this.say('…sorry, where was I? ' + text, { ...o, kind: 'reaction' }), 1600));
+    if (glitchy && Math.random() < 0.03) {
+      const m = this.speak(nonsense(), { ...o, sticky: true }, () =>
+        // only if the nonsense is still what he is showing: never over a message that arrived meanwhile
+        setTimeout(() => this.msg === m && this.say(reaction('glitch_recover') + text, { ...o, kind: 'reaction' }), 1600),
+      );
+      return;
+    }
+    // rarer still: the words come out jumbled, then he glitches and gets them right
+    if (glitchy && Math.random() < 0.01 && reaction('jumble') && text.includes(' ')) {
+      const m = this.speak(jumbled(text), { ...o, sticky: true }, () =>
+        setTimeout(() => {
+          if (this.msg !== m) return;
+          this.pain();
+          this.speak(text, o);
+        }, 600),
+      );
+      return;
     }
     this.speak(text, o);
   }
 
-  private speak(text: string, o: SayOpts, then?: () => void) {
+  private speak(text: string, o: SayOpts, then?: () => void): Message {
     if (this.hideTimer) clearTimeout(this.hideTimer);
     this.hideTimer = null;
     if (this.moodTimer) clearTimeout(this.moodTimer);
@@ -316,13 +340,17 @@ class Foldy {
       this.renderText(p, m);
       p.say.scrollTop = 0;
     }
-    // the text types on its own clock; the mouth only forces the rest out when the line ends or is skipped
+    // the text types on its own clock (pausing at punctuation); when it is all typed the line is over, so the
+    // mouth stops with it. A skip (a click, reduced motion) forces the rest out at once.
     this.stopTyping();
-    this.typing = setInterval(() => {
-      if (this.msg !== m) return this.stopTyping();
+    const type = () => {
+      this.typing = null;
+      if (this.msg !== m) return;
       this.reveal(m.reveal + 1);
-      if (m.reveal >= text.length) this.stopTyping();
-    }, this.player.timing.textCharMs);
+      if (m.reveal >= text.length) return this.player.skip();
+      this.typing = setTimeout(type, textDelay(text, m.reveal - 1, this.player.timing));
+    };
+    this.typing = setTimeout(type, this.player.timing.textCharMs);
     this.player.say(text, {
       onReveal: (n) => {
         if (n < text.length || this.msg !== m) return;
@@ -336,6 +364,7 @@ class Foldy {
         this.finish(m);
       },
     });
+    return m;
   }
 
   private finish(m: Message) {
@@ -357,7 +386,7 @@ class Foldy {
   }
 
   tip() {
-    this.say(TIPS[Math.floor(Math.random() * TIPS.length)], { kind: 'tip' });
+    this.say(tip(), { kind: 'tip' });
   }
 
   // ------------------------------------------------------------ clicks
@@ -373,12 +402,14 @@ class Foldy {
     }
     if (this.player.talking) return this.player.skip();
     if (this.msg) return this.hideBalloon();
-    this.say('Hi. What can I do for you?', {
+    const label = (id: ReactionId, fallback: string) => reaction(id) || fallback;
+    this.say(label('click_greet', 'Hi. What can I do for you?'), {
       kind: 'reaction',
+      mood: 'happy',
       actions: [
-        { label: 'Why does it look like that?', run: () => bus.emit('explain-image') },
-        { label: 'Give me a tip', run: () => this.tip() },
-        { label: 'Hide Foldy', run: () => this.hide() },
+        { label: label('click_btn_why', 'Why does it look like that?'), run: () => bus.emit('explain-image') },
+        { label: label('click_btn_tip', 'Give me a tip'), run: () => this.tip() },
+        { label: label('click_btn_hide', 'Hide Foldy'), run: () => this.hide() },
       ],
     });
   }
@@ -386,7 +417,7 @@ class Foldy {
   /** Poked too often: he glitches, then says something odd. */
   glitchBurst() {
     this.pain();
-    setTimeout(() => this.say(nonsense(), { kind: 'reaction', mood: 'shocked' }), this.player.still ? 0 : this.player.timing.painMs + this.player.timing.winceMs);
+    setTimeout(() => this.say(reaction('click_spam', nonsense()), { kind: 'reaction', mood: 'shocked' }), this.player.still ? 0 : this.player.timing.painMs + this.player.timing.winceMs);
   }
 
   // ------------------------------------------------------------ reactions & tutorial
@@ -397,39 +428,57 @@ class Foldy {
       if (longTimer) clearTimeout(longTimer);
       longTimer = setTimeout(() => {
         this.mood('worried');
-        if (d?.say) this.say(d.say, { kind: 'reaction', mood: 'worried' });
+        // the progress dialog's own words, unless the user wrote a "working" line
+        this.say(reaction('working', d?.say), { kind: 'reaction', mood: 'worried' });
       }, 1200);
     });
     bus.on('long-end', () => {
       if (longTimer) clearTimeout(longTimer);
       if (this.moodHold === 'worried') this.mood(null);
     });
-    bus.on('heavy-damage', () => {
+    // lines the sheet marks "sometimes" / "rarely" (they are silent unless the user wrote them)
+    const sometimes = () => Math.random() < 0.5;
+    const rarely = () => Math.random() < 0.25;
+    const react = (id: ReactionId, mood?: Face) => !this.msg && this.say(reaction(id), { kind: 'reaction', mood, context: 'simple' });
+    bus.on('heavy-damage', (d?: { grey?: boolean }) => {
       this.pain();
-      if (!this.msg) setTimeout(() => !this.msg && this.say('Whoa. That photo has seen things.', { kind: 'reaction', mood: 'shocked' }), this.player.still ? 0 : this.player.timing.painMs);
+      const id: ReactionId = d?.grey ? 'all_grey' : 'heavy_damage';
+      if (!this.msg) setTimeout(() => !this.msg && this.say(reaction(id), { kind: 'reaction', mood: d?.grey ? 'worried' : 'shocked' }), this.player.still ? 0 : this.player.timing.painMs);
     });
     bus.on('error', () => this.pain());
+    bus.on('unreadable', () => this.say(reaction('unreadable'), { kind: 'reaction', mood: 'worried' }));
     bus.on('exported', () => {
       if (!settings.foldy.tutorialDone) {
-        this.say(TUTORIAL.done, { kind: 'tutorial', mood: 'happy' });
+        this.say(tutorial('tut_done'), { kind: 'tutorial', mood: 'happy' });
         setSubSettings('foldy', { tutorialDone: true });
         this.tutorialStep = null;
-      } else this.say('Saved. Enjoy your broken file.', { kind: 'reaction', mood: 'happy' });
+      } else this.say(reaction('exported'), { kind: 'reaction', mood: 'happy' });
     });
     bus.on('photo-loaded', () => {
       if (this.msg?.opts.context === 'empty') this.hideBalloon();
-      if (!settings.foldy.tutorialDone && !settings.expert && this.tutorialStep !== 'pick' && this.tutorialStep !== 'slider') {
-        this.tutorialStep = 'pick';
-        this.say(TUTORIAL.pick, { kind: 'tutorial', sticky: true, context: 'simple' });
-      }
+      if (!settings.foldy.tutorialDone && !settings.expert && this.tutorialStep !== 'tut_pick' && this.tutorialStep !== 'tut_slider') {
+        this.tutorialStep = 'tut_pick';
+        this.say(tutorial('tut_pick'), { kind: 'tutorial', sticky: true, context: 'simple' });
+      } else if (settings.foldy.tutorialDone && rarely()) react('photo_loaded');
     });
     bus.on('preset-chosen', (p) => {
       if (!settings.foldy.tutorialDone) {
-        if (this.tutorialStep !== 'slider') {
-          this.tutorialStep = 'slider';
-          this.say(TUTORIAL.slider, { kind: 'tutorial', sticky: true, context: 'simple' });
+        if (this.tutorialStep !== 'tut_slider') {
+          this.tutorialStep = 'tut_slider';
+          this.say(tutorial('tut_slider'), { kind: 'tutorial', sticky: true, context: 'simple' });
         }
-      } else if (p?.foldy) this.say(p.foldy, { kind: 'chatter', context: 'simple' });
+      } else if (p?.foldy) this.say(presetLine(p), { kind: 'chatter', context: 'simple' });
+    });
+    bus.on('slider-end', (end: 'low' | 'max') => sometimes() && react(end === 'low' ? 'slider_low' : 'slider_max', end === 'max' ? 'shocked' : undefined));
+    bus.on('another-roll', () => rarely() && react('another_roll'));
+    bus.on('undo', () => {
+      // "several times in a row": the third undo within 4 s
+      const now = Date.now();
+      this.undos = [...this.undos.filter((t) => now - t < 4000), now];
+      if (this.undos.length >= 3 && rarely()) {
+        this.undos = [];
+        this.say(reaction('undo'), { kind: 'reaction' });
+      }
     });
     bus.on('mode-changed', (mode: 'simple' | 'expert' | 'closed') => this.enterContext(mode));
   }
@@ -440,7 +489,7 @@ class Foldy {
     if (c && c !== mode) this.hideBalloon();
     if (mode === 'expert' && !settings.foldy.expertIntroDone) {
       setSubSettings('foldy', { expertIntroDone: true });
-      this.say(TUTORIAL.expert, { kind: 'tutorial', context: 'expert' });
+      this.say(tutorial('tut_steps'), { kind: 'tutorial', context: 'expert' });
     }
   }
 
@@ -449,13 +498,13 @@ class Foldy {
     if (photoOpen) {
       // a photo is already open (autosave): carry on from where the tour would be
       if (!settings.expert) {
-        this.tutorialStep = 'pick';
-        setTimeout(() => this.say(TUTORIAL.pick, { kind: 'tutorial', sticky: true, context: 'simple' }), 700);
+        this.tutorialStep = 'tut_pick';
+        setTimeout(() => this.say(tutorial('tut_pick'), { kind: 'tutorial', sticky: true, context: 'simple' }), 700);
       }
       return;
     }
     this.tutorialStep = 'hello';
-    setTimeout(() => this.say(ui.phone ? TUTORIAL.helloPhone : TUTORIAL.hello, { kind: 'tutorial', sticky: true, context: 'empty' }), 700);
+    setTimeout(() => this.say(tutorial(ui.phone ? 'hello_phone' : 'hello'), { kind: 'tutorial', sticky: true, context: 'empty' }), 700);
   }
 
   /** Occasional unsolicited tips while the user works. */

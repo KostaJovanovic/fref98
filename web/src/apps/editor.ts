@@ -5,6 +5,7 @@ import { iconImg } from '../ui/art';
 import { button, selectField, slider, tabs, toolButton } from '../ui/controls';
 import { openWindow, getWin, type Win } from '../ui/wm';
 import { ui } from '../ui/scale';
+import { mostlyGrey } from '../ui/uimath';
 import { Viewer, toCanvas, paintCanvas, type Pane } from '../ui/viewer';
 import { sizeNote } from '../ui/compare';
 import { registerContext } from '../ui/contextmenu';
@@ -13,19 +14,20 @@ import { store } from '../state';
 import { pipeline, type PipelineResult } from '../pipeline';
 import { settings, setSettings } from '../settings';
 import { PRESETS, presetAvailability, type Preset } from '../presets';
-import { StackView } from '../editor/stackview';
+import { StackView, nodeLabel } from '../editor/stackview';
 import { link } from '../editor/link';
 import { engine, NotAvailableError, isCancel } from '../engine/client';
 import { newSeed, hashBytes } from '../engine/hash';
-import { replaceNode, rebasePatch, findNode, type StackNode, type StepItem } from '../engine/stack';
+import { replaceNode, rebasePatch, findNode, mapSeeds, type StackNode, type StepItem } from '../engine/stack';
 import type { ParamInfo, Inspection, DecodeEvent, DecodedImage } from '../engine/types';
 import { importFiles, useSample, ensureSamples } from '../importflow';
 import { foldy } from '../foldy/foldy';
-import { explainEvents } from '../foldy/lines';
+import { explainEvents, presetLine } from '../foldy/lines';
 import { openApp } from './registry';
 import { message, errorBox } from '../ui/dialog';
 import type { MenuItem } from '../ui/menu';
 import * as bus from '../bus';
+import { Sequence } from '../latest';
 
 let ed: Editor | null = null;
 
@@ -83,6 +85,7 @@ class Editor {
   private threeFor: Uint8Array | null = null;
   private threePers = '';
   private threeSeq = 0;
+  private heatSeq = new Sequence();
 
   constructor() {
     this.stackView = new StackView({
@@ -127,6 +130,8 @@ class Editor {
       ],
       onClose: () => {
         for (const u of this.unsub) u();
+        this.heatSeq.end();
+        this.viewer.dispose();
         ed = null;
         bus.emit('mode-changed', 'closed');
       },
@@ -333,14 +338,14 @@ class Editor {
   }
 
   private clearSteps() {
-    for (const n of store.doc.stack) store.binStep(n, 'step');
+    for (const n of store.doc.stack) store.binStep(n, nodeLabel(n, pipeline.catalog));
     store.update((d) => void (d.stack = []), 'stack');
     this.preset = null;
   }
 
   private rerollAll() {
     store.update((d) => {
-      d.stack = d.stack.map((n) => (n.type === 'step' || n.type === 'repeat' ? { ...n, seed: newSeed() } : n));
+      d.stack = mapSeeds(d.stack, () => newSeed());
     }, 'stack');
   }
 
@@ -352,7 +357,8 @@ class Editor {
   setTab(i: number) {
     const changed = i !== this.tab;
     this.tab = i;
-    if (i === 1 && !settings.expert) setSettings({ expert: true });
+    // the tabs and Edit ▸ Expert Mode are one switch, both ways
+    if ((i === 1) !== settings.expert) setSettings({ expert: i === 1 });
     this.rebuildToolbar();
     this.renderTabs();
     this.renderPanel();
@@ -408,8 +414,10 @@ class Editor {
       const p = this.preset;
       const av = presetAvailability(p, cat);
       const s = slider(Math.round(this.bad * 100), 0, 100, 1, (v) => {
+        const was = Math.round(this.bad * 100);
         this.bad = v / 100;
         this.applyPreset('bad');
+        if ((v === 0 || v === 100) && v !== was) bus.emit('slider-end', v ? 'max' : 'low');
       }, { label: 'How bad?' });
       s.style.width = '100%';
       parts.push(
@@ -424,9 +432,10 @@ class Editor {
           button('Another roll', () => {
             this.presetSeed = newSeed();
             this.applyPreset('roll');
+            bus.emit('another-roll');
           }, { cls: 'small', icon: iconImg('dice', 16), title: 'Same damage, different random details' }),
-          button('Show me how', () => this.setTab(1), { cls: 'small', title: 'Open these steps in expert mode' }),
-          button('Explain', () => foldy.help(p.foldy, [{ label: 'What exactly went wrong?', run: () => this.explain() }]), { cls: 'small' }),
+          button('Show Me How', () => this.setTab(1), { cls: 'small', title: 'Open these steps in expert mode' }),
+          button('Explain', () => foldy.help(presetLine(p), [{ label: 'What exactly went wrong?', run: () => this.explain() }]), { cls: 'small' }),
         ),
         p.needsPool && store.pool().length < 2 ? h('div', { class: 'hint' }, 'This one borrows bytes from another photo in My Pictures. Add a second photo for the full effect.') : null as any,
         h('div', { class: 'row wrap', style: { marginTop: '4px' } }, button('Save As…', () => openApp('export'), { icon: iconImg('export', 16) }), button('Start over', () => this.startOver(), { cls: 'small' })),
@@ -519,11 +528,12 @@ class Editor {
     const tip = caps?.loadError ?? '';
     if ((this.statusEngine.dataset.tip ?? '') !== tip) this.statusEngine.dataset.tip = tip;
     // heavy damage reaction (once per distinct recipe)
-    const heavy = evs.some((e) => e.kind === 'truncated' || e.kind === 'bad_huffman') && evs.length > 3;
+    const grey = !!a && mostlyGrey(a.rgba);
+    const heavy = grey || (evs.some((e) => e.kind === 'truncated' || e.kind === 'bad_huffman') && evs.length > 3);
     const key = hashBytes(r.output);
     if (heavy && key !== this.lastHeavy) {
       this.lastHeavy = key;
-      bus.emit('heavy-damage');
+      bus.emit('heavy-damage', { grey });
     }
     if (this.heatOn) void this.loadHeat();
   }
@@ -609,7 +619,7 @@ class Editor {
       { class: 'empty-card' },
       h('h1', { class: 'big' }, 'Drop a photo here'),
       h('div', null, 'JPEG, PNG, WebP… or a whole bunch of them.'),
-      button('Choose photo…', () => void this.openFiles(), { cls: 'primary big', icon: iconImg('folder', 16) }),
+      button('Choose photo…', () => void this.openFiles(), { cls: 'big', icon: iconImg('folder', 16) }),
       button('Try a sample photo', () => void useSample(), { cls: 'big', icon: iconImg('pictures', 16) }),
       h('div', { class: 'hint' }, 'Nothing is uploaded. Your photos never leave this computer.'),
     );
@@ -677,9 +687,14 @@ class Editor {
   private async loadHeat() {
     const r = pipeline.last;
     if (!r?.after) return;
+    // results come back in any order: only the newest request, for the result on screen, with the heatmap on, paints
+    const t = this.heatSeq.begin();
+    const stale = () => t.stale() || !this.heatOn || pipeline.last !== r;
     try {
       const vals = await engine().coeffHeatmap(r.output, 0, 'energy').promise;
+      if (stale()) return;
       const info = await this.getInspect(r.output);
+      if (stale()) return;
       const fr = info.frame;
       let bw = Math.ceil(r.after.width / 8);
       if (fr) {
@@ -689,6 +704,7 @@ class Editor {
       const bh = Math.max(1, Math.floor(vals.length / bw));
       this.viewer.setHeat({ bw, bh, block: 8, values: vals });
     } catch (e) {
+      if (stale()) return;
       this.heatOn = false;
       this.viewer.setHeat(null);
       if (e instanceof NotAvailableError) message('Heatmap', 'The coefficient heatmap needs a part of the engine that is not built yet. Try again later.', 'heat');

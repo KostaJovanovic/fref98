@@ -8,8 +8,9 @@ import { onWm, windows } from '../ui/wm';
 import { onSaver, saverRunning } from './screensaver';
 import { h } from '../ui/dom';
 import { tilePattern } from '../ui/art';
-import { ditherBayer } from '../ui/palette';
+import { ditherDepth } from '../ui/palette';
 import { pipeline } from '../pipeline';
+import { hashBytes } from '../engine/hash';
 import { wallpaperImage, hasWallpaperImage } from './wallpaper';
 import * as bus from '../bus';
 
@@ -46,7 +47,10 @@ export class Sky {
     onSaver(() => this.updatePause());
     document.addEventListener('visibilitychange', () => this.updatePause());
     onSettings((_s, ch) => {
-      if (ch.some((c) => c === 'wallpaper' || c === 'cloudSpeed' || c === 'solidColor' || c === 'reducedMotion')) this.restart();
+      if (ch.some((c) => c === 'wallpaper' || c === 'cloudSpeed' || c === 'solidColor' || c === 'reducedMotion' || c === 'colorDepth')) {
+        this.photoKey = '';
+        this.restart();
+      }
     });
     const eng = engine();
     eng.onBusy(() => this.poke());
@@ -109,7 +113,8 @@ export class Sky {
       this.tick();
       return;
     }
-    const key = (snap ? 'set' + snap.version : 'live' + r!.output.length) + ':' + w + 'x' + hh;
+    // by content: many steps keep the file's length (bitflip, dc_offset…) yet change the picture
+    const key = (snap ? 'set' + snap.version : 'live' + hashBytes(r!.output)) + ':' + w + 'x' + hh;
     if (key === this.photoKey) return;
     this.photoKey = key;
     let src: { width: number; height: number; img: CanvasImageSource };
@@ -133,7 +138,7 @@ export class Sky {
     x.imageSmoothingEnabled = true;
     x.drawImage(src.img, (w - src.width * s) / 2, (hh - src.height * s) / 2, src.width * s, src.height * s);
     const d = x.getImageData(0, 0, w, hh);
-    ditherBayer(d.data, w, hh, 40);
+    ditherDepth(d.data, w, hh, settings.colorDepth, 40);
     x.putImageData(d, 0, 0);
   }
 
@@ -181,6 +186,7 @@ export class Sky {
         quality,
         damage: this.damage > 0.05 ? this.damage * 0.0004 : 0,
         seed: this.t,
+        depth: settings.colorDepth,
       });
       job.promise
         .then((r) => {

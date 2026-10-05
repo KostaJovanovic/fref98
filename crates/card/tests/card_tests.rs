@@ -104,6 +104,37 @@ fn quick_format_keeps_data_and_graft_rebuilds_headerless_bodies() {
     }
 }
 
+// 05-16: the Format dialog's label was kept by the UI only; the card always said "CARD"
+#[test]
+fn format_writes_the_label_it_is_given() {
+    // the boot sector's label field: offset 43 on FAT16, 71 on FAT32
+    let boot_label = |c: &Card| c.img.read_vec(if c.vol.fs == Fs::Fat16 { 43 } else { 71 }, 11);
+    let mut card = Card::new(Fs::Fat16, 256, None, CameraKind::Canon2004, photos(1, 50_000), 7);
+    assert_eq!(&boot_label(&card), b"CARD       ");
+    card.run_events(&[json!({"type":"quick_format","label":"holiday 2004?"})]);
+    assert_eq!(card.label, "HOLIDAY 200");
+    assert_eq!(&boot_label(&card), b"HOLIDAY 200");
+    card.run_events(&[json!({"type":"reformat_pc","fs":"fat32","label":""})]);
+    assert_eq!(card.vol.fs, Fs::Fat32);
+    assert_eq!(card.label, "");
+    assert_eq!(&boot_label(&card), b"NO NAME    ");
+    // a format without a label keeps the one the card has
+    card.run_events(&[json!({"type":"reformat_pc","fs":"fat32","label":"refrag"}), json!({"type":"quick_format"})]);
+    assert_eq!(&boot_label(&card), b"REFRAG     ");
+    // Properties ▸ Label: renamed in place, the files stay
+    card.run_events(&[json!({"type":"shoot","count":1}), json!({"type":"set_label","label":"trip"})]);
+    assert_eq!(&boot_label(&card), b"TRIP       ");
+    assert!(card.files.iter().any(|f| !f.deleted), "the photo survives a relabel");
+    let root = refragmenter_card::fs::Dir::Cluster(card.vol.root_cluster);
+    let label_entries = |c: &Card| -> Vec<Vec<u8>> {
+        c.vol.dir_slots(&c.img, root).into_iter().map(|o| c.img.read_vec(o, 12)).filter(|e| e[0] != 0 && e[0] != 0xE5 && e[11] == 0x08).map(|e| e[..11].to_vec()).collect()
+    };
+    assert_eq!(label_entries(&card), vec![b"TRIP       ".to_vec()]);
+    card.run_events(&[json!({"type":"set_label","label":""})]);
+    assert_eq!(&boot_label(&card), b"NO NAME    ");
+    assert!(label_entries(&card).is_empty());
+}
+
 #[test]
 fn every_event_type_runs_on_every_fs() {
     for fs in [Fs::Fat16, Fs::Fat32, Fs::ExFat] {

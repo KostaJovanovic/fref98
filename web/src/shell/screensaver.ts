@@ -1,13 +1,27 @@
-// Screensaver after inactivity: a JPEG-damaged starfield or flying folders, rendered at low resolution,
-// squeezed through our codec at a terrible quality, and faded in/out through Bayer screen-door masks.
+// Screensaver after inactivity: one of the savers in savers.ts, rendered at low resolution, (most of them)
+// squeezed through our codec at a terrible quality, drawn in the desktop's colour depth, and faded in/out
+// through Bayer screen-door masks.
 import { h } from '../ui/dom';
 import { bayerMask } from '../ui/art';
 import { ui } from '../ui/scale';
-import { settings, reducedMotion } from '../settings';
+import { settings, reducedMotion, type SaverKind } from '../settings';
 import { ambientEngine } from '../engine/client';
-import { foldyStill } from '../foldy/sheet';
+import { ditherDepth } from '../ui/palette';
+import { pipeline } from '../pipeline';
+import { makeSaver, type SaverOpts } from './savers';
+import * as bus from '../bus';
 
-const SAVER_MOUTH = ['body.open.paper', 'body.half.paper', 'body.closed', 'body.half.paper'];
+/** What the savers need from the engine and the editor (the corrupting photo uses the current result). */
+export function saverOpts(): SaverOpts {
+  const eng = ambientEngine();
+  return {
+    speed: settings.screensaver.speed,
+    text: settings.screensaver.text,
+    photo: () => pipeline.last?.output ?? null,
+    decode: async (j) => (eng.has('decode') ? eng.decode(j, {}).promise.catch(() => null) : null),
+    encode: async (w, hh, rgba) => (eng.has('encode_rgba') ? eng.encodeRgba(w, hh, rgba, { quality: 75 }).promise.catch(() => null) : null),
+  };
+}
 
 let last = Date.now();
 let active: (() => void) | null = null;
@@ -48,20 +62,41 @@ export function startScreensaverWatch(app: HTMLElement) {
     },
     { capture: true },
   );
+  // long jobs (a batch export, carving a card) and playing media keep the screen awake, as in 98
+  bus.on('long-start', () => void awake++);
+  bus.on('long-end', () => void (awake = Math.max(0, awake - 1)));
   setInterval(() => {
     if (active || running || !settings.screensaver.enabled) return;
     if (document.hidden) return;
+    if (awake > 0) {
+      last = Date.now();
+      return;
+    }
     if (Date.now() - last >= settings.screensaver.minutes * 60_000) runSaver(app, settings.screensaver.kind);
   }, 5000);
 }
 
+let awake = 0;
+
+/** Keeps the screen saver away until the returned function is called (video playing, live camera). */
+export function keepAwake(): () => void {
+  awake++;
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    awake = Math.max(0, awake - 1);
+    last = Date.now();
+  };
+}
+
 /** Display Properties ▸ Screen Saver ▸ Preview: runs the saver now, until the mouse moves or a key is pressed. */
-export function previewSaver(app: HTMLElement, kind: 'starfield' | 'folders' = settings.screensaver.kind) {
+export function previewSaver(app: HTMLElement, kind: SaverKind = settings.screensaver.kind) {
   if (running) return;
   setTimeout(() => runSaver(app, kind), 300);
 }
 
-function runSaver(app: HTMLElement, kind: 'starfield' | 'folders') {
+function runSaver(app: HTMLElement, kind: SaverKind) {
   const S = 4; // UI px per saver pixel
   const W = Math.ceil(ui.w / S);
   const H = Math.ceil(ui.h / S);
@@ -78,11 +113,16 @@ function runSaver(app: HTMLElement, kind: 'starfield' | 'folders') {
   el.style.cursor = 'none';
   app.appendChild(el);
   setRunning(1);
-  const x = canvas.getContext('2d', { willReadFrequently: true })!;
-  const stars = Array.from({ length: 220 }, () => ({ x: (Math.random() - 0.5) * 2, y: (Math.random() - 0.5) * 2, z: Math.random() }));
-  const folders = Array.from({ length: 14 }, () => ({ x: (Math.random() - 0.5) * 2, y: (Math.random() - 0.5) * 2, z: Math.random() }));
+  const shown = canvas.getContext('2d')!;
+  // frames are made off screen and shown when finished (no clean frame flashes while the codec works)
+  const off = document.createElement('canvas');
+  off.width = W;
+  off.height = H;
+  const x = off.getContext('2d', { willReadFrequently: true })!;
+  const saver = makeSaver(kind, W, H, saverOpts());
   let fade = 0;
   let closing = false;
+  let done = false;
   let busy = false;
   let t = 0;
   const setMask = (lvl: number) => {
@@ -91,73 +131,12 @@ function runSaver(app: HTMLElement, kind: 'starfield' | 'folders') {
     el.style.setProperty('mask-image', u);
   };
   setMask(0);
-  const frame = async () => {
-    t++;
-    const raw = new ImageData(W, H);
-    const d = raw.data;
-    for (let i = 3; i < d.length; i += 4) d[i] = 255;
-    const plot = (px: number, py: number, r: number, g: number, b: number, size: number) => {
-      for (let yy = 0; yy < size; yy++)
-        for (let xx = 0; xx < size; xx++) {
-          const X = px + xx;
-          const Y = py + yy;
-          if (X < 0 || Y < 0 || X >= W || Y >= H) continue;
-          const i = (Y * W + X) * 4;
-          d[i] = r;
-          d[i + 1] = g;
-          d[i + 2] = b;
-        }
-    };
-    if (kind === 'starfield') {
-      for (const s of stars) {
-        s.z -= 0.012;
-        if (s.z <= 0.02) {
-          s.x = (Math.random() - 0.5) * 2;
-          s.y = (Math.random() - 0.5) * 2;
-          s.z = 1;
-        }
-        const px = Math.round(W / 2 + (s.x / s.z) * W * 0.5);
-        const py = Math.round(H / 2 + (s.y / s.z) * H * 0.5);
-        // big and bright enough to survive quality 6 (single dim pixels get averaged away to black)
-        const c = Math.round(110 + 145 * (1 - s.z));
-        plot(px, py, c, c, Math.min(255, c + 40), s.z < 0.3 ? 3 : 2);
-      }
-      x.putImageData(raw, 0, 0);
-    } else {
-      x.putImageData(raw, 0, 0);
-      folders.sort((a, b) => b.z - a.z);
-      for (const f of folders) {
-        f.z -= 0.006;
-        if (f.z <= 0.05) {
-          f.x = (Math.random() - 0.5) * 2;
-          f.y = (Math.random() - 0.5) * 2;
-          f.z = 1;
-        }
-        const size = Math.max(4, Math.round(16 / f.z / 4) * 4);
-        const px = Math.round(W / 2 + (f.x / f.z) * W * 0.35 - size / 2);
-        const py = Math.round(H / 2 + (f.y / f.z) * H * 0.35 - size / 2);
-        x.imageSmoothingEnabled = false;
-        const still = foldyStill(SAVER_MOUTH[(t >> 2) % 4], 'eyes.happy');
-        if (still) x.drawImage(still, px, py, size, size);
-      }
-    }
-    // squeeze it through our codec at an awful quality
-    const eng = ambientEngine();
-    if (eng.has('encode_rgba') && eng.has('decode') && !busy) {
-      busy = true;
-      try {
-        const img = x.getImageData(0, 0, W, H);
-        const jpg = await eng.encodeRgba(W, H, img.data, { quality: 6 + (t % 40 < 20 ? 0 : 4) }).promise;
-        const dd = await eng.decode(jpg, {}).promise;
-        if (dd.width === W && dd.height === H) x.putImageData(new ImageData(new Uint8ClampedArray(dd.rgba.buffer as ArrayBuffer), W, H), 0, 0);
-      } catch {
-        /* the clean frame is fine too */
-      }
-      busy = false;
-    }
+  /** The fade, once per tick (synchronous, so a frame that finishes late can't run the teardown again). */
+  const fadeStep = () => {
     if (closing) {
       fade -= 8;
       if (fade <= 0) {
+        done = true;
         clearInterval(timer);
         el.remove();
         setRunning(-1);
@@ -165,6 +144,36 @@ function runSaver(app: HTMLElement, kind: 'starfield' | 'folders') {
       }
     } else if (fade < 64) fade = Math.min(64, fade + (reducedMotion() ? 64 : 6));
     setMask(fade);
+  };
+  const frame = async () => {
+    if (done) return;
+    t++;
+    fadeStep();
+    // a frame still being made (an engine round trip) makes this tick only move the fade
+    if (!busy && !done) {
+      busy = true;
+      try {
+        await saver.frame(x);
+        // squeeze it through our codec at an awful quality
+        const eng = ambientEngine();
+        if (saver.codec && eng.has('encode_rgba') && eng.has('decode')) {
+          const img = x.getImageData(0, 0, W, H);
+          const jpg = await eng.encodeRgba(W, H, img.data, { quality: 6 + (t % 40 < 20 ? 0 : 4) }).promise;
+          const dd = await eng.decode(jpg, {}).promise;
+          if (dd.width === W && dd.height === H) x.putImageData(new ImageData(new Uint8ClampedArray(dd.rgba.buffer as ArrayBuffer), W, H), 0, 0);
+        }
+        // the desktop's colour depth (Display ▸ Settings ▸ Colors)
+        if (settings.colorDepth !== 'true') {
+          const img = x.getImageData(0, 0, W, H);
+          ditherDepth(img.data, W, H, settings.colorDepth, 40);
+          x.putImageData(img, 0, 0);
+        }
+      } catch {
+        /* the clean frame is fine too */
+      }
+      busy = false;
+      if (!done) shown.drawImage(off, 0, 0);
+    }
   };
   const timer = setInterval(() => void frame(), reducedMotion() ? 500 : 100);
   const startedAt = Date.now();

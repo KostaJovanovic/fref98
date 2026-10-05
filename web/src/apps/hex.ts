@@ -23,6 +23,8 @@ import { message } from '../ui/dialog';
 import type { MenuItem } from '../ui/menu';
 import { openApp } from './registry';
 import { dialog98, swatch98 } from './tools98';
+import { virtualScroll } from '../ui/uimath';
+import { Sequence } from '../latest';
 
 let hv: HexView | null = null;
 
@@ -68,6 +70,9 @@ class HexView {
   private stSel = h('div', { class: 'hx-st' }, '');
   private stSize = h('div', { class: 'hx-st' }, '');
   private hint = '';
+  private viewH = 0;
+  private loads = new Sequence();
+  private resizeObs: ResizeObserver | null = null;
 
   constructor() {
     this.canvas = h('canvas', { class: 'hexcanvas', 'aria-hidden': 'true' });
@@ -80,6 +85,7 @@ class HexView {
       'div',
       { class: 'ed-toolbar hx-toolbar', role: 'toolbar', 'aria-label': 'Hex Doctor tools' },
       toolButton(iconImg('undo', 16), 'Undo (Ctrl+Z)', () => store.undo()),
+      toolButton(iconImg('redo', 16), 'Redo (Ctrl+Y)', () => store.redo()),
       h('span', { class: 'tsep', 'aria-hidden': 'true' }),
       toolButton(h('span', null, 'Copy'), 'Copy the selection as hex (Ctrl+C)', () => this.copy('hex')),
       toolButton(h('span', null, 'Go To…'), 'Go to an offset (Ctrl+G)', () => this.gotoDialog()),
@@ -115,6 +121,9 @@ class HexView {
       phoneStatus: true,
       onClose: () => {
         for (const u of this.unsub) u();
+        this.loads.end();
+        this.resizeObs?.disconnect();
+        cancelAnimationFrame(this.raf);
         link.highlight([]);
         hv = null;
       },
@@ -136,7 +145,8 @@ class HexView {
         ];
       }),
     );
-    new ResizeObserver(() => this.render()).observe(this.scroll);
+    this.resizeObs = new ResizeObserver(() => this.render());
+    this.resizeObs.observe(this.scroll);
     void this.load(pipeline.last);
   }
 
@@ -155,13 +165,14 @@ class HexView {
     const has = !!this.sel && this.bytes.length > 0;
     return [
       { label: '&Undo', icon: 'undo', acc: 'Ctrl+Z', disabled: !store.history.canUndo, onClick: () => store.undo() },
+      { label: '&Redo', icon: 'redo', acc: 'Ctrl+Y', disabled: !store.history.canRedo, onClick: () => store.redo() },
       { sep: true },
       { label: '&Copy as Hex', acc: 'Ctrl+C', disabled: !has, onClick: () => this.copy('hex') },
       { label: 'Copy as &Text', disabled: !has, onClick: () => this.copy('text') },
       { sep: true },
       { label: 'Fill with &00', disabled: !has, onClick: () => this.fill(() => 0) },
       { label: 'Fill with &FF', disabled: !has, onClick: () => this.fill(() => 0xff) },
-      { label: '&Randomize Bytes', disabled: !has, onClick: () => this.fill(() => (Math.random() * 256) | 0) },
+      { label: 'Ra&ndomize Bytes', disabled: !has, onClick: () => this.fill(() => (Math.random() * 256) | 0) },
       { sep: true },
       { label: 'Select &All', acc: 'Ctrl+A', disabled: !this.bytes.length, onClick: () => this.selectAll() },
     ];
@@ -219,26 +230,29 @@ class HexView {
       { label: '&Next Marker', acc: 'F3', disabled: !this.bytes.length, onClick: () => this.marker(1) },
       { sep: true },
       {
-        label: '&Insert / Delete',
+        label: '&Fill',
         sub: [
           { label: 'Fill with &00', disabled: !has, onClick: () => this.fill(() => 0) },
           { label: 'Fill with &FF', disabled: !has, onClick: () => this.fill(() => 0xff) },
-          { label: '&Randomize Bytes', disabled: !has, onClick: () => this.fill(() => (Math.random() * 256) | 0) },
-          { sep: true },
-          { label: 'Insert Bytes (the file keeps its length)', disabled: true },
-          { label: 'Delete Bytes (the file keeps its length)', disabled: true },
+          { label: 'Ra&ndomize Bytes', disabled: !has, onClick: () => this.fill(() => (Math.random() * 256) | 0) },
         ],
       },
       { sep: true },
       { label: '&Undo', acc: 'Ctrl+Z', disabled: !store.history.canUndo, onClick: () => store.undo() },
+      { label: '&Redo', acc: 'Ctrl+Y', disabled: !store.history.canRedo, onClick: () => store.redo() },
     ];
   }
 
   // ------------------------------------------------------------ data
 
   private async load(r: PipelineResult | null) {
+    // loads overlap (quick edits, a slider drag): a newer one makes this one's segments and MCU map worthless
+    const t = this.loads.begin();
     if (!r) {
       this.bytes = new Uint8Array();
+      this.info = null;
+      this.mcu = null;
+      this.geometry = null;
       this.renderSide();
       this.render();
       return;
@@ -251,24 +265,30 @@ class HexView {
     const lastStatus = r.results.find((x) => x.uid === last?.uid)?.status;
     // a stale patch is not applied, so its bytes are not "your edits" in this file
     if (last && last.type === 'patch' && last.enabled && lastStatus !== 'stale') for (const p of last.patches) for (let i = 0; i < p.bytes.length; i++) this.patched.add(p.offset + i);
+    let info: Inspection | null = null;
     try {
-      this.info = await engine().inspect(r.output).promise;
+      info = await engine().inspect(r.output).promise;
     } catch {
-      this.info = null;
+      info = null;
     }
-    const fr = this.info?.frame;
+    if (t.stale()) return;
+    let mcu: Uint32Array | null = null;
+    let mcuNote = '';
+    try {
+      mcu = await engine().mcuMap(r.output).promise;
+    } catch (e) {
+      mcuNote = e instanceof NotAvailableError ? 'Block ⇄ byte linking needs mcu_map (not in the engine yet).' : 'Could not map blocks to bytes.';
+    }
+    if (t.stale()) return;
+    this.info = info;
+    this.mcu = mcu;
+    this.mcuNote = mcuNote;
+    const fr = info?.frame;
     if (fr) {
       const hmax = Math.max(1, ...fr.components.map((c) => c.h));
       const vmax = Math.max(1, ...fr.components.map((c) => c.v));
       this.geometry = { mw: 8 * hmax, mh: 8 * vmax, cols: Math.ceil(fr.width / (8 * hmax)) };
     } else this.geometry = null;
-    try {
-      this.mcu = await engine().mcuMap(r.output).promise;
-      this.mcuNote = '';
-    } catch (e) {
-      this.mcu = null;
-      this.mcuNote = e instanceof NotAvailableError ? 'Block ⇄ byte linking needs mcu_map (not in the engine yet).' : 'Could not map blocks to bytes.';
-    }
     if (this.caret >= this.bytes.length) {
       this.caret = -1;
       this.sel = null;
@@ -310,7 +330,6 @@ class HexView {
 
   private draw() {
     const k = ui.k;
-    const rows = Math.ceil(this.bytes.length / 16);
     // the scroller's 2 px padding (its sunken bevel) is inside clientWidth/Height: size to the content box, or
     // a 2 px overflow shows a useless horizontal scroll bar
     const cs = getComputedStyle(this.scroll);
@@ -318,7 +337,8 @@ class HexView {
     const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
     const w = this.scroll.clientWidth - padX;
     const hh = this.scroll.clientHeight - padY;
-    this.spacer.style.height = Math.max(HEAD + rows * ROW_H, hh) + 'px';
+    this.viewH = hh;
+    this.spacer.style.height = Math.max(this.vs().spacer, hh) + 'px';
     if (!w || !hh) return;
     if (this.canvas.width !== w * k || this.canvas.height !== hh * k) {
       this.canvas.width = w * k;
@@ -329,8 +349,9 @@ class HexView {
     const x = this.canvas.getContext('2d')!;
     x.fillStyle = '#ffffff';
     x.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    const first = Math.floor(this.scroll.scrollTop / ROW_H);
-    const dy = HEAD - (this.scroll.scrollTop % ROW_H);
+    const top = this.top();
+    const first = Math.floor(top / ROW_H);
+    const dy = HEAD - (top % ROW_H);
     const n = this.rowsVisible();
     const s = this.selRange();
     for (let r = 0; r < n; r++) {
@@ -442,20 +463,36 @@ class HexView {
 
   // ------------------------------------------------------------ navigation
 
-  private goto(a: number, b: number) {
+  /** Selects a..b with the caret at `caret` (default a) and scrolls the caret into view. */
+  private goto(a: number, b: number, caret = a) {
     if (!this.bytes.length) return;
-    a = Math.max(0, Math.min(this.bytes.length - 1, a));
-    b = Math.max(0, Math.min(this.bytes.length - 1, b));
-    this.sel = [a, b];
-    this.caret = a;
+    const clamp = (v: number) => Math.max(0, Math.min(this.bytes.length - 1, v));
+    this.sel = [clamp(a), clamp(b)];
+    this.caret = clamp(caret);
     this.nibble = null;
     this.hint = '';
-    const row = Math.floor(a / 16);
-    const top = row * ROW_H;
-    const view = this.scroll.clientHeight - HEAD;
-    if (top < this.scroll.scrollTop || top > this.scroll.scrollTop + view - ROW_H * 2) this.scroll.scrollTop = Math.max(0, top - ROW_H * 3);
+    this.reveal(this.caret);
     this.highlightFromSelection();
     this.render();
+  }
+
+  /** Scrolls so the row of byte `off` is in view (3 rows of context when it has to jump). */
+  private reveal(off: number) {
+    const top = Math.floor(off / 16) * ROW_H;
+    const cur = this.top();
+    const view = (this.viewH || this.scroll.clientHeight) - HEAD;
+    if (top < cur || top > cur + view - ROW_H * 2) this.setTop(top - ROW_H * 3);
+  }
+
+  /** The virtual scroll: big files keep a spacer browsers can scroll (ui/uimath virtualScroll). */
+  private vs() {
+    return virtualScroll(HEAD + Math.ceil(this.bytes.length / 16) * ROW_H, this.viewH || this.scroll.clientHeight);
+  }
+  private top(): number {
+    return this.vs().toContent(this.scroll.scrollTop);
+  }
+  private setTop(px: number) {
+    this.scroll.scrollTop = this.vs().toScroll(Math.max(0, px));
   }
 
   private selectAll() {
@@ -567,8 +604,7 @@ class HexView {
     const b = Math.max(a + 1, Math.ceil(next / 8));
     this.pickedRange = [a, b];
     this.hint = `Block ${p.mcu}: bytes ${hex(a)} to ${hex(b - 1)}.`;
-    const row = Math.floor(a / 16);
-    this.scroll.scrollTop = Math.max(0, row * ROW_H - ROW_H * 3);
+    this.setTop(Math.floor(a / 16) * ROW_H - ROW_H * 3);
     this.render();
   }
 
@@ -597,7 +633,7 @@ class HexView {
     const r = this.canvas.getBoundingClientRect();
     const f = r.width / (this.canvas.width / ui.k) || 1;
     const x = (e.clientX - r.left) / f;
-    const y = (e.clientY - r.top) / f - HEAD + this.scroll.scrollTop;
+    const y = (e.clientY - r.top) / f - HEAD + this.top();
     const row = Math.max(0, Math.floor(y / ROW_H));
     let col = Math.floor((x - OFF_W + 3) / CELL_W);
     if (x >= ASC_X - 4) col = Math.floor((x - ASC_X) / ASC_W);
@@ -668,11 +704,7 @@ class HexView {
         e.preventDefault();
         this.caret = Math.max(0, Math.min(this.bytes.length - 1, this.caret + d));
         this.sel = e.shiftKey && this.sel ? [this.sel[0], this.caret] : [this.caret, this.caret];
-        this.nibble = null;
-        const c = this.caret;
-        this.goto(this.sel[0], this.sel[1]);
-        this.caret = c;
-        this.render();
+        this.goto(this.sel[0], this.sel[1], this.caret);
       };
       if (e.key === 'ArrowRight') move(1);
       else if (e.key === 'ArrowLeft') move(-1);
@@ -710,6 +742,7 @@ class HexView {
     this.writeBytes(off, [value]);
     this.caret = Math.min(this.bytes.length - 1, off + 1);
     this.sel = [this.caret, this.caret];
+    this.reveal(this.caret);
   }
 
   /** Edit ▸ Fill / Randomize: rewrites the selection (the file keeps its length; a Hex edit step holds it). */
