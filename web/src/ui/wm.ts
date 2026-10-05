@@ -145,17 +145,23 @@ function setGeom(el: HTMLElement, r: Rect) {
   el.style.height = r.h + 'px';
 }
 
+/** Latest dissolve per window: a close that starts during the open dissolve takes over from it. */
+const animGen = new WeakMap<HTMLElement, number>();
+
 /** Open and close: the window dissolves in or out through an 8×8 Bayer screen door, in 8 steps. */
 async function ditherAnim(el: HTMLElement, from: number, to: number) {
   if (reducedMotion()) return;
+  const gen = (animGen.get(el) ?? 0) + 1;
+  animGen.set(el, gen);
   el.classList.add('anim');
   const steps = 8;
   for (let s = 0; s <= steps; s++) {
+    if (animGen.get(el) !== gen) return;
     const lvl = Math.round(from + ((to - from) * s) / steps);
     el.style.setProperty('--fade-mask', `url("${bayerMask(lvl, ui.k)}")`);
     await new Promise((r) => setTimeout(r, 22));
   }
-  el.classList.remove('anim');
+  if (animGen.get(el) === gen) el.classList.remove('anim');
 }
 
 /** The outline Windows 98 drags instead of the window ("Show window contents while dragging" off). */
@@ -413,6 +419,10 @@ export function openWindow(o: WinOpts): Win {
       busy.clear();
       el.classList.remove('active');
       el.classList.add('closing');
+      // Gone for input, focus and assistive tech at once; only the dissolve is still on screen.
+      el.inert = true;
+      el.setAttribute('aria-hidden', 'true');
+      el.removeAttribute('role');
       void ditherAnim(el, 64, 0).then(() => el.remove());
       const next = o.modal && wins.includes(o.modal) && !o.modal.minimized ? o.modal : topmost();
       if (next) next.focus();

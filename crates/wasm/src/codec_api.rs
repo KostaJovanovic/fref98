@@ -26,8 +26,10 @@ impl Decoded {
     pub fn height(&self) -> u32 {
         self.height
     }
-    pub fn rgba(&self) -> Vec<u8> {
-        self.rgba.clone()
+    /// The pixels, handed over once (not copied: at the pixel cap a copy is hundreds of MB more).
+    /// A second call returns an empty buffer.
+    pub fn rgba(&mut self) -> Vec<u8> {
+        std::mem::take(&mut self.rgba)
     }
     pub fn events_json(&self) -> String {
         self.events.clone()

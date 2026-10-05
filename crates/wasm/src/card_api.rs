@@ -68,8 +68,8 @@ impl Card {
         self.inner.owner.clone()
     }
 
-    pub fn carve(&mut self, method_json: &str) -> String {
-        let m: serde_json::Value = serde_json::from_str(method_json).unwrap_or(serde_json::Value::Null);
+    pub fn carve(&mut self, method_json: &str) -> Result<String, JsValue> {
+        let m = crate::params_from(method_json)?;
         let tool = get_str(&m, "tool", "photorec").to_string();
         self.recovered = carve::carve(&self.inner, &tool, &m);
         let list: Vec<serde_json::Value> = self
@@ -78,7 +78,7 @@ impl Card {
             .enumerate()
             .map(|(i, r)| serde_json::json!({"index": i, "name": r.name, "size": r.size, "source_clusters": r.source_clusters, "note": r.note}))
             .collect();
-        serde_json::Value::Array(list).to_string()
+        Ok(serde_json::Value::Array(list).to_string())
     }
 
     pub fn recovered(&self, index: usize) -> Vec<u8> {

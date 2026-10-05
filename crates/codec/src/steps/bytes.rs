@@ -64,8 +64,8 @@ pub fn infos() -> Vec<StepInfo> {
             false,
             "Extra bytes are slipped into the data. The decoder reads them as if they were picture, then carries on out of step: shifted rows and a colour jump.",
             vec![
-                p_int("count", "How many places", 1, 1000, 1),
-                p_int("length", "Bytes each", 1, 1 << 20, 4).expert(),
+                p_int("count", "How many places", 1, MAX_PLACES as i64, 1),
+                p_int("length", "Bytes each", 1, MAX_INSERT as i64, 4).expert(),
                 p_start(20.0),
                 p_end(80.0),
                 p_text("hex", "Bytes to insert (hex)", "").expert().hint("Empty = random bytes"),
@@ -222,10 +222,16 @@ fn bitflip(p: &Value, input: &[u8], ctx: &StepCtx) -> StepResult {
     Ok(out)
 }
 
+/// The catalog ranges, enforced here too: recipes and links are imported without the UI's clamps.
+const MAX_PLACES: usize = 1000;
+const MAX_DELETE: usize = 1 << 20;
+/// 1000 places x 64 KB = 64 MB at most; a megabyte per place could ask for a 1 GB file.
+const MAX_INSERT: usize = 1 << 16;
+
 fn byte_delete(p: &Value, input: &[u8], ctx: &StepCtx) -> StepResult {
     let (a, b) = region(input, p);
-    let count = get_i64(p, "count", 1).clamp(1, 100_000) as usize;
-    let len = get_i64(p, "length", 1).clamp(1, 1 << 24) as usize;
+    let count = get_i64(p, "count", 1).clamp(1, MAX_PLACES as i64) as usize;
+    let len = get_i64(p, "length", 1).clamp(1, MAX_DELETE as i64) as usize;
     let mut rng = ctx.rng();
     let mut out = input.to_vec();
     for pos in positions(&mut rng, a, b, count).into_iter().rev() {
@@ -245,15 +251,26 @@ fn parse_hex(s: &str) -> Vec<u8> {
 
 fn byte_insert(p: &Value, input: &[u8], ctx: &StepCtx) -> StepResult {
     let (a, b) = region(input, p);
-    let count = get_i64(p, "count", 1).clamp(1, 100_000) as usize;
-    let len = get_i64(p, "length", 4).clamp(1, 1 << 24) as usize;
-    let hex = parse_hex(get_str(p, "hex", ""));
+    let count = get_i64(p, "count", 1).clamp(1, MAX_PLACES as i64) as usize;
+    let len = get_i64(p, "length", 4).clamp(1, MAX_INSERT as i64) as usize;
+    let mut hex = parse_hex(get_str(p, "hex", ""));
+    hex.truncate(MAX_INSERT);
     let mut rng = ctx.rng();
-    let mut out = input.to_vec();
-    for pos in positions(&mut rng, a, b, count).into_iter().rev() {
-        let bytes: Vec<u8> = if hex.is_empty() { (0..len).map(|_| rng.next_u32() as u8).collect() } else { hex.clone() };
-        out.splice(pos..pos, bytes);
+    let pos = positions(&mut rng, a, b, count);
+    // The bytes are drawn last place first (the order the old splice-per-place loop used, so
+    // recipes keep their output), then the file is put together in one forward pass.
+    let mut chunks: Vec<Vec<u8>> = vec![Vec::new(); pos.len()];
+    for i in (0..pos.len()).rev() {
+        chunks[i] = if hex.is_empty() { (0..len).map(|_| rng.next_u32() as u8).collect() } else { hex.clone() };
     }
+    let mut out = Vec::with_capacity(input.len() + chunks.iter().map(Vec::len).sum::<usize>());
+    let mut at = 0;
+    for (&p, bytes) in pos.iter().zip(&chunks) {
+        out.extend_from_slice(&input[at..p]);
+        out.extend_from_slice(bytes);
+        at = p;
+    }
+    out.extend_from_slice(&input[at..]);
     Ok(out)
 }
 
@@ -378,8 +395,9 @@ fn rst_strip_loss(p: &Value, input: &[u8], ctx: &StepCtx) -> StepResult {
 
 fn zero_run(p: &Value, input: &[u8], ctx: &StepCtx) -> StepResult {
     let (a, b) = region(input, p);
-    let count = get_i64(p, "count", 3).clamp(1, 10_000) as usize;
-    let len = get_i64(p, "length", 4096).clamp(1, 1 << 26) as usize;
+    // Catalog ranges: 10 000 runs of 64 MB were tens of GB of writes.
+    let count = get_i64(p, "count", 3).clamp(1, 100) as usize;
+    let len = get_i64(p, "length", 4096).clamp(1, 1 << 20) as usize;
     let mut rng = ctx.rng();
     let mut out = input.to_vec();
     for pos in positions(&mut rng, a, b, count) {
@@ -408,9 +426,10 @@ fn splice(p: &Value, input: &[u8], ctx: &StepCtx) -> StepResult {
         Some(v) => v.as_i64().unwrap_or(8),
         None => 8,
     }
-    .clamp(1, 1024) as usize;
+    .clamp(1, 64) as usize;
     let cl = ckb * 1024;
-    let n = get_i64(p, "clusters", 4).clamp(1, 4096) as usize;
+    // Catalog range (an imported recipe could otherwise ask for 4096 x 1 MB = 4 GB).
+    let n = get_i64(p, "clusters", 4).clamp(1, 256) as usize;
     let at = get_f64(p, "at", 50.0).clamp(0.0, 100.0);
     let insert = get_str(p, "mode", "replace") == "insert";
     let mut rng = ctx.rng();

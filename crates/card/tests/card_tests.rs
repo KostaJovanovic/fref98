@@ -321,3 +321,61 @@ fn steps_are_deterministic_and_return_jpeg_shaped_bytes() {
         assert!(!info.help.is_empty());
     }
 }
+
+// Audit B1 (11-1): chkdsk after a format used to revive the old lost chains and index past the
+// new, smaller cluster table.
+#[test]
+fn chkdsk_after_a_format_ignores_chains_lost_before_it() {
+    for format in [json!({"type":"reformat_pc","fs":"fat32","cluster_kb":256}), json!({"type":"quick_format"})] {
+        let mut c = Card::new(Fs::Fat32, 64, Some(4), CameraKind::Canon2004, photos(4, 90_000), 1);
+        c.run_events(&[
+            json!({"type":"shoot","count":6}),
+            json!({"type":"power_loss","mode":"no_entry"}),
+            json!({"type":"shoot","count":1}),
+            format.clone(),
+            json!({"type":"chkdsk"}),
+        ]);
+        assert!(c.files.iter().all(|f| f.kind != "chk"), "{format}: a pre-format chain came back");
+        assert_eq!(c.log.last().map(String::as_str), Some("chkdsk: no errors found."), "{format}");
+    }
+}
+
+// Audit B1 (11-2): creating a folder on a full card used to panic.
+#[test]
+fn a_full_card_logs_instead_of_panicking() {
+    let mut c = Card::new(Fs::Fat32, 8, Some(32), CameraKind::Canon2004, photos(3, 60_000), 1);
+    c.run_events(&[
+        json!({"type":"advance","percent":99}),
+        json!({"type":"advance","percent":99}),
+        json!({"type":"advance","percent":99}),
+        json!({"type":"shoot","count":1}),
+        json!({"type":"shoot","count":200}),
+        json!({"type":"os_junk","kb":64}),
+        json!({"type":"chkdsk"}),
+    ]);
+    assert!(c.log.iter().any(|l| l.contains("full")), "{:?}", c.log);
+}
+
+// Audit B1 (11-20): a 64 GB card with 1 KB clusters used to need 64 M clusters of bookkeeping.
+#[test]
+fn a_huge_card_with_tiny_clusters_gets_bigger_clusters() {
+    let c = Card::new(Fs::ExFat, 65536, Some(1), CameraKind::Canon2004, photos(1, 50_000), 1);
+    assert!(c.vol.cluster_count <= 1 << 22, "{} clusters", c.vol.cluster_count);
+    assert!(c.log.iter().any(|l| l.contains("too many")), "{:?}", c.log);
+}
+
+// Audit B1 (11-3): a donor photo with no data after its header made recuva_contiguous loop forever.
+#[test]
+fn recuva_contiguous_rejects_a_donor_without_picture_data() {
+    let mut header_only = fake_jpeg(5, 0);
+    header_only.truncate(header_only.len() - 2);
+    let input = fake_jpeg(6, 100_000);
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let pool = vec![header_only];
+        let ctx = StepCtx { seed: 1, pool: &pool };
+        let _ = tx.send(refragmenter_card::apply_step("recuva_contiguous", &json!({}), &input, &ctx).map(|r| r.is_err()));
+    });
+    let r = rx.recv_timeout(std::time::Duration::from_secs(10)).expect("recuva_contiguous hung");
+    assert_eq!(r, Some(true), "an empty donor body should be an error");
+}

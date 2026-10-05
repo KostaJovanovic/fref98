@@ -127,11 +127,24 @@ pub fn default_cluster_kb(fs: Fs, size_mb: u64) -> u64 {
     }
 }
 
+/// Most clusters a simulated card may have. Every cluster costs ~10 bytes of bookkeeping (more while
+/// overwriting), so a 64 GB card with 1 KB clusters (64 M of them) would need gigabytes.
+const MAX_CLUSTERS: u64 = 1 << 22;
+
+/// `cluster_bytes`, doubled until the card has at most MAX_CLUSTERS clusters.
+fn fit_cluster_bytes(size: u64, mut cluster_bytes: u64) -> u64 {
+    while size / cluster_bytes > MAX_CLUSTERS && cluster_bytes < 1 << 20 {
+        cluster_bytes *= 2;
+    }
+    cluster_bytes
+}
+
 impl Card {
     pub fn new(fs: Fs, size_mb: u64, cluster_kb: Option<u64>, camera: CameraKind, photos: Vec<Vec<u8>>, seed: u32) -> Card {
         let size = size_mb.clamp(8, 1 << 20) * 1024 * 1024;
         let mut img = SparseImage::new(size);
-        let ckb = cluster_kb.unwrap_or_else(|| default_cluster_kb(fs, size_mb)).clamp(1, 1024);
+        let asked = cluster_kb.unwrap_or_else(|| default_cluster_kb(fs, size_mb)).clamp(1, 1024);
+        let ckb = fit_cluster_bytes(size, asked * 1024) / 1024;
         let mut rng = Pcg32::new(seed as u64, 0x43415244);
         let serial = rng.next_u32();
         let vol = Volume::format(&mut img, fs, ckb * 1024, serial, "CARD");
@@ -157,9 +170,12 @@ impl Card {
             small: vec![None; np],
         };
         c.sync_meta_states();
+        if ckb != asked {
+            c.log.push(format!("{asked} KB clusters would make too many on a card this size; using {ckb} KB."));
+        }
         c.log.push(format!(
             "Formatted {} MB card as {} with {} KB clusters ({} clusters).",
-            size_mb,
+            size / (1024 * 1024),
             fs.name().to_uppercase(),
             ckb,
             c.vol.cluster_count
@@ -175,22 +191,28 @@ impl Card {
         }
     }
 
-    fn ensure_dirs(&mut self) -> Dir {
+    /// The camera's photo folder, created on first use; None (logged) when the card is too full for it.
+    fn ensure_dirs(&mut self) -> Option<Dir> {
         if let Some(d) = self.photo_dir {
-            return d;
+            return Some(d);
         }
         let (a, b) = self.camera.dirs();
         let root = self.vol.root();
-        let dcim = self.vol.mkdir(&mut self.img, root, a, self.stamp);
-        let sub = self.vol.mkdir(&mut self.img, dcim, b, self.stamp);
+        let made = self.vol.mkdir(&mut self.img, root, a, self.stamp).and_then(|dcim| self.vol.mkdir(&mut self.img, dcim, b, self.stamp));
         self.sync_meta_states();
-        self.photo_dir = Some(sub);
-        sub
+        if made.is_none() {
+            self.log.push("Card full: the camera could not create its photo folder.".into());
+        }
+        self.photo_dir = made;
+        made
     }
 
     fn mark_clusters(&mut self, clusters: &[u32], file: i32, st: u8) {
         for &c in clusters {
             let c = c as usize;
+            if c >= self.state.len() {
+                continue;
+            }
             let prev = self.state[c];
             self.state[c] = if st == ST_LIVE && (prev == ST_DELETED || prev == ST_OVERWROTE) { ST_OVERWROTE } else { st };
             self.owner[c] = file;
@@ -336,7 +358,7 @@ impl Card {
     }
 
     pub fn shoot(&mut self, count: usize) {
-        let dir = self.ensure_dirs();
+        let Some(dir) = self.ensure_dirs() else { return };
         for _ in 0..count {
             let Some((pi, data)) = self.next_photo_bytes() else { return };
             let name = self.camera.photo_name(self.shot_no);
@@ -347,7 +369,7 @@ impl Card {
 
     /// Several files written at once (burst buffer flush / RAW+JPEG): clusters alternate between them.
     pub fn burst(&mut self, count: usize, period: usize) {
-        let dir = self.ensure_dirs();
+        let Some(dir) = self.ensure_dirs() else { return };
         let cb = self.vol.cluster_bytes as usize;
         let mut items = Vec::new();
         for _ in 0..count.max(1) {
@@ -460,6 +482,7 @@ impl Card {
     /// Re-create the file system. Data stays where it is; if the geometry changes, old files no longer
     /// line up with the new cluster grid.
     pub fn reformat(&mut self, fs: Fs, cluster_bytes: u64, why: &str) {
+        let cluster_bytes = fit_cluster_bytes(self.img.size, cluster_bytes);
         let old_state = std::mem::take(&mut self.state);
         let old_owner = std::mem::take(&mut self.owner);
         let old_ds = self.vol.data_start;
@@ -489,6 +512,11 @@ impl Card {
         }
         for f in self.files.iter_mut() {
             f.deleted = true;
+            // The new FAT is empty, so a chain lost before the format is no longer "allocated but
+            // unreferenced": it is plain deleted data now, and chkdsk must not bring it back.
+            if f.kind == "lost" {
+                f.kind = "orphan";
+            }
         }
         self.photo_dir = None;
         self.sync_meta_states();
@@ -512,14 +540,22 @@ impl Card {
 
     /// chkdsk: chains allocated in the FAT but not referenced by any entry become FOUND.000\FILE0000.CHK.
     pub fn chkdsk(&mut self) {
-        let lost: Vec<usize> =
-            (0..self.files.len()).filter(|&i| self.files[i].kind == "lost" && !self.files[i].clusters.is_empty()).collect();
+        let n = self.state.len();
+        let lost: Vec<usize> = (0..self.files.len())
+            .filter(|&i| {
+                let f = &self.files[i];
+                f.kind == "lost" && !f.clusters.is_empty() && f.clusters.iter().all(|&c| (c as usize) < n)
+            })
+            .collect();
         if lost.is_empty() {
             self.log.push("chkdsk: no errors found.".into());
             return;
         }
         let root = self.vol.root();
-        let found = self.vol.mkdir(&mut self.img, root, "FOUND.000", self.stamp);
+        let Some(found) = self.vol.mkdir(&mut self.img, root, "FOUND.000", self.stamp) else {
+            self.log.push("chkdsk: the disk is full, so the lost chains could not be saved.".into());
+            return;
+        };
         for (k, i) in lost.into_iter().enumerate() {
             let f = self.files[i].clone();
             let size = f.clusters.len() as u64 * self.vol.cluster_bytes;
@@ -616,7 +652,10 @@ impl Card {
     /// (also ones deleted since), "live" = only photos still on the card.
     pub fn os_junk_with(&mut self, kb: u64, thumbs_of: &str) {
         let root = self.vol.root();
-        let svi = self.vol.mkdir(&mut self.img, root, "SYSTEM~1", self.stamp);
+        let Some(svi) = self.vol.mkdir(&mut self.img, root, "SYSTEM~1", self.stamp) else {
+            self.log.push("A PC tried to write its index files, but the card is full.".into());
+            return;
+        };
         let mut junk = vec![0u8; 76];
         for (i, b) in junk.iter_mut().enumerate() {
             *b = (i as u8).wrapping_mul(31) ^ 0x5A;
@@ -737,7 +776,7 @@ impl Card {
 
     /// Movie clip: MJPEG AVI + .THM sidecar (frames are the next photos, re-used as frames).
     pub fn video(&mut self, frames: usize) {
-        let dir = self.ensure_dirs();
+        let Some(dir) = self.ensure_dirs() else { return };
         let mut jpegs = Vec::new();
         for _ in 0..frames.max(1) {
             if let Some((_, d)) = self.next_photo_bytes() {
@@ -785,7 +824,8 @@ impl Card {
                 "power_loss" => self.arm_power_loss(get_f64(e, "at", 0.5), get_str(e, "mode", "size_zero")),
                 "chkdsk" => self.chkdsk(),
                 "fat_glitch" => self.fat_glitch(get_i64(e, "count", 2).clamp(1, 64) as usize),
-                "used_card" => self.used_card(get_i64(e, "kb", 1024).clamp(1, 1 << 20) as u64),
+                // 64 MB at most: every written page is real memory in the sparse image.
+                "used_card" => self.used_card(get_i64(e, "kb", 1024).clamp(1, 1 << 16) as u64),
                 "os_junk" if get_bool(e, "exact", false) => self.os_junk_exact(get_i64(e, "kb", 256).clamp(1, 65536) as u64),
                 "os_junk" => self.os_junk_with(get_i64(e, "kb", 256).clamp(8, 65536) as u64, get_str(e, "thumbs_of", "all")),
                 "overwrite" => self.overwrite(get_i64(e, "count", 2).clamp(1, 500) as usize),

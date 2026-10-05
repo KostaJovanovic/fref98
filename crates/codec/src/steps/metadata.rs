@@ -99,7 +99,7 @@ fn thumb_mismatch(p: &Value, input: &[u8], ctx: &StepCtx) -> StepResult {
     let thumb = resize(&src, tw, th);
     let mut s = encoder::EncodeSettings::standard(75, "422");
     s.jfif = false;
-    Ok(exif::with_thumbnail(input, &px_out(&thumb, &s)))
+    exif::with_thumbnail(input, &px_out(&thumb, &s))
 }
 
 fn exif_corrupt(p: &Value, input: &[u8], ctx: &StepCtx) -> StepResult {

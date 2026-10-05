@@ -1,6 +1,7 @@
 // The 98 minimise/maximise/restore animation (DrawAnimatedRects with IDANI_CAPTION): a caption-shaped bar
 // zooms between the window's caption and its taskbar button (or the maximised caption) in about 200 ms of
-// whole steps. Open and close are instant. No imports with side effects, so tests can load this in Node.
+// whole steps. (Open and close dissolve instead: ditherAnim in wm.ts.) No imports with side effects, so
+// tests can load this in Node.
 import type { Rect } from './wm-drag';
 
 export const ZOOM_MS = 200;

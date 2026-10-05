@@ -42,14 +42,21 @@ fn type_size(t: u16) -> usize {
 struct Rd<'a> {
     d: &'a [u8],
     le: bool,
+    /// Bytes the value copies may still take. Entries (and whole IFDs) can all point at the same
+    /// bytes, so without a budget one 64 KB block expands to ~90 MB of copies.
+    budget: std::cell::Cell<usize>,
 }
 impl Rd<'_> {
+    /// `d[o..o + n]`, with the offset arithmetic checked (a u32 offset can overflow usize on wasm32).
+    fn slice(&self, o: usize, n: usize) -> Option<&[u8]> {
+        self.d.get(o..o.checked_add(n)?)
+    }
     fn u16(&self, o: usize) -> Option<u16> {
-        let b = self.d.get(o..o + 2)?;
+        let b = self.slice(o, 2)?;
         Some(if self.le { u16::from_le_bytes([b[0], b[1]]) } else { u16::from_be_bytes([b[0], b[1]]) })
     }
     fn u32(&self, o: usize) -> Option<u32> {
-        let b = self.d.get(o..o + 4)?;
+        let b = self.slice(o, 4)?;
         Some(if self.le { u32::from_le_bytes([b[0], b[1], b[2], b[3]]) } else { u32::from_be_bytes([b[0], b[1], b[2], b[3]]) })
     }
     /// Returns entries and the next-IFD offset.
@@ -57,22 +64,19 @@ impl Rd<'_> {
         let mut out = Vec::new();
         let Some(n) = self.u16(off) else { return (out, 0) };
         for i in 0..(n as usize).min(512) {
-            let e = off + 2 + i * 12;
+            let Some(e) = off.checked_add(2 + i * 12) else { break };
             let (Some(tag), Some(typ), Some(count)) = (self.u16(e), self.u16(e + 2), self.u32(e + 4)) else { break };
             let size = type_size(typ).saturating_mul(count as usize);
-            if size > 1 << 20 {
+            if size > 1 << 20 || size > self.budget.get() {
                 continue;
             }
-            let data = if size <= 4 {
-                self.d.get(e + 8..e + 8 + size).map(|s| s.to_vec())
-            } else {
-                self.u32(e + 8).and_then(|o| self.d.get(o as usize..o as usize + size)).map(|s| s.to_vec())
-            };
+            let data = if size <= 4 { self.slice(e + 8, size) } else { self.u32(e + 8).and_then(|o| self.slice(o as usize, size)) };
             if let Some(data) = data {
-                out.push(Entry { tag, typ, count, data });
+                self.budget.set(self.budget.get() - size);
+                out.push(Entry { tag, typ, count, data: data.to_vec() });
             }
         }
-        let next = self.u32(off + 2 + n as usize * 12).unwrap_or(0);
+        let next = off.checked_add(2 + n as usize * 12).and_then(|o| self.u32(o)).unwrap_or(0);
         (out, next)
     }
 }
@@ -86,7 +90,8 @@ impl Tiff {
             b"MM" => false,
             _ => return None,
         };
-        let r = Rd { d: t, le };
+        // Real values all lie inside the block, so twice its size is plenty for honest files.
+        let r = Rd { d: t, le, budget: std::cell::Cell::new(t.len() * 2) };
         let ifd0_off = r.u32(4)? as usize;
         let (ifd0, next) = r.ifd(ifd0_off);
         let ptr = |entries: &[Entry], tag: u16| -> Option<usize> {
@@ -94,11 +99,20 @@ impl Tiff {
             let b = e.data.get(0..4)?;
             Some(if le { u32::from_le_bytes([b[0], b[1], b[2], b[3]]) } else { u32::from_be_bytes([b[0], b[1], b[2], b[3]]) } as usize)
         };
-        let exif = ptr(&ifd0, TAG_EXIF_IFD).filter(|&o| o != ifd0_off).map(|o| r.ifd(o).0).unwrap_or_default();
-        let gps = ptr(&ifd0, TAG_GPS_IFD).filter(|&o| o != ifd0_off).map(|o| r.ifd(o).0).unwrap_or_default();
+        // Each IFD is read once: Exif, GPS and IFD1 pointing at an IFD already read are ignored.
+        let mut seen = vec![ifd0_off];
+        let mut once = |o: usize| -> Option<usize> {
+            if seen.contains(&o) {
+                return None;
+            }
+            seen.push(o);
+            Some(o)
+        };
+        let exif = ptr(&ifd0, TAG_EXIF_IFD).and_then(&mut once).map(|o| r.ifd(o).0).unwrap_or_default();
+        let gps = ptr(&ifd0, TAG_GPS_IFD).and_then(&mut once).map(|o| r.ifd(o).0).unwrap_or_default();
         let mut ifd1 = Vec::new();
         let mut thumb = None;
-        if next != 0 && next as usize != ifd0_off {
+        if next != 0 && once(next as usize).is_some() {
             ifd1 = r.ifd(next as usize).0;
             let off = ifd1.iter().find(|e| e.tag == TAG_THUMB_OFF).and_then(|e| entry_u32(e, le));
             let len = ifd1.iter().find(|e| e.tag == TAG_THUMB_LEN).and_then(|e| entry_u32(e, le));
@@ -358,10 +372,19 @@ fn drop_metadata_blocks(d: &[u8]) -> Vec<u8> {
     out
 }
 
-pub fn with_thumbnail(d: &[u8], thumb: &[u8]) -> Vec<u8> {
+/// Largest APP1 payload a segment can hold (its length field is 16 bits and counts itself).
+const MAX_APP1: usize = 0xFFFF - 2;
+
+/// The file with `thumb` as its Exif thumbnail. Errors when Exif plus thumbnail would not fit in one
+/// APP1 segment (64 KB): a cut-off block would leave a broken Exif and lose the end of the file.
+pub fn with_thumbnail(d: &[u8], thumb: &[u8]) -> Result<Vec<u8>, String> {
     let mut t = read(d).unwrap_or(Tiff { le: true, ..Default::default() });
     t.thumb = Some(thumb.to_vec());
-    replace_app1(d, Some(t.write()))
+    let payload = t.write();
+    if payload.len() > MAX_APP1 {
+        return Err(format!("the Exif block would be {} KB with this thumbnail; 64 KB is the limit", payload.len() / 1024));
+    }
+    Ok(replace_app1(d, Some(payload)))
 }
 
 pub fn set_orientation(d: &[u8], v: u16) -> Vec<u8> {
@@ -449,7 +472,7 @@ mod tests {
     fn roundtrip_orientation_and_thumb() {
         let jpeg = [0xFF, 0xD8, 0xFF, 0xD9];
         let j = set_orientation(&jpeg, 6);
-        let j = with_thumbnail(&j, &[0xFF, 0xD8, 1, 2, 3, 0xFF, 0xD9]);
+        let j = with_thumbnail(&j, &[0xFF, 0xD8, 1, 2, 3, 0xFF, 0xD9]).unwrap();
         let t = read(&j).unwrap();
         assert_eq!(t.thumb.as_deref(), Some(&[0xFF, 0xD8, 1, 2, 3, 0xFF, 0xD9][..]));
         let f = flat(&j).unwrap();
@@ -496,6 +519,37 @@ mod tests {
         let has = |needle: &[u8]| s.windows(needle.len()).any(|w| w == needle);
         assert!(!has(b"GPSLatitude") && !has(b"Photoshop 3.0") && !has(b"LENS456"));
         assert!(s.ends_with(&[0xFF, 0xDA, 0x00, 0x02, 0x11, 0x22, 0xFF, 0xD9]), "the image data is untouched");
+    }
+
+    // Audit B1 (09-6): 512 entries all pointing at the same 60 KB used to copy 30 MB; IFDs pointing
+    // at each other were read again.
+    #[test]
+    fn parse_copies_at_most_twice_the_block() {
+        let mut t = b"Exif\0\0II*\0".to_vec();
+        t.extend(8u32.to_le_bytes());
+        t.extend(512u16.to_le_bytes());
+        for i in 0..512u16 {
+            let tag = if i == 0 { TAG_EXIF_IFD } else { 0x9000 + i };
+            let (typ, count, val) = if i == 0 { (4u16, 1u32, 8u32) } else { (7, 60_000, 8) };
+            t.extend(tag.to_le_bytes());
+            t.extend(typ.to_le_bytes());
+            t.extend(count.to_le_bytes());
+            t.extend(val.to_le_bytes());
+        }
+        t.extend(8u32.to_le_bytes()); // next IFD = IFD0 again
+        t.resize(65_000, 0x55);
+        let tiff = Tiff::parse(&t).unwrap();
+        let copied: usize = [&tiff.ifd0, &tiff.exif, &tiff.ifd1].iter().flat_map(|v| v.iter()).map(|e| e.data.len()).sum();
+        assert!(copied <= 2 * t.len(), "copied {copied} bytes from a {} byte block", t.len());
+        assert!(tiff.exif.is_empty() && tiff.ifd1.is_empty(), "IFD0 read again through a pointer");
+    }
+
+    // Audit B1 (09-4): a thumbnail that doesn't fit in one APP1 used to be cut off silently.
+    #[test]
+    fn an_oversized_thumbnail_is_refused() {
+        let jpeg = [0xFF, 0xD8, 0xFF, 0xD9];
+        assert!(with_thumbnail(&jpeg, &vec![0x11; 70_000]).is_err());
+        assert!(with_thumbnail(&jpeg, &vec![0x11; 30_000]).is_ok());
     }
 
     #[test]
