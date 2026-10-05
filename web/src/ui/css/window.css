@@ -70,9 +70,10 @@
   white-space: nowrap;
   overflow: hidden;
 }
+/* text rows are one line (16 px × the text scale) plus their 98 padding, so Large Fonts don't clip */
 .win-title {
   flex: none;
-  height: 18px;
+  height: calc(16px * var(--ts) + 2px);
   margin-bottom: 1px;
   touch-action: none;
 }
@@ -149,6 +150,22 @@
 .tbtn:focus-visible {
   outline: none;
 }
+/* touch screens with the desktop layout (tablets): the caption buttons keep their 98 size, but each takes taps
+   from 8 px above and below it too (past the frame, and into the menu bar's empty right end) */
+@media (pointer: coarse) {
+  .desk .win-title {
+    overflow: visible;
+  }
+  .desk .tbtn {
+    position: relative;
+    z-index: 4;
+  }
+  .desk .tbtn::before {
+    content: '';
+    position: absolute;
+    inset: -8px 0;
+  }
+}
 
 /* the caption-zoom bar of minimise / maximise / restore */
 .win-zoom {
@@ -173,7 +190,7 @@
   flex-wrap: wrap;
 }
 .win-menu > button {
-  height: 18px;
+  height: calc(16px * var(--ts) + 2px);
   border: 0;
   padding: 0 6px;
   background: transparent;
@@ -195,7 +212,7 @@
   flex: none;
   display: flex;
   gap: 2px;
-  height: 20px;
+  height: calc(16px * var(--ts) + 4px);
   padding-top: 2px;
   overflow: hidden;
   white-space: nowrap;
@@ -206,7 +223,7 @@
 .win-status > * {
   display: flex;
   align-items: center;
-  height: 18px;
+  height: calc(16px * var(--ts) + 2px);
   padding: 0 4px;
   overflow: hidden;
   box-shadow: inset 1px 1px #808080, inset -1px -1px #fff;

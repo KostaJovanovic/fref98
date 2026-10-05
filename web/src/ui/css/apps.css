@@ -196,10 +196,6 @@
 .phone .xtb .xtb-lbl {
   display: none;
 }
-.phone .xtb.labels .xtb-btn {
-  min-width: 32px;
-  height: 32px;
-}
 
 /* Address bar band */
 .xw-addr {
@@ -213,7 +209,7 @@
 .xw-addr-f {
   flex: 1;
   min-width: 60px;
-  height: 22px;
+  height: calc(16px * var(--ts) + 6px);
 }
 .xw-addr-f .combo-text {
   gap: 3px;
@@ -336,7 +332,7 @@
 }
 .v-small .fv-item {
   width: 160px;
-  height: 18px;
+  height: calc(16px * var(--ts) + 2px);
   gap: 2px;
 }
 .v-list .fv-items {
@@ -348,7 +344,7 @@
   padding: 1px 2px;
 }
 .v-list .fv-item {
-  height: 17px;
+  height: calc(16px * var(--ts) + 1px);
   gap: 2px;
   max-width: 240px;
 }
@@ -375,7 +371,7 @@
 .fv-hd {
   position: relative;
   flex: none;
-  height: 17px;
+  height: calc(16px * var(--ts) + 1px);
   padding: 0 6px;
   display: flex;
   align-items: center;
@@ -407,11 +403,11 @@
   cursor: var(--cur-ew, col-resize);
 }
 .fv-row {
-  height: 17px;
+  height: calc(16px * var(--ts) + 1px);
 }
 .fv-cell {
   flex: none;
-  height: 17px;
+  height: calc(16px * var(--ts) + 1px);
   display: flex;
   align-items: center;
   padding: 0 6px;
@@ -504,7 +500,7 @@
 /* F2: the 98 rename box (white, 1 px black frame) in place of the label */
 .fv-rename {
   width: 150px;
-  height: 16px;
+  height: calc(16px * var(--ts));
   padding: 0 1px;
   border: 1px solid #000;
   background: #fff;

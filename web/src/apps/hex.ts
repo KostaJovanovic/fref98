@@ -112,6 +112,7 @@ class HexView {
         { label: '&Help', items: () => [{ label: '&Hex Doctor Help', icon: 'help', onClick: () => openApp('help', 'hex') }, { label: 'What are &markers?', onClick: () => this.legendBox() }] },
       ],
       status: [this.stHint, this.stOff, this.stSel, this.stSize],
+      phoneStatus: true,
       onClose: () => {
         for (const u of this.unsub) u();
         link.highlight([]);

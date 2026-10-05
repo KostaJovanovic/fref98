@@ -38,7 +38,8 @@
 /* 98 icon: 32×32 image above a label of up to 2 lines (all of it while focused), on the 75×75 grid */
 .dicon {
   position: absolute;
-  width: 75px;
+  /* the cell grows with Large Fonts (desktop-grid.ts CELL_GROW_W) */
+  width: calc(75px + 45px * (var(--ts) - 1));
   padding-top: 2px;
   display: flex;
   flex-direction: column;
@@ -60,7 +61,7 @@
 .dicon .lbl {
   position: relative;
   margin-top: 4px;
-  max-width: 73px;
+  max-width: calc(73px + 45px * (var(--ts) - 1));
   padding: 0 1px 1px;
   text-align: center;
   overflow-wrap: anywhere;

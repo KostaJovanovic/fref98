@@ -410,6 +410,185 @@ await pg.waitForTimeout(300);
 await audits('after interaction');
 await shot(pg, 'desktop');
 
+// ------------------------------------------------------------------ phone (audit B6)
+{
+  const pctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+  const ph = await pctx.newPage();
+  ph.on('pageerror', (e) => errors.push('[phone pageerror] ' + e.message));
+  await ph.goto(base);
+  await ph.waitForTimeout(3000);
+  // close what opened by itself, so the desktop shows
+  await ph.evaluate(() => {
+    for (const m of document.querySelectorAll('.menu')) m.remove();
+    for (const w of [...document.querySelectorAll('.win')]) w.querySelector('.tbtn.close')?.click();
+  });
+  await ph.waitForTimeout(500);
+  const small = (sel, dims = 'both') =>
+    ph.evaluate(
+      ({ sel, dims }) =>
+        [...document.querySelectorAll(sel)]
+          .filter((e) => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden')
+          .map((e) => [e, e.getBoundingClientRect()])
+          .filter(([, r]) => (dims !== 'w' && r.height < 43.5) || (dims !== 'h' && r.width < 43.5))
+          .map(([e, r]) => `${e.className} ${Math.round(r.width)}x${Math.round(r.height)}`),
+      { sel, dims },
+    );
+  // 03-1: the icons flow in rows
+  const rows = await ph.evaluate(() => {
+    const ics = [...document.querySelectorAll('.dicons .dicon')];
+    return { n: ics.length, firstRow: ics.filter((i) => Math.abs(i.offsetTop - ics[0].offsetTop) < 2).length };
+  });
+  check('phone: desktop icons flow in rows', rows.firstRow >= 2, JSON.stringify(rows));
+  await shot(ph, 'phone-desktop');
+  // 03-2: Start menu rows (and a cascade's) are finger-sized
+  await ph.locator('.start').click();
+  await ph.waitForTimeout(400);
+  const sub = ph.locator('.menu.startmenu .mi.sub').first();
+  if (await sub.count()) {
+    await sub.click();
+    await ph.waitForTimeout(600);
+  }
+  await shot(ph, 'phone-start');
+  const levels = await ph.locator('.menu').count();
+  const smallRows = await small('.menu .mi', 'h');
+  check('phone: Start menu and cascade rows are at least 44 px', levels >= 2 && smallRows.length === 0, `${levels} levels; ` + smallRows.slice(0, 4).join(' | '));
+  await ph.keyboard.press('Escape');
+  await ph.keyboard.press('Escape');
+  await ph.waitForTimeout(200);
+  // 03-4: transport buttons, tray icons, the caption Menu button, swatches, spinners and drop-down options
+  const tooSmall = [];
+  await ph.evaluate(() => window.__refrag.openApp('video'));
+  await ph.waitForTimeout(800);
+  tooSmall.push(...(await small('.win.active .mp-btn, .tray .tray-ico, .win.active .tmenu')));
+  await shot(ph, 'phone-video');
+  await ph.evaluate(() => window.__refrag.openApp('display'));
+  await ph.waitForTimeout(800);
+  tooSmall.push(...(await small('.win.active .dp-sw')));
+  await ph.locator('.win.active .tab', { hasText: 'Screen Saver' }).click();
+  await ph.waitForTimeout(400);
+  tooSmall.push(...(await small('.win.active .spin-btns', 'w')));
+  const combo = ph.locator('.win.active .combo').first();
+  if (await combo.count()) {
+    await combo.click();
+    await ph.waitForTimeout(300);
+    tooSmall.push(...(await small('.combo-opt', 'h')));
+    await ph.keyboard.press('Escape');
+  }
+  check('phone: every touch target is at least 44 px', tooSmall.length === 0, tooSmall.slice(0, 6).join(' | '));
+  // 03-21: the big heading stays bigger than body text
+  await ph.evaluate(() => window.__refrag.openApp('editor'));
+  await ph.waitForTimeout(800);
+  const h1 = await ph.evaluate(() => {
+    const e = document.querySelector('h1.big');
+    return e ? [parseFloat(getComputedStyle(e).fontSize), parseFloat(getComputedStyle(document.body).fontSize), parseFloat(getComputedStyle(e.closest('.win') ?? document.body).fontSize)] : null;
+  });
+  check('phone: h1.big is bigger than body text', !!h1 && h1[0] >= h1[2] * 1.5, JSON.stringify(h1));
+  // phone status bar: Hex Doctor keeps its offset readout
+  await ph.evaluate(() => window.__refrag.openApp('hex'));
+  await ph.waitForTimeout(800);
+  const st = await ph.evaluate(() => {
+    const s = document.querySelector('.win.active .win-status');
+    return s ? getComputedStyle(s).display : 'none';
+  });
+  check('phone: Hex Doctor shows its status bar', st !== 'none', st);
+  await shot(ph, 'phone-hex');
+  // 01-24: the paste fallback tells a phone user how to paste there
+  await ph.evaluate(() => window.__refrag.openApp('export'));
+  await ph.waitForTimeout(800);
+  const pin = ph.locator('.win.active .field > input').first();
+  let pasteText = '';
+  if (await pin.count()) {
+    const b = await pin.boundingBox();
+    await ph.mouse.click(b.x + b.width / 2, b.y + b.height / 2, { button: 'right' });
+    await ph.waitForTimeout(250);
+    await ph.locator('.menu .mi', { hasText: 'Paste' }).click().catch(() => {});
+    await ph.waitForTimeout(600);
+    pasteText = (await ph.locator('.win.active .msg-text').textContent().catch(() => '')) ?? '';
+    await ph.keyboard.press('Escape');
+  }
+  check('phone: the paste fallback has no Ctrl+V', !!pasteText && !/Ctrl\+V/.test(pasteText), pasteText);
+  // 01-16: a long press opens the context menu (iOS never fires contextmenu)
+  await ph.evaluate(() => {
+    for (const w of [...document.querySelectorAll('.win')]) w.querySelector('.tbtn.close')?.click();
+  });
+  await ph.waitForTimeout(500);
+  const lp = await ph.evaluate(async () => {
+    let x = 0;
+    let y = 0;
+    for (y = 60; y < innerHeight - 80 && !x; y += 23)
+      for (let xx = innerWidth - 10; xx > 10; xx -= 17) {
+        const e = document.elementFromPoint(xx, y);
+        if (e && e.closest('.desktop') && !e.closest('.dicon, .win, button')) {
+          x = xx;
+          break;
+        }
+      }
+    if (!x) return 'no free desktop spot';
+    const t = document.elementFromPoint(x, y);
+    const ev = (type) => t.dispatchEvent(new PointerEvent(type, { pointerType: 'touch', isPrimary: true, pointerId: 7, bubbles: true, clientX: x, clientY: y }));
+    ev('pointerdown');
+    await new Promise((r) => setTimeout(r, 700));
+    const open = document.querySelectorAll('.menu').length;
+    ev('pointerup');
+    return open;
+  });
+  check('phone: a long press opens the context menu', lp > 0, String(lp));
+  await ph.keyboard.press('Escape');
+  await pctx.close();
+}
+
+// ------------------------------------------------------------------ tablet: touch with the desktop layout (01-15)
+{
+  const tctx = await browser.newContext({ viewport: { width: 1024, height: 768 }, deviceScaleFactor: 1, hasTouch: true });
+  const tb = await tctx.newPage();
+  await tb.goto(base);
+  await tb.waitForTimeout(3000);
+  await tb.evaluate(() => window.__refrag.openApp('help'));
+  await tb.waitForTimeout(800);
+  const z = await tb.evaluate(() => {
+    const n = document.querySelector('.win.active .win-rz[data-edge="n"]');
+    const c = document.querySelector('.win.active .tbtn.close');
+    return { coarse: matchMedia('(pointer: coarse)').matches, top: n?.style.top, h: n?.style.height, btnHit: c ? parseFloat(getComputedStyle(c, '::before').height) : 0 };
+  });
+  check('tablet: resize zones and caption buttons take a finger', z.coarse && z.top === '-6px' && z.h === '10px' && z.btnHit >= 28, JSON.stringify(z));
+  await tctx.close();
+}
+
+// ------------------------------------------------------------------ Large Fonts (2×) on the desktop (03-3)
+{
+  const lctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 });
+  await lctx.addInitScript(() => localStorage.setItem('refragmenter.settings.v1', JSON.stringify({ bigText: true })));
+  const lg = await lctx.newPage();
+  await lg.goto(base);
+  await lg.waitForTimeout(3000);
+  for (const id of ['help', 'export', 'pictures', 'hex']) {
+    await lg.evaluate((id) => window.__refrag.openApp(id), id);
+    await lg.waitForTimeout(700);
+  }
+  const clipped = await lg.evaluate(() =>
+    [...document.querySelectorAll('.win-title, .win-menu > button, .win-status > *, .hh-node, .sa-file, .sa-head, .fv-row, .fv-cell, .fv-hd, .v-small .fv-item, .v-list .fv-item, .cd-details .cd-item, .cd-head')]
+      .filter((e) => e.getClientRects().length)
+      .filter((e) => e.getBoundingClientRect().height < 32)
+      .map((e) => `${e.className} ${Math.round(e.getBoundingClientRect().height)}px`),
+  );
+  check('Large Fonts: text rows are at least one 32 px line tall', clipped.length === 0, clipped.slice(0, 6).join(' | '));
+  const lgMisc = await lg.evaluate(() => {
+    const out = [];
+    for (const e of document.querySelectorAll('.start, .task, .tray')) if (e.getBoundingClientRect().height < 32) out.push(`${e.className} ${Math.round(e.getBoundingClientRect().height)}px`);
+    const s = document.querySelector('.start');
+    if (s && s.scrollWidth > s.clientWidth + 1) out.push(`Start clipped ${s.clientWidth}/${s.scrollWidth}`);
+    // desktop icons don't overlap each other
+    const r = [...document.querySelectorAll('.dicons .dicon')].map((e) => e.getBoundingClientRect());
+    for (let i = 0; i < r.length; i++)
+      for (let j = i + 1; j < r.length; j++)
+        if (r[i].left < r[j].right - 1 && r[j].left < r[i].right - 1 && r[i].top < r[j].bottom - 1 && r[j].top < r[i].bottom - 1) out.push(`icons ${i} and ${j} overlap`);
+    return out;
+  });
+  check('Large Fonts: taskbar and desktop icons fit', lgMisc.length === 0, lgMisc.slice(0, 6).join(' | '));
+  await shot(lg, 'large-fonts');
+  await lctx.close();
+}
+
 await browser.close();
 server.close();
 console.log('\n' + '-'.repeat(78));

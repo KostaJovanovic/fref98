@@ -473,7 +473,8 @@ export class Viewer {
         const dist = Math.hypot(a.x - b.x, a.y - b.y);
         const target = zoom0 * (dist / (pinch0 || 1));
         const snapped = ZOOMS.reduce((best, z) => (Math.abs(Math.log(z / target)) < Math.abs(Math.log(best / target)) ? z : best), ZOOMS[0]);
-        if (snapped !== this.effectiveZoom()) this.setZoom(snapped, false);
+        // around the point between the fingers
+        if (snapped !== this.effectiveZoom()) this.setZoom(snapped, false, this.devicePoint({ clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 }));
         return;
       }
       if (mode === 'mask') {
@@ -503,6 +504,14 @@ export class Viewer {
       }
       if (mode === 'mask' && this.mask) this.onMask?.(this.mask);
       if (this.pointers.size === 0) mode = null;
+      else if (mode === 'pinch' && this.pointers.size === 1) {
+        // one finger lifted: the other one pans on from where it is now (at the new zoom), picking nothing
+        const p = [...this.pointers.values()][0];
+        const d = this.devicePoint({ clientX: p.x, clientY: p.y });
+        start = { x: d.x, y: d.y, cx: this.cx, cy: this.cy };
+        moved = Infinity;
+        mode = 'pan';
+      }
     };
     // cut off (pointercancel, or the capture was lost without a pointerup): forget the pointer, pick nothing
     const cut = (e: PointerEvent) => {

@@ -46,6 +46,8 @@ const appType = (id: string) => TYPES[id] ?? 'Application';
 export const iconLabel = (id: string) => settings.iconNames[id] ?? LABELS[id] ?? APPS[id]?.title ?? id;
 
 function gridNow(): G.GridSize {
+  // phones lay the icons out in rows (CSS); there the grid only keeps the cell order
+  G.setTextScale(ui.phone ? 1 : ui.ts);
   return G.gridSize(desk.clientWidth, desk.clientHeight);
 }
 
@@ -120,8 +122,8 @@ function apply() {
     const p = G.cellXY(cells[id]);
     ic.el.style.left = p.x + 'px';
     ic.el.style.top = p.y + 'px';
-    maxX = Math.max(maxX, p.x + G.CELL_W);
-    maxY = Math.max(maxY, p.y + G.CELL_H);
+    maxX = Math.max(maxX, p.x + G.cellSize().w);
+    maxY = Math.max(maxY, p.y + G.cellSize().h);
   }
   // the layer only covers the icons (Foldy keeps clear of it); clicks between icons fall through to the desktop
   layer.style.width = ui.phone ? '' : maxX + 'px';

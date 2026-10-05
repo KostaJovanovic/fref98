@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   CELL_W, CELL_H, gridSize, snapToGrid, nearestFreeCell, layoutIcons, arrange, compact, dropIcons, rectSelect, bandRect,
-  combineSelection, neighbor, cascadeRects, tileRects, columnMajor, cellKey, type Cell,
+  combineSelection, neighbor, cascadeRects, tileRects, columnMajor, cellKey, setTextScale, cellSize, cellXY, type Cell,
 } from '../src/shell/desktop-grid';
 
 const size = { cols: 10, rows: 6 };
@@ -11,6 +11,18 @@ describe('desktop grid', () => {
     expect([CELL_W, CELL_H]).toEqual([75, 75]);
     expect(gridSize(800, 572)).toEqual({ cols: 10, rows: 7 });
     expect(gridSize(10, 10)).toEqual({ cols: 1, rows: 1 });
+  });
+  // 03-3: at Large Fonts two label lines didn't fit a 75 px cell, so the labels ran into the next icon
+  it('grows with the text scale and goes back', () => {
+    setTextScale(2);
+    expect(cellSize()).toEqual({ w: 120, h: 115 });
+    // icon 32 + gaps 6 + two 32 px label lines + 1
+    expect(cellSize().h).toBeGreaterThanOrEqual(32 + 6 + 2 * 32 + 1);
+    expect(gridSize(800, 572)).toEqual({ cols: 6, rows: 4 });
+    expect(cellXY({ c: 1, r: 2 })).toEqual({ x: 120, y: 230 });
+    expect(snapToGrid(130, 240)).toEqual({ c: 1, r: 2 });
+    setTextScale(1);
+    expect(cellSize()).toEqual({ w: CELL_W, h: CELL_H });
   });
   it('snapToGrid rounds to the nearest cell and clamps to the grid', () => {
     expect(snapToGrid(0, 0)).toEqual({ c: 0, r: 0 });

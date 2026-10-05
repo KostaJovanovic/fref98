@@ -87,7 +87,7 @@
   grid-template-columns: 1fr 100px 58px;
   align-items: center;
   gap: 4px;
-  height: 22px;
+  height: calc(16px * var(--ts) + 6px);
 }
 .ftune-name.changed {
   font-weight: 700;

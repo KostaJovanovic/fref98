@@ -3,6 +3,24 @@
 
 export const CELL_W = 75;
 export const CELL_H = 75;
+/** Extra cell room per step of text scale (Large Fonts spread the icons, as in 98): two label lines and the
+ *  wider label. Keep in step with `.dicon` in desktop.css. */
+export const CELL_GROW_W = 45;
+export const CELL_GROW_H = 40;
+
+let cellW = CELL_W;
+let cellH = CELL_H;
+
+/** Sets the grid for a text scale (1 = the 98 75×75 grid). */
+export function setTextScale(ts: number) {
+  cellW = CELL_W + CELL_GROW_W * (ts - 1);
+  cellH = CELL_H + CELL_GROW_H * (ts - 1);
+}
+
+/** The current cell size in UI px. */
+export function cellSize(): { w: number; h: number } {
+  return { w: cellW, h: cellH };
+}
 
 export interface Cell {
   c: number;
@@ -24,12 +42,12 @@ export const cellKey = (c: Cell) => `${c.c},${c.r}`;
 
 /** How many whole cells fit on a desktop of w×h UI px (at least 1×1). */
 export function gridSize(w: number, h: number): GridSize {
-  return { cols: Math.max(1, Math.floor(w / CELL_W)), rows: Math.max(1, Math.floor(h / CELL_H)) };
+  return { cols: Math.max(1, Math.floor(w / cellW)), rows: Math.max(1, Math.floor(h / cellH)) };
 }
 
 /** Top-left of a cell in desktop px. */
 export function cellXY(c: Cell): { x: number; y: number } {
-  return { x: c.c * CELL_W, y: c.r * CELL_H };
+  return { x: c.c * cellW, y: c.r * cellH };
 }
 
 export function inBounds(c: Cell, size: GridSize): boolean {
@@ -39,8 +57,8 @@ export function inBounds(c: Cell, size: GridSize): boolean {
 /** The cell whose top-left is nearest to (x,y) (a cell's top-left in px), clamped to the grid when a size is
  *  given. */
 export function snapToGrid(x: number, y: number, size?: GridSize): Cell {
-  let c = Math.max(0, Math.round(x / CELL_W));
-  let r = Math.max(0, Math.round(y / CELL_H));
+  let c = Math.max(0, Math.round(x / cellW));
+  let r = Math.max(0, Math.round(y / cellH));
   if (size) {
     c = Math.min(c, size.cols - 1);
     r = Math.min(r, size.rows - 1);
