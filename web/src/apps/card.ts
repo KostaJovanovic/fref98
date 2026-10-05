@@ -94,6 +94,7 @@ class CardWindow {
   private anchor: string | null = null;
   /** The item the keyboard is on (Shift+arrows move it, the anchor stays). */
   private focusKey: string | null = null;
+  private lastTap = { key: '', t: 0 };
   private label = 'REFRAG';
   private items: Item[] = [];
   private busy = false;
@@ -129,6 +130,7 @@ class CardWindow {
         { label: '&Help', items: () => [{ label: '&Help Topics', icon: 'help', onClick: () => openApp('help', 'card') }, { sep: true }, { label: '&About File Refragmenter', icon: 'about', onClick: () => openApp('about') }] },
       ],
       status: [this.stObjs, this.stSize, this.stFree],
+      phoneStatus: true,
       onClose: () => {
         // D7: the card is not saved anywhere, so closing throws it away. Ask first.
         if (this.events.length && !this.discard) {
@@ -297,6 +299,14 @@ class CardWindow {
       row.addEventListener('pointerdown', (e) => {
         if (e.button === 2 && this.sel.has(it.key)) return;
         if (e.button > 2) return;
+        // touch: a second tap on the selected item opens it (phones have no double-click), as in Explorer
+        const now = performance.now();
+        if (e.pointerType !== 'mouse' && !e.shiftKey && !e.ctrlKey && this.sel.size === 1 && this.sel.has(it.key) && this.lastTap.key === it.key && now - this.lastTap.t < 1500) {
+          this.lastTap = { key: '', t: 0 };
+          this.openItem(it.key);
+          return;
+        }
+        this.lastTap = { key: it.key, t: now };
         this.click(it.key, e.ctrlKey || e.metaKey, e.shiftKey);
       });
       row.addEventListener('dblclick', () => this.openItem(it.key));
@@ -339,12 +349,26 @@ class CardWindow {
         sheet.style.width = sheet.width + 'px';
         sheet.classList.add('cd-sheetc');
         sheet.dataset.tip = 'Double-click a picture to open it in the editor';
-        sheet.ondblclick = (e) => {
+        const hit = (e: MouseEvent) => {
           const r = sheet.getBoundingClientRect();
           const f = r.width / sheet.width;
-          const i = sheetHit(files.length, (e.clientX - r.left) / f, (e.clientY - r.top) / f);
+          return sheetHit(files.length, (e.clientX - r.left) / f, (e.clientY - r.top) / f);
+        };
+        sheet.ondblclick = (e) => {
+          const i = hit(e);
           if (files[i]) this.openInEditor(files[i]);
         };
+        // touch: two taps on the same picture (phones have no double-click)
+        let tap = { i: -1, t: 0 };
+        sheet.addEventListener('pointerup', (e) => {
+          if (e.pointerType === 'mouse') return;
+          const i = hit(e);
+          const now = performance.now();
+          if (i >= 0 && i === tap.i && now - tap.t < 600 && files[i]) {
+            tap = { i: -1, t: 0 };
+            this.openInEditor(files[i]);
+          } else tap = { i, t: now };
+        });
         mount(holder, sheet);
       },
       (e) => !gone() && mount(holder, h('div', { class: 'cd-none' }, `The contact sheet could not be drawn (${(e as Error)?.message ?? e}).`)),

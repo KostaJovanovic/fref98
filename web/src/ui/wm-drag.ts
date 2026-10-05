@@ -24,25 +24,33 @@ export function edgeCursor(e: Edge): string {
   return 'var(--cur-nesw, nesw-resize)';
 }
 
-/** Box of an edge's hit zone, as CSS left/top/right/bottom/width/height in px (unset sides are absent). */
-export function zoneBox(e: Edge, b = RZ_EDGE, c = RZ_CORNER): Partial<Record<'left' | 'top' | 'right' | 'bottom' | 'width' | 'height', number>> {
+/** Extra hit area outside the frame for coarse pointers (touch): the zones grow outwards, so they cover no
+ *  more of the window and the frame looks the same. */
+export const RZ_TOUCH_OUT = 6;
+
+/** Box of an edge's hit zone, as CSS left/top/right/bottom/width/height in px (unset sides are absent).
+ *  `out` px of the zone lie outside the window (the corner zones' clip is `zoneClip(e, b + out, c + out)`). */
+export function zoneBox(e: Edge, b = RZ_EDGE, c = RZ_CORNER, out = 0): Partial<Record<'left' | 'top' | 'right' | 'bottom' | 'width' | 'height', number>> {
+  const o = -out;
+  const bb = b + out;
+  const cc = c + out;
   switch (e) {
     case 'n':
-      return { left: c, right: c, top: 0, height: b };
+      return { left: c, right: c, top: o, height: bb };
     case 's':
-      return { left: c, right: c, bottom: 0, height: b };
+      return { left: c, right: c, bottom: o, height: bb };
     case 'w':
-      return { top: c, bottom: c, left: 0, width: b };
+      return { top: c, bottom: c, left: o, width: bb };
     case 'e':
-      return { top: c, bottom: c, right: 0, width: b };
+      return { top: c, bottom: c, right: o, width: bb };
     case 'nw':
-      return { left: 0, top: 0, width: c, height: c };
+      return { left: o, top: o, width: cc, height: cc };
     case 'ne':
-      return { right: 0, top: 0, width: c, height: c };
+      return { right: o, top: o, width: cc, height: cc };
     case 'sw':
-      return { left: 0, bottom: 0, width: c, height: c };
+      return { left: o, bottom: o, width: cc, height: cc };
     case 'se':
-      return { right: 0, bottom: 0, width: c, height: c };
+      return { right: o, bottom: o, width: cc, height: cc };
   }
 }
 

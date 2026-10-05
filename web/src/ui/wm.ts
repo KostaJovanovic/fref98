@@ -6,7 +6,7 @@ import { applyChromeVars } from './art-chrome';
 import { ui, onScale, toUi, uiRect } from './scale';
 import { showMenu, menuAt, mnemonicLabel, type MenuItem } from './menu';
 import { reducedMotion } from '../settings';
-import { EDGES, edgeCursor, zoneBox, zoneClip, resizeRect, moveRect, trackDrag, type Edge, type Rect } from './wm-drag';
+import { EDGES, RZ_EDGE, RZ_CORNER, RZ_TOUCH_OUT, edgeCursor, zoneBox, zoneClip, resizeRect, moveRect, trackDrag, type Edge, type Rect } from './wm-drag';
 import { animateCaption, CAPTION_H } from './wm-anim';
 
 export type { Rect, Edge };
@@ -26,6 +26,8 @@ export interface WinOpts {
   minHeight?: number;
   menu?: { label: string; items: () => MenuItem[] }[];
   status?: HTMLElement[];
+  /** Keep the status bar on phones too (they hide it to save room; some windows show their only readout there). */
+  phoneStatus?: boolean;
   onClose?: () => boolean | void;
   onResize?: () => void;
   onShow?: () => void;
@@ -346,11 +348,13 @@ export function openWindow(o: WinOpts): Win {
   const bodyWrap = h('div', { class: 'win-body' }, o.body);
   const frame = h('div', { class: 'win-frame' }, menuBar, bodyWrap, foldySlot, statusEl);
   const grip = resizable ? h('div', { class: 'win-grip', 'aria-hidden': 'true' }) : null;
+  // a finger needs more than the 4 px frame (tablets get the desktop layout): the zones reach outside it
+  const out = matchMedia('(pointer: coarse)').matches ? RZ_TOUCH_OUT : 0;
   const zones = resizable
     ? EDGES.map((edge) => {
         const z = h('div', { class: 'win-rz', 'aria-hidden': 'true', dataset: { edge } });
-        for (const [k, v] of Object.entries(zoneBox(edge))) z.style.setProperty(k, v + 'px');
-        const cp = zoneClip(edge);
+        for (const [k, v] of Object.entries(zoneBox(edge, RZ_EDGE, RZ_CORNER, out))) z.style.setProperty(k, v + 'px');
+        const cp = zoneClip(edge, RZ_EDGE + out, RZ_CORNER + out);
         if (cp) z.style.clipPath = cp;
         z.style.cursor = edgeCursor(edge);
         z.addEventListener('pointerdown', (e) => startResize(e, z, edge));
@@ -359,7 +363,7 @@ export function openWindow(o: WinOpts): Win {
     : [];
   const el = h(
     'section',
-    { class: 'win' + (resizable ? '' : ' fixed') + (o.status ? '' : ' nostatus'), role: 'dialog', 'aria-label': o.title, tabIndex: -1 },
+    { class: 'win' + (resizable ? '' : ' fixed') + (o.status ? '' : ' nostatus') + (o.phoneStatus ? ' phstatus' : ''), role: 'dialog', 'aria-label': o.title, tabIndex: -1 },
     title,
     frame,
     grip,

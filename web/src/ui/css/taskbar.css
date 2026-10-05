@@ -44,6 +44,19 @@
 .start b {
   font-weight: 700;
 }
+/* Large Fonts (desktop): a taller bar, and a Start button as wide as its label */
+#app.desk.bigtext {
+  --taskbar-h: 40px;
+}
+.desk.bigtext .start,
+.desk.bigtext .task,
+.desk.bigtext .tray {
+  height: 34px;
+}
+.desk.bigtext .start {
+  width: auto;
+  padding-right: 5px;
+}
 .start.open,
 .start:active {
   box-shadow: inset -1px -1px #fff, inset 1px 1px #000, inset -2px -2px #dfdfdf, inset 2px 2px #808080;

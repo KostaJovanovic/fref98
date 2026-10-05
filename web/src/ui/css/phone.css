@@ -3,6 +3,8 @@
 .phone {
   --taskbar-h: 56px;
   --title-h: 40px;
+  /* the smallest touch target */
+  --tap: 44px;
 }
 .phone .win {
   left: 0 !important;
@@ -15,6 +17,15 @@
 .phone .ph-hide {
   display: none !important;
 }
+/* phones have no status bar, except where it is the only readout (Hex Doctor's offset and selection, the card's counts); the long
+   first pane (a hint or object count) gives way to the numbers */
+.phone .win.phstatus .win-status {
+  display: flex !important;
+}
+.phone .win.phstatus .win-status > .grow {
+  flex: 0 1 auto;
+  min-width: 0;
+}
 .phone .win-menu {
   display: none;
 }
@@ -24,16 +35,17 @@
   background: transparent;
   color: #fff;
   font-weight: 700;
-  min-height: 34px;
+  min-height: var(--tap, 34px);
   padding: 0 8px;
   align-items: center;
 }
 .phone .tmenu {
   display: flex;
 }
+/* the big heading at 3× the pixel font (body text is 2× on phones; 4× would not fit a phone's width) */
 .phone h1.big {
-  font-size: 26px;
-  line-height: 30px;
+  font-size: 39px;
+  line-height: 45px;
 }
 .phone .empty-card {
   max-width: calc(100% - 16px);
@@ -46,16 +58,36 @@
 .phone .btn,
 .phone .tool,
 .phone .mi,
-.phone .sm-item,
+.phone .menu.startmenu > .mi,
+.phone.sm-open .menu:not(.startmenu) .mi,
 .phone .li,
 .phone .task,
 .phone .tab,
 .phone .story-btn,
-.phone .field {
-  min-height: 44px;
+.phone .field,
+.phone .combo-opt {
+  min-height: var(--tap);
 }
-.phone .tool {
-  min-width: 44px;
+.phone .combo-opt {
+  display: flex;
+  align-items: center;
+}
+.phone .tool,
+.phone .xtb-btn,
+.phone .xtb.labels .xtb-btn {
+  min-width: var(--tap);
+  height: var(--tap);
+}
+.phone .mp-btn,
+.phone .tray .tray-ico,
+.phone .dp-sw {
+  width: var(--tap);
+  min-width: var(--tap);
+  height: var(--tap);
+}
+/* the spin pair: two 22 px halves of a 44 px field, made wide */
+.phone .spin-btns {
+  width: var(--tap);
 }
 .phone input[type='checkbox'],
 .phone input[type='radio'] {
@@ -115,6 +147,8 @@
   border: 0;
 }
 .phone .dicons {
+  display: flex;
+  align-content: flex-start;
   flex-direction: row;
   flex-wrap: wrap;
   right: 6px;
@@ -124,6 +158,9 @@
 }
 .phone .dicon {
   width: 88px;
+}
+.phone .dicon .lbl {
+  max-width: 86px;
 }
 .phone .editor {
   flex-direction: column;

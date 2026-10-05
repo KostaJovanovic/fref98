@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { captionRect, CAPTION_H } from '../src/ui/wm-anim';
-import { edgeAt, resizeRect, moveRect, zoneBox, zoneClip, edgeCursor, EDGES, RZ_EDGE, RZ_CORNER, type Edge } from '../src/ui/wm-drag';
+import { edgeAt, resizeRect, moveRect, zoneBox, zoneClip, edgeCursor, EDGES, RZ_EDGE, RZ_CORNER, RZ_TOUCH_OUT, type Edge } from '../src/ui/wm-drag';
 import { captionButtonRows, sizeGripRows } from '../src/ui/art-chrome';
 
 describe('captionRect', () => {
@@ -28,6 +28,25 @@ describe('captionRect', () => {
       expect(r.w).toBeLessThanOrEqual(prev.w);
       prev = r;
     }
+  });
+});
+
+// 01-15: on touch screens the zones grow outwards, past the frame, and the frame itself stays the same
+describe('touch resize zones', () => {
+  it('reach RZ_TOUCH_OUT px outside the window and keep their inner edge', () => {
+    const o = RZ_TOUCH_OUT;
+    expect(zoneBox('n', RZ_EDGE, RZ_CORNER, o)).toEqual({ left: RZ_CORNER, right: RZ_CORNER, top: -o, height: RZ_EDGE + o });
+    expect(zoneBox('e', RZ_EDGE, RZ_CORNER, o)).toEqual({ top: RZ_CORNER, bottom: RZ_CORNER, right: -o, width: RZ_EDGE + o });
+    expect(zoneBox('se', RZ_EDGE, RZ_CORNER, o)).toEqual({ right: -o, bottom: -o, width: RZ_CORNER + o, height: RZ_CORNER + o });
+    for (const e of EDGES) {
+      const b = zoneBox(e, RZ_EDGE, RZ_CORNER, o);
+      const inner = zoneBox(e);
+      // the part inside the window is the mouse zone: offset by -o, grown by o
+      for (const k of ['left', 'top', 'right', 'bottom'] as const) if (inner[k] === 0) expect(b[k], `${e} ${k}`).toBe(-o);
+      for (const k of ['width', 'height'] as const) if (inner[k] !== undefined && (e.length === 2 || inner[k] === RZ_EDGE)) expect(b[k], `${e} ${k}`).toBe(inner[k]! + o);
+    }
+    expect(RZ_EDGE + o).toBeGreaterThanOrEqual(10);
+    expect(zoneBox('n')).toEqual(zoneBox('n', RZ_EDGE, RZ_CORNER, 0));
   });
 });
 

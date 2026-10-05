@@ -5,7 +5,7 @@
 // fall through to an outer surface, or [] for "no menu here". Shift+F10 and the ContextMenu key open the
 // menu of the focused element.
 import { showMenu, isMenuOpen, type MenuItem } from './menu';
-import { toUi, uiRect } from './scale';
+import { ui, toUi, uiRect } from './scale';
 import { contextCandidates, type ContextEntry } from './uimath';
 import { message } from './dialog';
 import { showHelpTip } from './tooltip';
@@ -42,13 +42,75 @@ export function openContextMenu(target: Element, x: number, y: number, e?: Mouse
   return false;
 }
 
+/** How long a finger has to rest for its context menu, and how far it may wander meanwhile (CSS px). */
+export const LONG_PRESS_MS = 500;
+export const LONG_PRESS_SLOP = 8;
+
+/** Long-press tracking for touch (iOS Safari never fires `contextmenu`; Android fires it a little later). */
+function initLongPress() {
+  let press: { id: number; x: number; y: number; t: ReturnType<typeof setTimeout> } | null = null;
+  const cancel = () => {
+    if (press) clearTimeout(press.t);
+    press = null;
+  };
+  document.addEventListener(
+    'pointerdown',
+    (e) => {
+      cancel();
+      const target = e.target as Element;
+      // (text boxes keep the phone's own long-press callout: it is the only paste a web page can't block)
+      if (e.pointerType !== 'touch' || !e.isPrimary || !target || target.closest?.('.menu') || isTextField(target)) return;
+      const { clientX: x, clientY: y } = e;
+      press = {
+        id: e.pointerId,
+        x,
+        y,
+        t: setTimeout(() => {
+          press = null;
+          if (isMenuOpen()) return;
+          const p = toUi({ clientX: x, clientY: y });
+          if (!openContextMenu(target, p.x, p.y, new MouseEvent('contextmenu', { clientX: x, clientY: y }))) return;
+          pressAt = performance.now();
+          // the finger's release must not also click what it rested on
+          const eat = (ev: Event) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+          };
+          addEventListener('click', eat, { capture: true, once: true });
+          setTimeout(() => removeEventListener('click', eat, { capture: true }), 1000);
+        }, LONG_PRESS_MS),
+      };
+    },
+    true,
+  );
+  document.addEventListener(
+    'pointermove',
+    (e) => {
+      if (press && e.pointerId === press.id && Math.hypot(e.clientX - press.x, e.clientY - press.y) > LONG_PRESS_SLOP) cancel();
+    },
+    true,
+  );
+  for (const k of ['pointerup', 'pointercancel'] as const)
+    document.addEventListener(
+      k,
+      (e) => {
+        if (press && e.pointerId === press.id) cancel();
+      },
+      true,
+    );
+  // the browser's own long-press menu event: ours is already open (or about to be)
+  document.addEventListener('contextmenu', () => cancel(), true);
+}
+let pressAt = -1e9;
+
 export function initContextMenu() {
   if (inited) return;
   inited = true;
+  initLongPress();
   document.addEventListener('contextmenu', (e) => {
     const already = e.defaultPrevented;
     e.preventDefault();
-    if (already || performance.now() - kbdAt < 600) return;
+    if (already || performance.now() - kbdAt < 600 || performance.now() - pressAt < 1500) return;
     const t = e.target as Element;
     if (!t || t.closest?.('.menu')) return;
     const p = toUi(e);
@@ -136,7 +198,8 @@ export function textFieldMenu(el: HTMLInputElement | HTMLTextAreaElement): MenuI
       disabled: ro,
       onClick: () => {
         focus();
-        const fail = () => message('Paste', 'Press Ctrl+V to paste.', 'info');
+        // (a phone has no Ctrl+V: its own paste is on a long press in the box)
+        const fail = () => message('Paste', ui.phone || matchMedia('(pointer: coarse)').matches ? 'Touch and hold in the box, then choose Paste.' : 'Press Ctrl+V to paste.', 'info');
         if (!navigator.clipboard?.readText) return fail();
         navigator.clipboard.readText().then((t) => insert(el, t), fail);
       },
