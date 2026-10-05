@@ -270,6 +270,9 @@ export async function runStack(sourceKey: string, source: Uint8Array, nodes: Sta
   };
 
   let stopped = false;
+  // After a real error, nothing downstream is cached: the error may be a one-off (a restarted worker,
+  // out of memory), and a cached result would hide it and never run the failed step again.
+  let failed = false;
   for (let i = start; i < nodes.length; i++) {
     const n = nodes[i];
     const r = results[i];
@@ -298,13 +301,16 @@ export async function runStack(sourceKey: string, source: Uint8Array, nodes: Sta
         if (hashBytes(cur) !== n.baseHash) {
           r.status = 'stale';
           r.size = cur.length;
+          // remembered, so a later cached run still shows the patch as not applied
+          statusMemo.set(keys[i], { status: 'stale' });
           continue; // stale patches are never silently re-applied
         }
         cur = applyPatches(cur, n.patches);
       }
       r.status = 'ok';
       r.ms = Math.round(performance.now() - t0);
-      opt.cache.set(keys[i], cur);
+      statusMemo.delete(keys[i]);
+      if (!failed) opt.cache.set(keys[i], cur);
     } catch (e) {
       if (e instanceof StopError) {
         stopped = true;
@@ -316,6 +322,7 @@ export async function runStack(sourceKey: string, source: Uint8Array, nodes: Sta
         break;
       }
       r.status = kind;
+      if (kind === 'error') failed = true;
       r.error = e instanceof Error ? e.message : String(e);
       statusMemo.set(keys[i], { status: kind, error: r.error });
       if (statusMemo.size > 500) statusMemo.delete(statusMemo.keys().next().value as string);

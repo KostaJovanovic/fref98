@@ -149,6 +149,13 @@ class CardWindow {
     this.unreg.push(
       registerContext('.cd-view .cd-item', (t) => this.itemMenu((t.closest('.cd-item') as HTMLElement).dataset.key ?? '')),
       registerContext('.cd-view', () => this.backgroundMenu()),
+      // The card lives in the engine worker. When that worker is replaced (it hung or crashed), the
+      // handle points at nothing: build the same card again (the replay is deterministic).
+      engine().onRestart(() => {
+        if (!this.card || this.busy) return;
+        this.card = null;
+        void this.simulate('Reading the card again…');
+      }),
     );
     this.bindKeys();
     this.render();
