@@ -117,44 +117,48 @@ export function moveRect(r: Rect, dx: number, dy: number, desk: { w: number; h: 
 type Pt = { x: number; y: number };
 
 /** Tracks a pointer drag on `target` with pointer capture. onFrame gets the latest delta at most once per
- *  animation frame; onEnd gets the final delta (and whether the pointer moved at all). */
+ *  animation frame; onEnd gets the final delta, whether the pointer moved at all, and whether the drag was
+ *  cut off (pointercancel, or the capture was lost) instead of ending with the button let go. */
 export function trackDrag(
   e: PointerEvent,
   target: HTMLElement,
   toUi: (e: { clientX: number; clientY: number }) => Pt,
   onFrame: (dx: number, dy: number) => void,
-  onEnd: (dx: number, dy: number, moved: boolean) => void,
+  onEnd: (dx: number, dy: number, moved: boolean, cancelled: boolean) => void,
 ) {
   const start = toUi(e);
   let last = start;
   let moved = false;
   let raf = 0;
+  // without the capture the pointer can be let go outside `target`: then the whole page is watched
+  let host: EventTarget = target;
   try {
     target.setPointerCapture(e.pointerId);
   } catch {
-    /* pointer already gone */
+    host = window;
   }
   const frame = () => {
     raf = 0;
     onFrame(last.x - start.x, last.y - start.y);
   };
-  const move = (ev: PointerEvent) => {
-    if (ev.pointerId !== e.pointerId) return;
-    last = toUi(ev);
+  const move = (ev: Event) => {
+    const p = ev as PointerEvent;
+    if (p.pointerId !== e.pointerId) return;
+    last = toUi(p);
     if (!moved && (last.x !== start.x || last.y !== start.y)) moved = true;
     if (moved && !raf) raf = requestAnimationFrame(frame);
   };
-  const up = (ev: PointerEvent) => {
-    if (ev.pointerId !== e.pointerId) return;
-    target.removeEventListener('pointermove', move);
-    target.removeEventListener('pointerup', up);
-    target.removeEventListener('pointercancel', up);
+  const KINDS = ['pointerup', 'pointercancel', 'lostpointercapture'];
+  const up = (ev: Event) => {
+    const p = ev as PointerEvent;
+    if (p.pointerId !== e.pointerId) return;
+    host.removeEventListener('pointermove', move);
+    for (const k of KINDS) host.removeEventListener(k, up);
     if (raf) cancelAnimationFrame(raf);
     raf = 0;
-    if (ev.type === 'pointerup') last = toUi(ev);
-    onEnd(last.x - start.x, last.y - start.y, moved);
+    if (p.type === 'pointerup') last = toUi(p);
+    onEnd(last.x - start.x, last.y - start.y, moved, p.type !== 'pointerup');
   };
-  target.addEventListener('pointermove', move);
-  target.addEventListener('pointerup', up);
-  target.addEventListener('pointercancel', up);
+  host.addEventListener('pointermove', move);
+  for (const k of KINDS) host.addEventListener(k, up);
 }

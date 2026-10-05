@@ -709,7 +709,7 @@
 .saver {
   position: absolute;
   inset: 0;
-  z-index: 9000;
+  z-index: var(--z-saver);
   background: #000;
 }
 .saver canvas {

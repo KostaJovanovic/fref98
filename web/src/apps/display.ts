@@ -77,19 +77,18 @@ class DisplayProps {
         this.unreg();
         dp = null;
       },
+      enter: (t) => {
+        if (!t.closest('.lb98')) this.ok();
+      },
+      esc: () => this.win.close(),
     });
-    body.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        e.stopPropagation();
-        this.win.close();
-      } else if (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement) && !(e.target as HTMLElement).closest('.combo, .lb98')) {
-        e.preventDefault();
-        this.ok();
-      } else if (e.key === 'Tab' && e.ctrlKey) {
-        e.preventDefault();
-        this.setTab((this.tab + (e.shiftKey ? TABS.length - 1 : 1)) % TABS.length);
-      }
+    this.win.el.addEventListener('keydown', (e) => {
+      // next/previous tab: Ctrl+PgDn/PgUp (browsers keep Ctrl+Tab for their own tabs)
+      const dir = e.ctrlKey && (e.key === 'PageDown' || (e.key === 'Tab' && !e.shiftKey)) ? 1 : e.ctrlKey && (e.key === 'PageUp' || (e.key === 'Tab' && e.shiftKey)) ? -1 : 0;
+      if (!dir) return;
+      e.preventDefault();
+      this.setTab((this.tab + TABS.length + dir) % TABS.length);
+      this.win.el.querySelector<HTMLElement>('.tab.on')?.focus();
     });
     this.unreg = registerContext('.dp98 .crt-wrap', () => [
       { label: '&Preview', disabled: this.tab !== 1 || !settings.screensaver.enabled, onClick: () => this.preview() },

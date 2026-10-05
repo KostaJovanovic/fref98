@@ -129,13 +129,23 @@ export function group(legend: string, ...children: (Node | null)[]): HTMLElement
   return h('div', { class: 'group', role: 'group', 'aria-label': legend }, h('div', { class: 'legend' }, legend), ...children);
 }
 
-export function tabs(names: string[], current: number, onPick: (i: number) => void): HTMLElement {
+/** A 98 tab strip. A click or Left/Right picks a tab, and the picked tab has the keyboard focus, also when
+ *  `onPick` draws a new strip in place of this one (`byKey` tells the two ways of picking apart). */
+export function tabs(names: string[], current: number, onPick: (i: number, byKey: boolean) => void): HTMLElement {
   const el = h('div', { class: 'tabs', role: 'tablist' });
+  const pick = (j: number, byKey: boolean) => {
+    const host = el.parentElement;
+    onPick(j, byKey);
+    const strip = el.isConnected ? el : host?.querySelector(':scope > [role=tablist]');
+    (strip?.children[j] as HTMLElement | undefined)?.focus({ preventScroll: true });
+  };
   names.forEach((n, i) => {
-    const b = h('button', { class: 'tab' + (i === current ? ' on' : ''), role: 'tab', 'aria-selected': String(i === current), tabIndex: i === current ? 0 : -1, onclick: () => onPick(i) }, n);
+    const b = h('button', { class: 'tab' + (i === current ? ' on' : ''), role: 'tab', 'aria-selected': String(i === current), tabIndex: i === current ? 0 : -1, onclick: () => pick(i, false) }, n);
     b.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowRight') onPick((i + 1) % names.length);
-      if (e.key === 'ArrowLeft') onPick((i - 1 + names.length) % names.length);
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        pick((i + (e.key === 'ArrowRight' ? 1 : names.length - 1)) % names.length, true);
+      }
     });
     el.appendChild(b);
   });

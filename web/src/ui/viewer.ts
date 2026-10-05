@@ -504,8 +504,15 @@ export class Viewer {
       if (mode === 'mask' && this.mask) this.onMask?.(this.mask);
       if (this.pointers.size === 0) mode = null;
     };
+    // cut off (pointercancel, or the capture was lost without a pointerup): forget the pointer, pick nothing
+    const cut = (e: PointerEvent) => {
+      if (!this.pointers.has(e.pointerId)) return;
+      moved = Infinity;
+      end(e);
+    };
     c.addEventListener('pointerup', end);
-    c.addEventListener('pointercancel', end);
+    c.addEventListener('pointercancel', cut);
+    c.addEventListener('lostpointercapture', cut);
     c.addEventListener('contextmenu', (e) => this.mask && e.preventDefault());
     // keyboard: pan and zoom without a mouse
     this.el.addEventListener('keydown', (e) => {

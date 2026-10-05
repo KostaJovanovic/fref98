@@ -334,10 +334,11 @@ class HelpViewer {
   // ------------------------------------------------------------ left pane
 
   private renderNav() {
-    const t = tabs(['Contents', 'Index', 'Search'], this.tab, (i) => {
+    const t = tabs(['Contents', 'Index', 'Search'], this.tab, (i, byKey) => {
       this.tab = i;
       this.renderNav();
-      requestAnimationFrame(() => this.nav.querySelector<HTMLElement>('.hh-tabpage input, .hh-tree')?.focus());
+      // a click goes on into the page (its field or tree); the arrow keys stay on the tabs
+      if (!byKey) requestAnimationFrame(() => this.nav.querySelector<HTMLElement>('.hh-tabpage input, .hh-tree')?.focus());
     });
     const page = h('div', { class: 'tabpage hh-tabpage' });
     if (this.tab === 0) page.append(this.contents());

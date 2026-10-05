@@ -5,53 +5,26 @@ import { h, mount } from '../ui/dom';
 import { iconCanvas } from '../ui/art';
 import { button } from '../ui/controls';
 import { openWindow, activeWin, type Win } from '../ui/wm';
+import { openDialog, type DialogButton } from '../ui/dialog';
 import { drawText, textWidth } from '../ui/pixeltext';
 import { ditherBayer } from '../ui/palette';
 
-let dlgN = 0;
-
-export interface DialogButton {
-  label: string;
-  /** Return false to keep the dialog open. */
-  run?: () => boolean | void;
-  primary?: boolean;
-  cancel?: boolean;
-  disabled?: boolean;
-}
-
 /** A fixed-size 98 dialog, modal to its owner (default: the active window): buttons in a row at the bottom
- *  right, Enter presses the default button, Esc the Cancel one. */
+ *  right (or a column at the side), Enter presses the default button, Esc the Cancel one. */
 export function dialog98(o: { id?: string; title: string; icon: string; body: HTMLElement; width: number; height: number; buttons: DialogButton[]; owner?: Win | null; onClose?: () => void; column?: boolean }): Win & { buttons: HTMLButtonElement[] } {
-  let win!: Win;
-  const btns = o.buttons.map((b) =>
-    button(b.label, () => {
-      if (b.run?.() === false) return;
-      win.close();
-    }, { cls: b.primary ? 'default' : '', disabled: b.disabled }),
-  );
-  const btnBox = h('div', { class: o.column ? 'dlg-btns col' : 'dlg-btns' }, btns);
-  const body = h('div', { class: 'dlg98' + (o.column ? ' side' : '') }, o.body, btnBox);
-  win = openWindow({ id: o.id ?? 'dlg' + ++dlgN, title: o.title, icon: o.icon, body, width: o.width, height: o.height, resizable: false, modal: o.owner === undefined ? activeWin() : o.owner, onClose: () => void o.onClose?.() });
-  body.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      e.stopPropagation();
-      const i = o.buttons.findIndex((b) => b.cancel);
-      if (i >= 0) btns[i].click();
-      else win.close();
-    } else if (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement) && !(e.target as HTMLElement).closest?.('.combo')) {
-      const i = o.buttons.findIndex((b) => b.primary);
-      if (i >= 0 && !btns[i].disabled) {
-        e.preventDefault();
-        btns[i].click();
-      }
-    }
+  return openDialog({
+    id: o.id,
+    title: o.title,
+    icon: o.icon,
+    width: o.width,
+    height: o.height,
+    // (a cancel-less dialog: Esc only closes it)
+    buttons: o.buttons.map((b) => ({ ...b, cancel: !!b.cancel })),
+    modal: o.owner,
+    onClose: () => void o.onClose?.(),
+    body: (btns) => h('div', { class: 'dlg98' + (o.column ? ' side' : '') }, o.body, h('div', { class: o.column ? 'dlg-btns col' : 'dlg-btns' }, btns)),
+    focus: () => o.body.querySelector<HTMLElement>('input:not([type=radio]):not([type=checkbox]), .combo'),
   });
-  requestAnimationFrame(() => {
-    const first = o.body.querySelector<HTMLElement>('input:not([type=radio]):not([type=checkbox]), .combo');
-    (first ?? btns.find((_, i) => o.buttons[i].primary) ?? btns[0])?.focus();
-  });
-  return Object.assign(win, { buttons: btns });
 }
 
 // ------------------------------------------------------------------ list box
@@ -147,6 +120,9 @@ export function wizard98(o: { id: string; title: string; icon: string; art: HTML
     onClose: () => {
       if (!finished) o.onCancel?.();
     },
+    esc: () => {
+      if (!busy) win.close();
+    },
   });
   let busy = false;
   const refresh = () => {
@@ -183,13 +159,6 @@ export function wizard98(o: { id: string; title: string; icon: string; art: HTML
       o.onFinish?.();
     } else go(i + 1);
   };
-  body.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !busy) {
-      e.preventDefault();
-      e.stopPropagation();
-      win.close();
-    }
-  });
   go(0);
   requestAnimationFrame(() => next.focus());
   return { win, go, refresh, page: () => i };

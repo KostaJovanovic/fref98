@@ -33,6 +33,11 @@ export interface WinOpts {
   short?: string;
   /** Owner window: this one is modal to it (clicks on the owner flash this caption instead). */
   modal?: Win | null;
+  /** Dialog keys, handled on the whole window, so they also work with the focus on the caption or frame.
+   *  Enter runs `enter` unless a button, drop-down or text area has the focus (they use Enter themselves);
+   *  Esc runs `esc`. Windows with either, and modal ones, keep Tab inside them. */
+  enter?: (target: HTMLElement) => void;
+  esc?: () => void;
 }
 
 export interface Win {
@@ -67,7 +72,7 @@ const listeners = new Set<Listener>();
 let cascade = 0;
 let taskbarRect: ((id: string) => Rect | null) | null = null;
 /** Per-window internals the system menu and keyboard need. */
-const internals = new WeakMap<Win, { icon: HTMLElement; flash: () => void; kbMove: (size: boolean) => void }>();
+const internals = new WeakMap<Win, { icon: HTMLElement; flash: () => void; kbMove: (size: boolean) => void; refocus: () => void }>();
 
 /** `taskbarRect(id)` gives the window's taskbar button in UI px (for the minimise/restore animation). */
 export function initWm(el: HTMLElement, opts: { taskbarRect?: (id: string) => Rect | null } = {}) {
@@ -91,10 +96,56 @@ export function initWm(el: HTMLElement, opts: { taskbarRect?: (id: string) => Re
       e.preventDefault();
       systemMenu(active, undefined, true);
     } else if (e.altKey && e.key === 'F4' && active) {
+      // (only where the browser lets the page have it, e.g. a kiosk; the menus don't advertise it)
       e.preventDefault();
       active.close();
+    } else if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'o') {
+      // never the browser's own Open dialog: the active window's Ctrl+O command, if it has one
+      e.preventDefault();
+      const it = active && menuCommand(active, 'Ctrl+O');
+      if (it) it.onClick?.();
     }
   });
+}
+
+/** The enabled menu-bar command of `w` that shows the accelerator `acc`. */
+export function menuCommand(w: Win, acc: string): MenuItem | null {
+  const find = (items: MenuItem[]): MenuItem | null => {
+    for (const it of items) {
+      if (it.disabled) continue;
+      if (it.acc === acc && it.onClick) return it;
+      const sub = it.sub && find(typeof it.sub === 'function' ? it.sub() : it.sub);
+      if (sub) return sub;
+    }
+    return null;
+  };
+  for (const m of w.opts.menu ?? []) {
+    const it = find(m.items());
+    if (it) return it;
+  }
+  return null;
+}
+
+/** Tab and Shift+Tab inside a dialog: past the last control back to the first, and the other way round. */
+function tabCycle(e: KeyboardEvent, el: HTMLElement) {
+  const all = [...el.querySelectorAll<HTMLElement>('button, input, select, textarea, a[href], [tabindex]')].filter(
+    (x) => x.tabIndex >= 0 && !(x as HTMLButtonElement).disabled && x.getClientRects().length > 0 && !x.closest('[inert]'),
+  );
+  // a radio group is one stop: its checked radio, or its first one
+  const list = all.filter((x) => {
+    if (!(x instanceof HTMLInputElement) || x.type !== 'radio' || !x.name) return true;
+    const group = all.filter((y): y is HTMLInputElement => y instanceof HTMLInputElement && y.type === 'radio' && y.name === x.name);
+    return x === (group.find((y) => y.checked) ?? group[0]);
+  });
+  const cur = document.activeElement as HTMLElement | null;
+  const i = list.findIndex((x) => x === cur || (cur instanceof HTMLInputElement && cur.type === 'radio' && x instanceof HTMLInputElement && x.type === 'radio' && x.name === cur.name && !!cur.name));
+  if (!list.length) {
+    e.preventDefault();
+    el.focus({ preventScroll: true });
+  } else if (e.shiftKey ? i <= 0 : i < 0 || i === list.length - 1) {
+    e.preventDefault();
+    list[e.shiftKey ? list.length - 1 : 0].focus();
+  }
 }
 
 export function onWm(l: Listener): () => void {
@@ -218,7 +269,8 @@ export function systemMenu(w: Win, at?: { x: number; y: number }, keyboard = fal
   const r = w.opts.resizable !== false;
   const normal = !w.minimized && !w.maximized;
   const it = internals.get(w);
-  const close: MenuItem = { label: '&Close', acc: 'Alt+F4', default: true, onClick: () => w.close() };
+  // no "Alt+F4": the browser or the OS takes that key and closes the whole browser window
+  const close: MenuItem = { label: '&Close', default: true, onClick: () => w.close() };
   const items: MenuItem[] = r
     ? [
         { label: '&Restore', disabled: normal, onClick: () => (w.minimized ? w.minimize() : w.toggleMax()) },
@@ -329,6 +381,11 @@ export function openWindow(o: WinOpts): Win {
   el.dataset.wh = String(o.height ?? 440);
 
   let restoreRect: Rect | null = null;
+  /** The control that last had the focus here: it gets it back when the window does (e.g. after a modal box). */
+  let lastFocus: HTMLElement | null = null;
+  const refocus = () => (lastFocus?.isConnected && el.contains(lastFocus) ? lastFocus : el).focus({ preventScroll: true });
+  /** Ends a keyboard Move/Size that is under way (undoing it). */
+  let kbEnd: ((keep: boolean) => void) | null = null;
   let maxApplied = false;
   let maxAnim = false;
   const busy = new Map<HTMLElement, { n: number; t: ReturnType<typeof setTimeout> | null }>();
@@ -351,7 +408,11 @@ export function openWindow(o: WinOpts): Win {
       const dd = deskSize();
       setGeom(el, { x: 0, y: 0, w: dd.w, h: dd.h });
     } else if (restoreRect) {
-      setGeom(el, restoreRect);
+      // the screen may have shrunk (rotation, UI scale) while it was maximised
+      const dd = deskSize();
+      const w = Math.min(restoreRect.w, dd.w);
+      const hh = Math.min(restoreRect.h, dd.h);
+      setGeom(el, { x: clamp(restoreRect.x, 0, Math.max(0, dd.w - w)), y: clamp(restoreRect.y, 0, Math.max(0, dd.h - hh)), w, h: hh });
       restoreRect = null;
     }
     maxApplied = win.maximized;
@@ -410,6 +471,7 @@ export function openWindow(o: WinOpts): Win {
     close() {
       if (!wins.includes(win)) return;
       if (o.onClose && o.onClose() === false) return;
+      kbEnd?.(false);
       // a closing owner takes its modal windows with it
       for (const m of wins.filter((w) => w.opts.modal === win)) m.close();
       const i = wins.indexOf(win);
@@ -447,7 +509,7 @@ export function openWindow(o: WinOpts): Win {
       for (const w of wins) w.el.classList.toggle('active', w === active);
       restack();
       if (prev !== win) {
-        if (!el.contains(document.activeElement)) el.focus({ preventScroll: true });
+        if (!el.contains(document.activeElement)) refocus();
         o.onShow?.();
       }
       emit();
@@ -455,6 +517,7 @@ export function openWindow(o: WinOpts): Win {
     minimize() {
       if (!win.minimized) {
         if (!wins.includes(win)) return;
+        kbEnd?.(false);
         const from = el.classList.contains('hidden') ? null : uiRect(title);
         const wasActive = active === win;
         win.minimized = true;
@@ -478,12 +541,13 @@ export function openWindow(o: WinOpts): Win {
           applyPhoneVisibility();
           if (win.minimized || !wins.includes(win)) return;
           win.focus();
-          if (active === win && !el.contains(document.activeElement)) el.focus({ preventScroll: true });
+          if (active === win && !el.contains(document.activeElement)) refocus();
         });
       }
     },
     toggleMax() {
       if (ui.phone || !resizable) return;
+      kbEnd?.(false);
       if (!win.maximized && !maxApplied) restoreRect = geom(el);
       const from = capOf(geom(el), maxApplied);
       win.maximized = !win.maximized;
@@ -510,16 +574,34 @@ export function openWindow(o: WinOpts): Win {
       internals.get(m)?.flash();
     }
   };
-  for (const t of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click', 'dblclick', 'contextmenu']) el.addEventListener(t, block, true);
+  for (const t of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click', 'dblclick', 'contextmenu', 'keydown']) el.addEventListener(t, block, true);
 
   // activate on any pointer down
   el.addEventListener('pointerdown', () => {
     if (active !== win) win.focus();
   }, true);
-  el.addEventListener('focusin', () => {
+  el.addEventListener('focusin', (e) => {
     const m = modalOf(win);
-    if (m) m.focus();
-    else if (active !== win) win.focus();
+    if (m) {
+      // the keyboard focus goes back into the modal window, too
+      m.focus();
+      if (!m.el.contains(document.activeElement)) internals.get(m)?.refocus();
+      return;
+    }
+    if (e.target !== el) lastFocus = e.target as HTMLElement;
+    if (active !== win) win.focus();
+  });
+  const trapTab = !!(o.enter || o.esc || o.modal !== undefined);
+  el.addEventListener('keydown', (e) => {
+    const t = e.target as HTMLElement;
+    if (e.key === 'Escape' && o.esc) {
+      e.preventDefault();
+      e.stopPropagation();
+      o.esc();
+    } else if (e.key === 'Enter' && o.enter && !e.altKey && !t.closest('button, textarea, .combo')) {
+      e.preventDefault();
+      o.enter(t);
+    } else if (e.key === 'Tab' && trapTab && !e.ctrlKey && !e.altKey) tabCycle(e, el);
   });
 
   // dragging by the caption: an outline frame follows the pointer, the window moves there on release
@@ -598,7 +680,9 @@ export function openWindow(o: WinOpts): Win {
     el.classList.add('kbmove');
     const frame = dragFrame(el);
     frame.set(r);
+    kbEnd?.(false);
     const end = (keep: boolean) => {
+      kbEnd = null;
       removeEventListener('keydown', key, true);
       removeEventListener('pointerdown', down, true);
       el.classList.remove('kbmove');
@@ -634,6 +718,7 @@ export function openWindow(o: WinOpts): Win {
       frame.set(r);
     };
     const down = () => end(true);
+    kbEnd = end;
     addEventListener('keydown', key, true);
     addEventListener('pointerdown', down, true);
   };
@@ -652,7 +737,7 @@ export function openWindow(o: WinOpts): Win {
       }
     }, 70);
   };
-  internals.set(win, { icon: capIcon, flash, kbMove });
+  internals.set(win, { icon: capIcon, flash, kbMove, refocus });
 
   layer.appendChild(el);
   wins.push(win);

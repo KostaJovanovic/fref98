@@ -107,7 +107,7 @@
 .splash-veil {
   position: absolute;
   inset: 0;
-  z-index: 2147483000;
+  z-index: var(--z-splash);
   display: flex;
   align-items: center;
   justify-content: center;

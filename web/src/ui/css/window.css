@@ -23,7 +23,7 @@
    pointer; the window jumps there on release */
 .drag-frame {
   position: absolute;
-  z-index: 99999;
+  z-index: var(--z-drag-frame);
   box-sizing: border-box;
   padding: 4px;
   pointer-events: none;
@@ -153,7 +153,7 @@
 /* the caption-zoom bar of minimise / maximise / restore */
 .win-zoom {
   position: absolute;
-  z-index: 100000;
+  z-index: var(--z-win-zoom);
   pointer-events: none;
 }
 .win-zoom img {

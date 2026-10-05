@@ -3,20 +3,14 @@
 // Closed: arrows/Home/End/type-ahead change the value at once; F4 or Alt+Down opens the list.
 // Open: arrows, PageUp/PageDown, type-ahead move the highlight; Enter/Tab choose; Esc cancels.
 import { h, tx } from './dom';
-import { ui } from './scale';
-import { menuLayer, closeMenu, trackPopup } from './menu';
-import { placeBelow, typeAhead, type Box } from './uimath';
+import { ui, uiRect } from './scale';
+import { menuLayer } from './menu';
+import { popupLifecycle } from './popup';
+import { placeBelow, typeAhead } from './uimath';
 import { textWidth } from './pixeltext';
 
 const VISIBLE = 8;
 let nid = 0;
-
-function boxOf(el: Element, layer: HTMLElement): Box {
-  const r = el.getBoundingClientRect();
-  const rr = layer.getBoundingClientRect();
-  const f = rr.width / ui.w || 1;
-  return { x: (r.left - rr.left) / f, y: (r.top - rr.top) / f, w: r.width / f, h: r.height / f };
-}
 
 /** Wraps a <select> in a 98 combo box and returns the wrapper (the select moves inside it, hidden). */
 export function dropdown(sel: HTMLSelectElement, opts: { width?: number; label?: string } = {}): HTMLElement {
@@ -70,7 +64,7 @@ export function dropdown(sel: HTMLSelectElement, opts: { width?: number; label?:
   // ---------------------------------------------------------------- the list popup
   let list: HTMLElement | null = null;
   let hl = -1;
-  let untrack: (() => void) | null = null;
+  let end: (() => void) | null = null;
   const rows: HTMLElement[] = [];
 
   const setHl = (i: number) => {
@@ -90,17 +84,14 @@ export function dropdown(sel: HTMLSelectElement, opts: { width?: number; label?:
     list.remove();
     list = null;
     rows.length = 0;
-    untrack?.();
-    untrack = null;
+    end?.();
+    end = null;
     wrap.classList.remove('open');
     wrap.setAttribute('aria-expanded', 'false');
     wrap.removeAttribute('aria-activedescendant');
-    removeEventListener('pointerdown', onOutside, true);
-    removeEventListener('keydown', onListKey, true);
-    removeEventListener('resize', onResize);
     if (commit) choose(pick);
   };
-  const onResize = () => close(false);
+  const cancel = () => close(false);
   const onOutside = (e: PointerEvent) => {
     const t = e.target as Node;
     if (list?.contains(t) || wrap.contains(t)) return;
@@ -135,7 +126,6 @@ export function dropdown(sel: HTMLSelectElement, opts: { width?: number; label?:
   const open = () => {
     const layer = menuLayer();
     if (list || !layer || sel.disabled) return;
-    closeMenu();
     sync();
     const opts = [...sel.options];
     list = h('div', { class: 'combo-list', role: 'listbox', id: listId, 'aria-label': wrap.getAttribute('aria-label') ?? '' });
@@ -151,7 +141,9 @@ export function dropdown(sel: HTMLSelectElement, opts: { width?: number; label?:
       rows.push(r);
       list!.appendChild(r);
     });
-    const a = boxOf(wrap, layer);
+    // (an open menu or another list closes first)
+    end = popupLifecycle({ close: cancel, onOutside, onKey: onListKey });
+    const a = uiRect(wrap);
     list.style.minWidth = Math.round(a.w) + 'px';
     layer.appendChild(list);
     const rowH = rows[0]?.offsetHeight || 16;
@@ -163,10 +155,6 @@ export function dropdown(sel: HTMLSelectElement, opts: { width?: number; label?:
     wrap.setAttribute('aria-expanded', 'true');
     hl = -1;
     setHl(Math.max(0, sel.selectedIndex));
-    untrack = trackPopup(() => close(false));
-    setTimeout(() => list && addEventListener('pointerdown', onOutside, true), 0);
-    addEventListener('keydown', onListKey, true);
-    addEventListener('resize', onResize);
   };
 
   wrap.addEventListener('pointerdown', (e) => {
