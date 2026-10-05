@@ -2,8 +2,16 @@
 //!   refrag decode <in.jpg> <out.rgb> [personality] [fill]   -> raw RGB + prints "w h" and events
 //!   refrag encode <in.rgb> <w> <h> <out.jpg> <quality> <sub> [progressive] [restart]
 //!   refrag step <id> <params-json> <in.jpg> <out.jpg> [seed] [pool.jpg ...]
+//!   refrag arith <in.jpg> <out.jpg> [progressive 0/1] [restart]   -> lossless transcode to arithmetic coding
+//!   refrag catalog                                       -> the step catalogue as JSON
 //!   refrag inspect <in.jpg>
 //!   refrag bench <in.jpg>
+//!   refrag gif <out.gif> <frame.jpg> ...
+//!   refrag aviread <in.avi> [frame out.jpg]               -> prints size/fps/frames, optionally writes a frame
+//!   refrag smoothprobe <dc|ac9> <bx> <by> <value> <out.jpg> [q0]   -> progressive impulse test image
+//!   refrag planes <in.jpg> <out.raw>                      -> upsampled component planes, interleaved
+//!   refrag block <in.jpg> <comp> <bx> <by>                -> one block's coefficients and both IDCTs
+//!   refrag fuzz <in.jpg> <rounds> [seed]                  -> random damage, reports the slowest decode
 
 use refragmenter_codec::*;
 use std::time::Instant;
@@ -177,6 +185,10 @@ fn main() {
             }
             println!("fuzz ok, worst {:?}", worst);
         }
-        _ => eprintln!("usage: see source"),
+        _ => {
+            eprintln!("usage: refrag <decode|encode|step|arith|catalog|inspect|bench|gif|aviread|smoothprobe|planes|block|fuzz> ...");
+            eprintln!("(the arguments of each command are at the top of crates/codec/examples/refrag.rs)");
+            std::process::exit(2);
+        }
     }
 }

@@ -24,7 +24,7 @@
 //   eyes.pain  eyes.pain2                                     pain glitch (> <) and wide-eye + squeezed
 // Only body.closed and eyes.open are required: a missing frame falls back (body.open.paper → body.open →
 // body.closed; eyes.pain2 → eyes.pain → eyes.closed; any other eyes.* → eyes.open). The JPEG tear, bob and jolt
-// are done in code. The mockup generator (test-local/foldy_mock2.py --sheet) writes these two files.
+// are done in code. The committed mockup sheet was written by a local generator script that is not in the repo.
 import sheetUrl from '../assets/foldy/foldy.png';
 import manifest from '../assets/foldy/foldy.json';
 

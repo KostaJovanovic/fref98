@@ -1,11 +1,12 @@
-// Visual audit: serves dist/, opens every app on its own (maximised-free, at its default size), every menu of its
+// Visual audit: serves dist/, opens every app on its own (not maximised, at its default size), every menu of its
 // menu bar and every tab, and screenshots each into ../test-local/audit. Also a mid-drag shot of the move frame.
-// usage: npm run build && node scripts/audit.mjs [filter ...]
+// usage: npm run build && npm run audit [-- filter ...]
 import { readFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { serveDist } from './serve.mjs';
+import { fontCodepoints } from './glyphs.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const out = path.resolve(here, '..', '..', 'test-local', 'audit');
@@ -45,9 +46,8 @@ const winClip = async () => {
 };
 
 // characters the pixel font has (anything else falls back to a system font and breaks the pixel grid)
-const glyphSrc = await readFile(path.resolve(here, 'glyphs.txt'), 'utf8');
-const have = new Set([0x20, 0xa0, 0x0a, 0x09]);
-for (const l of glyphSrc.split(/\r?\n/)) if (l.startsWith('= ')) have.add(l.slice(2).startsWith('U+') ? parseInt(l.slice(4), 16) : l.codePointAt(2));
+// (named keys like `= c_caron` are č, not c: scripts/glyphs.mjs reads them as build_font.py does)
+const have = fontCodepoints(await readFile(path.resolve(here, 'glyphs.txt'), 'utf8'));
 const problems = [];
 const report = (tag, msg) => {
   problems.push(`${tag}: ${msg}`);

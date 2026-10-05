@@ -1,8 +1,9 @@
 # File Refragmenter 98 Gold (formerly JpegIt): revision plan (v2)
 
-Status: **built (v0.18, 2026-10-05).** Written 2026-10-04 after the user's review of v1. The target later moved from
-Windows XP to **Windows 98**; the XP wording below is kept as the original record. Still open: phones (to discuss),
-the user's own Foldy art and lines.
+Status: **built (v0.18, 2026-10-05); see PLAN.md "Current state" for what is in the app now.** Written 2026-10-04
+after the user's review of v1. The target later moved from Windows XP to **Windows 98**; the XP wording below
+(including "exact XP Luna" in §4) is kept as the original record and is superseded by docs/WIN98_METRICS.md. Still
+open: the user's own Foldy art and lines.
 
 Goal, in the user's words: *it should feel exactly like Windows XP, be intuitive and fluid, and be as fast as XP
 would be on current hardware.* Fewer features, done properly.
@@ -65,6 +66,10 @@ would be on current hardware.* Fewer features, done properly.
 | Text fields | Undo · Cut · Copy · Paste · Delete · Select All (Paste needs clipboard permission; it falls back to Ctrl+V) |
 
 ## 3. Scope: proposed cuts (user decides)
+
+*Status (v0.31): only the Classic theme is cut (v0.18). The other cuts were postponed (answer 6 below): the editor
+still has Simple and Expert tabs, and Video Lab, the webcam, the screen savers, the recipe/share UI and the Y2K
+pages are still in. "Delete the cut code" (§7 step 5) waits for those decisions.*
 
 | Feature | Proposal | Why |
 |---|---|---|
@@ -158,7 +163,8 @@ Delivery spec for the code:
 - Eye frames: open, half, closed, looking left/right/up.
 - Reactions: worried, shocked, asleep, happy.
 
-Until the user's art exists, the app uses the mockup (`test-local/foldy_mock.py` draws it).
+Until the user's art exists, the app uses the mockup sprite sheet `web/src/assets/foldy/foldy.png` + `.json`
+(committed; drawn by a private local script that is not part of the repo).
 
 ### Foldy animation spec (draft, from the Endacopia research)
 

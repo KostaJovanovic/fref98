@@ -4,6 +4,23 @@ In-browser image editor specialised in JPEG artifacts. Artifacts are produced by
 through the JPEG pipeline and damaging the real data (pixels, coefficients, bytes, filesystem), not by
 simulating the look. Everything runs on device; nothing is uploaded.
 
+## Current state (v0.31, 2026-10-05) — this block is authoritative
+
+- **Look:** a Windows 98 shell (docs/WIN98_METRICS.md is the spec), not XP. Where a section below says "XP", it
+  is the v1 record and is superseded by the 98 rules.
+- **Apps (apps/registry.ts):** Editor (Simple and Expert tabs), My Pictures, Removable Disk (E:), Presets,
+  Recycle Bin, Help, About, Display Properties (wallpaper, 15 colour schemes, 16/256/High/True colour, six screen
+  savers), Hex Doctor, Camera Wizard (webcam), Video Lab, Save As.
+- **Cut so far:** the XP shell (v0.18), the Classic grey theme (v0.18), the "browser" decoder personality
+  (v0.24), the "keep original" import toggle and the import-profile setting (v0.31: imports always fit the first
+  camera profile).
+- **Postponed (REVISION.md §3):** merging Simple and Expert into one editor, and cutting Video Lab, the webcam
+  and the screen savers. The card window, the steps, the presets, the Camera Wizard and the expert stack view
+  are being reworked in a separate session.
+- **Foldy:** the mockup sprite sheet (src/assets/foldy/) until the user's art arrives; every line has an ID
+  (foldy/lines.ts) for the user's own text.
+- **Code audit (2026-10-05):** batches B0–B11, kept privately with the test material.
+
 Status (2026-10-05): v2 built (v0.18). The revision in `REVISION.md` is done: Windows 98 shell, Displace step,
 no grey presets, Foldy machinery. The v1 notes below are kept as the record.
 
@@ -73,11 +90,15 @@ Some small files (~9 KB each) don't open at all (likely broken headers), a good 
   - Motion JPEG / AVI
   - Live webcam
   - EXIF/metadata damage
-- **Style:** retro 2000s (Windows XP / digicam software).
+- **Style:** retro 2000s (Windows XP / digicam software). *(v1; superseded: the shell is Windows 98, see
+  docs/WIN98_METRICS.md.)*
 - **Targets:** desktop and mobile equally easy to use (replaces the earlier "desktop first, usable on phones"), up to about 24 MP.
 - **Hosting:** open source, on Cloudflare Pages.
 
 ## Theme: 2000s
+
+*(v1 record. The XP shell details are superseded by the Windows 98 rules in docs/WIN98_METRICS.md; the pixel,
+palette and dithering rules still hold.)*
 
 **Look.** An XP-style shell (rounded blue title bars, green start button, balloon tooltips, taskbar). The About, Help and preset-gallery pages get Y2K web touches: tiled backgrounds, animated GIFs, marquees, "under construction". All art is original; no Microsoft assets (Bliss, Tahoma, icons).
 
@@ -89,7 +110,7 @@ Some small files (~9 KB each) don't open at all (likely broken headers), a good 
 - **UI scale:** whole steps only (1×/2×/3×). We correct for Windows display scaling (125%/150%) so each UI pixel maps to whole screen pixels.
 
 **Dithering is the overall art style.**
-- **Palette:** one fixed 256-colour palette (web-safe 216 plus the Windows 98/VGA colours, greys, icon manilas and sky blues). Every UI element is dithered into it.
+- **Palette:** one fixed 256-colour palette (`ui/palette.ts`: web-safe 216 plus the Windows 98/VGA colours, greys, icon manilas and sky blues). Every UI element is dithered into it.
 - **Methods, chosen by purpose:**
   - **Ordered Bayer** for the sky, the wizard panel and the dissolves.
   - **Majority snap to the VGA colours** for icons (drawn 4× and voted down); **Atkinson** for photo thumbnails.
@@ -127,6 +148,9 @@ Some small files (~9 KB each) don't open at all (likely broken headers), a good 
   - **Nonsense:** sometimes he blurts out complete nonsense.
   - **Jumbled words:** sometimes his words are typed out in a jumbled order. Once the sentence finishes typing, the words glitch into their correct places.
   - These glitches only affect presentation. Explanations always end up readable and correct.
+  - *(Built as REVISION.md §4 asks: both are rare, only before chatter and tips, never in the tutorial. The
+    nonsense line is followed by "where was I" and the real text; the jumbled line snaps right with the pain
+    tear.)*
 - **Reactions:** worried during long carves, shocked at heavy damage, asleep when idle, and more.
 
 **Desktop extras.**
@@ -139,7 +163,7 @@ Some small files (~9 KB each) don't open at all (likely broken headers), a good 
 **Foldy's glitches.**
 - **Frequency:** not often, but noticeable.
 - **Nonsense source:** both a hand-written list of lines and lines generated from JPEG jargon.
-- **Visual glitch:** his sprite glitches while he talks nonsense (8×8 block shifts, colour casts, his lid snapping into the wrong position).
+- **Visual glitch:** his sprite glitches while he talks nonsense (8×8 block shifts, colour casts, his lid snapping into the wrong position). *(Built differently: the sprite tears (the pain glitch, REVISION.md §5) when jumbled words snap into place, when he is clicked repeatedly and on errors, not during nonsense.)*
 - **On purpose:** clicking him repeatedly makes him glitch. Dragging him onto images does not.
 
 **Fake progress dialogs.**
@@ -168,7 +192,8 @@ Some small files (~9 KB each) don't open at all (likely broken headers), a good 
 - **Photo pool.**
   - Any step can use another pool photo as a source, a header donor, or a neighbour on the card.
 - **Front end.**
-  - Vite + TypeScript, retro XP-era UI, desktop-first with a simplified phone layout.
+  - Vite + TypeScript, retro XP-era UI, desktop-first with a simplified phone layout. *(Now: a Windows 98 UI,
+    desktop and phone equally.)*
 - **Privacy.**
   - Offline-installable PWA with a Content Security Policy that blocks all network requests.
 
@@ -309,7 +334,7 @@ Some small files (~9 KB each) don't open at all (likely broken headers), a good 
 
 ## Open questions
 
-- **Name:** keep "JpegIt"?
+- **Name:** keep "JpegIt"? *(Answered: File Refragmenter 98 Gold.)*
 - **Bundled photos:** how many? Recognisable "roll mates" or anonymous filler?
 - **Camera profiles:** which cameras or phones matter most?
 - **Mockups:** rough retro UI sketches before phase 2?
@@ -318,7 +343,7 @@ Some small files (~9 KB each) don't open at all (likely broken headers), a good 
 
 - **Q1 First release:** ship only when everything in the v1 scope is done (encoding, byte damage, card, hex/inspection).
 - **Q11 Card model:** a separate "Card project" workspace with "Open in editor" on recovered files, plus a "Pass through card" step in the single-image stack.
-- **Q24 Resolution:** import at the camera profile's size (e.g. 2272×1704 for the IXUS 400) by default, with a "keep original" toggle.
+- **Q24 Resolution:** import at the camera profile's size (e.g. 2272×1704 for the IXUS 400) by default, with a "keep original" toggle. *(The toggle never got a UI and was removed in v0.31; JPEGs always keep their bytes.)*
 - **Q46 Transfer damage:** in v1 (FTP ASCII, 7-bit mail, broken base64, interrupted download, MMS recompression).
 
 ## Review questions (from plan review; others unanswered)
@@ -413,9 +438,11 @@ The reference material is private: real people's photos, used locally only.
 36. What exactly is simple mode?
     *A story picker ("what happened, how bad") that builds a real stack, plus a "Show me how" button that opens it in expert mode.*
 37. Retro look vs Microsoft trademarks?
-    *An original XP-like homage with no Microsoft assets, and window names like "Disk Doctor" and "Camera Wizard".*
+    *An original XP-like homage with no Microsoft assets, and window names like "Disk Doctor" and "Camera Wizard".* *(Now an original Windows 98 homage, still with no Microsoft assets.)*
 38. Accessibility?
-    *100–200% UI scale, keyboard control of the stack, ARIA labels, a high-contrast "Classic grey" theme, reduced motion.*
+    *100–200% UI scale, keyboard control of the stack, ARIA labels, reduced motion, and Large Fonts (2× text). The
+    "Classic grey" theme was cut in v0.18; Display ▸ Appearance's colour schemes (High Contrast among them) took
+    its place.*
 39. Which features exist on phones?
     *Presets, the stack, before/after, export. Read-only hex view. Card mode with presets only.*
 40. Languages?
