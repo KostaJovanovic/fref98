@@ -1,0 +1,170 @@
+/* ------------------------------------------------------------------ desktop (Windows 98) */
+
+.desk {
+  --taskbar-h: 28px;
+}
+
+.desktop {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: var(--taskbar-h);
+  overflow: hidden;
+  background: #008080;
+}
+.desktop .wall {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+.desktop .wall.tiles {
+  width: 100%;
+  height: 100%;
+  background-image: var(--img-tiles);
+  background-size: 32px 32px;
+}
+
+/* The icon layer only spans the icons and lets clicks between them through to the desktop. No z-index: it
+   must not form a stacking context, so the XOR-style focus rectangle blends with the sky behind it. */
+.dicons {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  outline: none;
+}
+
+/* 98 icon: 32×32 image above a label of up to 2 lines (all of it while focused), on the 75×75 grid */
+.dicon {
+  position: absolute;
+  width: 75px;
+  padding-top: 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #fff;
+  pointer-events: auto;
+  outline: none;
+  cursor: var(--cur-arrow, default);
+}
+.dicon .imgwrap {
+  position: relative;
+  flex: none;
+  width: 32px;
+  height: 32px;
+}
+.dicon .imgwrap img {
+  display: block;
+}
+.dicon .lbl {
+  position: relative;
+  margin-top: 4px;
+  max-width: 73px;
+  padding: 0 1px 1px;
+  text-align: center;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.dicon:focus .lbl {
+  -webkit-line-clamp: unset;
+  line-clamp: none;
+}
+/* readable on the light sky (the 98 label has no shadow) */
+.dicon .lbl .tx {
+  text-shadow: 1px 1px 0 #000;
+}
+/* selected: navy label, and the icon dithered with navy (a 1:1 checker masked by the icon's own shape) */
+.dicon.sel .lbl {
+  background: #000080;
+}
+.dicon.sel .lbl .tx {
+  text-shadow: none;
+}
+.dicon.sel .imgwrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-conic-gradient(#000080 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+  -webkit-mask-image: var(--mask-src);
+  mask-image: var(--mask-src);
+  -webkit-mask-size: 32px 32px;
+  mask-size: 32px 32px;
+}
+/* focus: a 1 px dotted rectangle on the label, XOR-like (difference blend: yellowish on navy, inverted sky) */
+.dicon:focus .lbl::after,
+.rband {
+  background:
+    repeating-linear-gradient(90deg, #fff 0 1px, transparent 1px 2px) left top / 100% 1px no-repeat,
+    repeating-linear-gradient(90deg, #fff 0 1px, transparent 1px 2px) left bottom / 100% 1px no-repeat,
+    repeating-linear-gradient(180deg, #fff 0 1px, transparent 1px 2px) left top / 1px 100% no-repeat,
+    repeating-linear-gradient(180deg, #fff 0 1px, transparent 1px 2px) right top / 1px 100% no-repeat;
+  mix-blend-mode: difference;
+  pointer-events: none;
+}
+.dicon:focus .lbl::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+/* drag ghost: the icon screen-doored 50% (no alpha in this UI) */
+.dicon.ghost {
+  pointer-events: none;
+  -webkit-mask: repeating-conic-gradient(#000 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+  mask: repeating-conic-gradient(#000 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+}
+.dicon.ghost .lbl::after {
+  content: none;
+}
+.desktop.dragging-icons,
+.desktop.dragging-icons * {
+  cursor: var(--cur-arrow, default);
+}
+
+/* F2: the 98 rename box (white, 1 px black frame) in place of the label */
+.dicon.renaming .lbl {
+  display: none;
+}
+.dicon-rename {
+  margin-top: 3px;
+  width: 73px;
+  height: auto;
+  padding: 0 1px;
+  border: 1px solid #000;
+  background: #fff;
+  color: #000;
+  text-align: center;
+  outline: none;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: var(--cur-text, text);
+}
+
+/* rubber band: 1 px dotted, XOR-looking, never filled */
+.rband {
+  position: absolute;
+  z-index: 3;
+}
+
+/* Shut Down: the screen behind the box is dithered, as in 98 (pointer events still pass) */
+.shutdown-dim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-conic-gradient(#000 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+}
+.shutdown-opts {
+  gap: 6px;
+}
+
+/* phones: icons flow in rows (phone.css), no grid placement */
+.phone .dicons {
+  pointer-events: auto;
+}
+.phone .dicon {
+  position: static;
+}

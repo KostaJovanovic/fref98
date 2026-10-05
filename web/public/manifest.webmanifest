@@ -1,0 +1,16 @@
+{
+  "name": "File Refragmenter 98 Gold",
+  "short_name": "Refragmenter",
+  "description": "Break JPEGs for real, on your own device. Nothing is uploaded.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#3a6fc4",
+  "theme_color": "#245edb",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

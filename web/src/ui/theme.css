@@ -1,0 +1,14 @@
+/* File Refragmenter 98 Gold: styles, split by component. Order matters (later files override). */
+@import './css/base.css';
+@import './css/desktop.css';
+@import './css/window.css';
+@import './css/controls.css';
+@import './css/menu.css';
+@import './css/taskbar.css';
+@import './css/startmenu.css';
+@import './css/foldy.css';
+@import './css/y2k.css';
+@import './css/editor.css';
+@import './css/apps.css';
+@import './css/tools.css';
+@import './css/phone.css';

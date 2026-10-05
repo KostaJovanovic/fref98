@@ -1,0 +1,724 @@
+/* ------------------------------------------------------------------ Windows 98 controls
+   Bevels are two 1 px rings drawn with inset box-shadows (docs/WIN98_METRICS.md):
+   raised button  #FFF/#000 outer, #DFDFDF/#808080 inner
+   frame          #DFDFDF/#000 outer, #FFF/#808080 inner (scroll buttons, thumbs, spin buttons, tab pages)
+   sunken field   #808080/#FFF outer, #000/#DFDFDF inner
+   Disabled text is #808080 embossed with #FFF one pixel down-right. */
+
+::selection {
+  background: #000080;
+  color: #fff;
+}
+
+/* ---------------------------------------------------------------- push buttons */
+.btn {
+  min-height: 23px;
+  min-width: 75px;
+  padding: 0 12px;
+  border: 0;
+  background: #c0c0c0;
+  color: #000;
+  box-shadow: inset -1px -1px #000, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  white-space: nowrap;
+  cursor: var(--cur-arrow, default);
+}
+.btn.small {
+  min-width: 0;
+  min-height: 19px;
+  padding: 0 6px;
+}
+.btn.big {
+  min-height: 34px;
+  padding: 0 16px;
+}
+.btn.primary {
+  font-weight: 700;
+}
+/* the default button (and the focused one) gets an extra black ring */
+.btn.default,
+.btn:focus-visible {
+  box-shadow: inset -2px -2px #000, inset 1px 1px #000, inset 2px 2px #fff, inset -3px -3px #808080, inset 3px 3px #dfdfdf;
+}
+.btn:focus-visible {
+  outline: 1px dotted #000;
+  outline-offset: -5px;
+}
+.btn:not(:disabled):active,
+.btn.pressed {
+  box-shadow: inset -1px -1px #fff, inset 1px 1px #000, inset -2px -2px #dfdfdf, inset 2px 2px #808080;
+}
+.btn.default:not(:disabled):active {
+  box-shadow: inset 0 0 0 1px #000, inset 0 0 0 2px #808080;
+}
+/* pressed: the face content shifts 1 px down-right */
+.btn:not(:disabled):active > *,
+.btn.pressed > * {
+  transform: translate(1px, 1px);
+}
+.btn:disabled {
+  color: #808080;
+  cursor: var(--cur-arrow, default);
+}
+.btn:disabled .tx {
+  text-shadow: 1px 1px 0 #fff;
+}
+.btn:disabled img {
+  filter: grayscale(1) contrast(0.6);
+}
+
+/* ---------------------------------------------------------------- flat toolbar buttons (IE4 style) */
+.tool {
+  min-width: 24px;
+  height: 24px;
+  padding: 0 4px;
+  border: 1px solid transparent;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: var(--cur-arrow, default);
+}
+.tool:not(:disabled):hover {
+  border-color: #fff #808080 #808080 #fff;
+}
+.tool.on,
+.tool:not(:disabled):active {
+  border-color: #808080 #fff #fff #808080;
+}
+.tool:not(:disabled):active > * {
+  transform: translate(1px, 1px);
+}
+.tool.on {
+  background-image: var(--img-sb-track);
+  background-size: 2px 2px;
+}
+.tool:disabled {
+  color: #808080;
+}
+.tool:disabled .tx {
+  text-shadow: 1px 1px 0 #fff;
+}
+.tool:disabled img {
+  filter: grayscale(1) contrast(0.5);
+  opacity: 1;
+}
+
+/* ---------------------------------------------------------------- text boxes, spin boxes, combo boxes */
+.field {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  background: #fff;
+  color: #000;
+  border: 0;
+  padding: 2px;
+  min-height: 21px;
+  box-shadow: inset -1px -1px #fff, inset 1px 1px #808080, inset -2px -2px #dfdfdf, inset 2px 2px #000;
+}
+.field > input,
+.field > textarea {
+  border: 0;
+  background: transparent;
+  filter: url(#crisp);
+  padding: 0 2px;
+  width: 100%;
+  min-width: 0;
+  user-select: text;
+  -webkit-user-select: text;
+  outline: none;
+  cursor: var(--cur-text, text);
+}
+.field.disabled,
+.field:has(> input:disabled),
+.field:has(> textarea:disabled) {
+  background: #c0c0c0;
+  color: #808080;
+}
+textarea {
+  resize: none;
+}
+input,
+textarea {
+  caret-color: #000;
+}
+
+/* no native spinners anywhere */
+input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+  display: none;
+}
+.field.spin {
+  padding-right: 2px;
+}
+.spin-btns {
+  flex: none;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  width: 16px;
+}
+.spin-btns > span {
+  flex: 1;
+  min-height: 7px;
+  background-color: #c0c0c0;
+  background-repeat: no-repeat;
+  background-position: center;
+  box-shadow: inset -1px -1px #000, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #fff;
+  cursor: var(--cur-arrow, default);
+}
+.spin-up {
+  background-image: var(--img-g-spin-u);
+}
+.spin-down {
+  background-image: var(--img-g-spin-d);
+}
+.spin-btns > span.p {
+  box-shadow: inset 0 0 0 1px #808080;
+  background-position: calc(50% + 1px) calc(50% + 1px);
+}
+.field.spin:has(> input:disabled) .spin-up {
+  background-image: var(--img-g-spin-u-d);
+}
+.field.spin:has(> input:disabled) .spin-down {
+  background-image: var(--img-g-spin-d-d);
+}
+
+/* combo box: sunken white field + the 98 arrow button; the native <select> is hidden (value only) */
+.field.combo {
+  cursor: var(--cur-arrow, default);
+  outline: none;
+  min-width: 60px;
+}
+.combo > select,
+.combo-native {
+  display: none !important;
+}
+.combo-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  padding: 0 2px;
+  margin-right: 1px;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+}
+.combo:focus .combo-text {
+  background: #000080;
+  color: #fff;
+  outline: 1px dotted #ffff80;
+  outline-offset: -1px;
+}
+.combo-btn {
+  flex: none;
+  width: 16px;
+  align-self: stretch;
+  min-height: 17px;
+  background-color: #c0c0c0;
+  background-image: var(--img-g-arrow-d);
+  background-repeat: no-repeat;
+  background-position: center;
+  box-shadow: inset -1px -1px #000, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #fff;
+}
+.combo.open .combo-btn {
+  box-shadow: inset 0 0 0 1px #808080;
+  background-position: calc(50% + 1px) calc(50% + 1px);
+}
+.combo.disabled {
+  background: #c0c0c0;
+  color: #808080;
+}
+.combo.disabled .tx {
+  text-shadow: 1px 1px 0 #fff;
+}
+.combo.disabled .combo-btn {
+  background-image: var(--img-g-arrow-d-d);
+}
+.combo-list {
+  position: absolute;
+  z-index: 7100;
+  background: #fff;
+  color: #000;
+  border: 1px solid #000;
+  overflow-x: hidden;
+  overflow-y: auto;
+  cursor: var(--cur-arrow, default);
+}
+.combo-opt {
+  padding: 0 3px;
+  white-space: nowrap;
+}
+.combo-opt.hl {
+  background: #000080;
+  color: #fff;
+}
+.combo-opt.dis {
+  color: #808080;
+}
+
+/* ---------------------------------------------------------------- check boxes and radio buttons */
+input[type='checkbox'],
+input[type='radio'] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  flex: none;
+  border: 0;
+  background-color: transparent;
+  background-image: var(--img-cb);
+  background-size: 100% 100%;
+  vertical-align: middle;
+  outline: none;
+  cursor: var(--cur-arrow, default);
+}
+input[type='checkbox']:checked {
+  background-image: var(--img-cb-on);
+}
+input[type='checkbox']:not(:disabled):active {
+  background-image: var(--img-cb-p);
+}
+input[type='checkbox']:checked:not(:disabled):active {
+  background-image: var(--img-cb-on-p);
+}
+input[type='checkbox']:disabled {
+  background-image: var(--img-cb-d);
+}
+input[type='checkbox']:checked:disabled {
+  background-image: var(--img-cb-on-d);
+}
+input[type='radio'] {
+  width: 12px;
+  height: 12px;
+  background-image: var(--img-rb);
+}
+input[type='radio']:checked {
+  background-image: var(--img-rb-on);
+}
+input[type='radio']:not(:disabled):active {
+  background-image: var(--img-rb-p);
+}
+input[type='radio']:checked:not(:disabled):active {
+  background-image: var(--img-rb-on-p);
+}
+input[type='radio']:disabled {
+  background-image: var(--img-rb-d);
+}
+input[type='radio']:checked:disabled {
+  background-image: var(--img-rb-on-d);
+}
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 20px;
+  cursor: var(--cur-arrow, default);
+}
+/* 98 draws the focus rectangle around the label, not the box */
+.check:has(> input:focus-visible) > .tx {
+  outline: 1px dotted #000;
+  outline-offset: 0;
+}
+.check.disabled,
+.check:has(> input:disabled) {
+  color: #808080;
+}
+.check.disabled > .tx,
+.check:has(> input:disabled) > .tx {
+  text-shadow: 1px 1px 0 #fff;
+}
+
+/* ---------------------------------------------------------------- trackbar (slider) */
+input[type='range'] {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  height: 26px;
+  min-width: 80px;
+  margin: 0;
+  cursor: var(--cur-arrow, default);
+  touch-action: none;
+}
+input[type='range']::-webkit-slider-runnable-track {
+  height: 4px;
+  background: transparent;
+  box-shadow: inset 1px 1px #808080, inset -1px -1px #fff, inset 2px 2px #000, inset -2px -2px #dfdfdf;
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 11px;
+  height: 21px;
+  margin-top: -6px;
+  border: 0;
+  background-color: transparent;
+  background-image: var(--img-thumb);
+  background-size: 11px 21px;
+}
+input[type='range']::-moz-range-track {
+  height: 4px;
+  background: transparent;
+  box-shadow: inset 1px 1px #808080, inset -1px -1px #fff, inset 2px 2px #000, inset -2px -2px #dfdfdf;
+}
+input[type='range']::-moz-range-thumb {
+  width: 11px;
+  height: 21px;
+  border: 0;
+  border-radius: 0;
+  background-color: transparent;
+  background-image: var(--img-thumb);
+  background-size: 11px 21px;
+  transform: translateY(8px);
+}
+/* tick marks under the thumb's point: --ticks intervals, ticks at the thumb centres (5 px in from each end) */
+input[type='range'].ticks {
+  height: 30px;
+  padding-bottom: 4px;
+  background-image: repeating-linear-gradient(to right, #000 0 1px, transparent 1px calc(100% / var(--ticks))), linear-gradient(#000, #000);
+  background-size: calc(100% - 11px) 3px, 1px 3px;
+  background-position: 5px 100%, calc(100% - 5px) 100%;
+  background-repeat: no-repeat;
+}
+/* phones: the thumb at exactly 2× so its pixels stay square */
+#app.phone input[type='range'] {
+  height: 48px;
+}
+#app.phone input[type='range']::-webkit-slider-thumb {
+  width: 22px;
+  height: 42px;
+  margin-top: -13px;
+  background-size: 22px 42px;
+}
+input[type='range']:focus-visible {
+  outline: 1px dotted #000;
+  outline-offset: 0;
+}
+input[type='range']:disabled::-webkit-slider-thumb {
+  filter: grayscale(1);
+}
+
+/* ---------------------------------------------------------------- progress bar: navy blocks, 8 px + 2 px gap */
+.progress {
+  height: 18px;
+  padding: 2px;
+  background: #c0c0c0;
+  box-shadow: inset 1px 1px #808080, inset -1px -1px #fff;
+  overflow: hidden;
+  position: relative;
+}
+.progress > .fill {
+  height: 100%;
+  width: 0;
+  background-image: var(--img-pblock);
+  background-size: 10px 100%;
+  background-repeat: repeat-x;
+}
+.progress.indet > .fill {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  height: auto;
+  width: 30px;
+}
+
+/* ---------------------------------------------------------------- group box: etched frame, label on the line */
+.group {
+  position: relative;
+  border: 1px solid #808080;
+  box-shadow: inset 1px 1px #fff, 1px 1px #fff;
+  padding: 12px 8px 8px;
+  margin-top: 8px;
+}
+/* option lists inside a group read top to bottom, one per line */
+.group > .check {
+  display: flex;
+}
+.group > .legend {
+  position: absolute;
+  top: -8px;
+  left: 6px;
+  padding: 0 2px;
+  background: var(--face, #c0c0c0);
+  color: #000;
+}
+
+/* ---------------------------------------------------------------- tabs: raised, the selected one 2 px taller and joined to the page */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  padding: 0 2px;
+  position: relative;
+  z-index: 1;
+  margin-bottom: -2px;
+}
+.tab {
+  border: 0;
+  background: #c0c0c0;
+  color: #000;
+  padding: 1px 8px 1px;
+  margin: 2px 0 2px;
+  min-height: 18px;
+  position: relative;
+  box-shadow: inset 1px 1px #fff, inset 2px 2px #dfdfdf, inset -1px 0 #000, inset -2px 0 #808080;
+  clip-path: polygon(0 2px, 1px 2px, 1px 1px, 2px 1px, 2px 0, calc(100% - 2px) 0, calc(100% - 2px) 1px, calc(100% - 1px) 1px, calc(100% - 1px) 2px, 100% 2px, 100% 100%, 0 100%);
+  cursor: var(--cur-arrow, default);
+}
+.tab.on {
+  margin: 0 -2px 0;
+  padding: 2px 10px 3px;
+  z-index: 2;
+}
+.tab:focus-visible {
+  outline: none;
+}
+.tab:focus-visible > .tx {
+  outline: 1px dotted #000;
+  outline-offset: 0;
+}
+.tabpage {
+  background: #c0c0c0;
+  box-shadow: inset -1px -1px #000, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf;
+  padding: 10px;
+}
+
+/* ---------------------------------------------------------------- list boxes */
+.list {
+  background: #fff;
+  padding: 2px;
+  box-shadow: inset -1px -1px #fff, inset 1px 1px #808080, inset -2px -2px #dfdfdf, inset 2px 2px #000;
+  overflow: auto;
+}
+.li {
+  padding: 1px 3px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.li.sel {
+  background: #000080;
+  color: #fff;
+}
+
+/* ---------------------------------------------------------------- status bar panes (sunken 1 px) */
+.status-pane {
+  display: flex;
+  align-items: center;
+  min-height: 18px;
+  padding: 1px 4px;
+  box-shadow: inset 1px 1px #808080, inset -1px -1px #fff;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.status-pane.grow {
+  flex: 1;
+}
+
+/* ---------------------------------------------------------------- message boxes: icon left, text, centred buttons */
+.msgbox {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 12px 12px;
+  gap: 12px;
+}
+.msg-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.msg-main > img {
+  flex: none;
+}
+.msg-text {
+  flex: 1;
+  min-width: 0;
+  padding-top: 8px;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.msg-btns {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+.msg-btns > .btn {
+  min-width: 75px;
+}
+/* a message box is sized to its text: Foldy's inline balloon never goes in one */
+.win:has(.msgbox) .win-foldy {
+  display: none !important;
+}
+
+/* ---------------------------------------------------------------- 98 scroll bars */
+@supports selector(::-webkit-scrollbar) {
+  #app ::-webkit-scrollbar {
+    width: 16px;
+    height: 16px;
+  }
+  #app ::-webkit-scrollbar-track {
+    background-color: #c0c0c0;
+    background-image: var(--img-sb-track);
+    background-size: 2px 2px;
+    image-rendering: pixelated;
+  }
+  #app ::-webkit-scrollbar-thumb {
+    background-color: #c0c0c0;
+    box-shadow: inset -1px -1px #000, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #fff;
+    min-height: 8px;
+  }
+  #app ::-webkit-scrollbar-corner {
+    background: #c0c0c0;
+  }
+  #app ::-webkit-scrollbar-button {
+    display: block;
+    width: 16px;
+    height: 16px;
+    background-color: #c0c0c0;
+    background-size: 16px 16px;
+    image-rendering: pixelated;
+  }
+  #app ::-webkit-scrollbar-button:vertical:start:decrement {
+    background-image: var(--img-sb-up);
+  }
+  #app ::-webkit-scrollbar-button:vertical:end:increment {
+    background-image: var(--img-sb-down);
+  }
+  #app ::-webkit-scrollbar-button:horizontal:start:decrement {
+    background-image: var(--img-sb-left);
+  }
+  #app ::-webkit-scrollbar-button:horizontal:end:increment {
+    background-image: var(--img-sb-right);
+  }
+  #app ::-webkit-scrollbar-button:vertical:start:decrement:active {
+    background-image: var(--img-sb-up-p);
+  }
+  #app ::-webkit-scrollbar-button:vertical:end:increment:active {
+    background-image: var(--img-sb-down-p);
+  }
+  #app ::-webkit-scrollbar-button:horizontal:start:decrement:active {
+    background-image: var(--img-sb-left-p);
+  }
+  #app ::-webkit-scrollbar-button:horizontal:end:increment:active {
+    background-image: var(--img-sb-right-p);
+  }
+  #app ::-webkit-scrollbar-button:vertical:start:increment,
+  #app ::-webkit-scrollbar-button:vertical:end:decrement,
+  #app ::-webkit-scrollbar-button:horizontal:start:increment,
+  #app ::-webkit-scrollbar-button:horizontal:end:decrement {
+    display: none;
+  }
+}
+/* Firefox has no scroll-bar sprites: the closest 98 colours */
+@supports not selector(::-webkit-scrollbar) {
+  #app,
+  #app * {
+    scrollbar-color: #c0c0c0 #e0e0e0;
+  }
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.wrap {
+  flex-wrap: wrap;
+}
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+.pad {
+  padding: 8px;
+}
+.muted {
+  color: var(--face-dk);
+}
+.hint {
+  color: var(--face-dk);
+}
+.warn {
+  color: #a00000;
+}
+.ok {
+  color: #006000;
+}
+.b {
+  font-weight: 700;
+}
+.sep {
+  height: 1px;
+  background: var(--face-lo);
+  border-bottom: 1px solid #fff;
+  margin: 4px 0;
+}
+.selectable {
+  user-select: text;
+  -webkit-user-select: text;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1em;
+}
+h1.big {
+  font-size: calc(26px * var(--ts));
+  line-height: calc(30px * var(--ts));
+}
+p {
+  margin: 0 0 8px;
+}
+.badge {
+  display: inline-block;
+  padding: 0 4px;
+  border: 1px solid currentColor;
+  font-size: 1em;
+  white-space: nowrap;
+}
+.badge.pixel {
+  color: #1f6c1f;
+}
+.badge.coeff {
+  color: #6a2fb0;
+}
+.badge.byte {
+  color: #b0300f;
+}
+.badge.card {
+  color: #0d4f9c;
+}
+.badge.meta {
+  color: #6f6f00;
+}
+.badge.sim {
+  color: #806000;
+  border-style: dashed;
+}

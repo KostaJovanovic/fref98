@@ -1,0 +1,316 @@
+/* ------------------------------------------------------------------ editor */
+
+.editor {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+}
+.ed-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ed-toolbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px;
+  border-bottom: 1px solid var(--face-lo);
+  flex-wrap: wrap;
+}
+.phone .ed-toolbar {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 0;
+}
+.phone .ed-toolbar .tsep {
+  margin: 0 1px;
+}
+.ed-toolbar > * {
+  flex: none;
+  white-space: nowrap;
+}
+.ed-toolbar > .grow {
+  flex: 1;
+}
+/* the toolbar scrolls sideways on phones; Export stays in reach at the right edge */
+.phone .ed-toolbar > .btn.primary {
+  position: sticky;
+  right: 0;
+}
+.phone .shead .name {
+  min-height: 44px;
+}
+.phone .shead .grip {
+  width: 16px;
+  height: 36px;
+  background-size: 16px 36px;
+}
+.ed-toolbar .tsep {
+  width: 1px;
+  height: 20px;
+  background: var(--face-lo);
+  border-right: 1px solid #fff;
+  margin: 0 3px;
+}
+/* the zoom % changes while a live preview changes the picture's size: a fixed box keeps that from
+   re-laying out (and repainting) the whole toolbar */
+.ed-toolbar .ed-zoom {
+  flex: none;
+  width: 40px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  contain: layout paint;
+}
+.viewer {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  background: #808080;
+  background-image: var(--img-viewer-bg);
+  background-size: 16px 16px;
+  overflow: hidden;
+  touch-action: none;
+  /* a new preview frame repaints inside the viewer only, never the window or the page */
+  contain: layout paint;
+}
+.viewer canvas.view {
+  position: absolute;
+  left: 0;
+  top: 0;
+  /* its own compositor layer: a redraw re-uploads this canvas, nothing around it repaints */
+  will-change: transform;
+}
+.viewer .vlabel {
+  position: absolute;
+  top: 4px;
+  padding: 1px 4px;
+  background: #000;
+  color: #fff;
+  pointer-events: none;
+}
+.viewer .vlabel.l {
+  left: 4px;
+}
+.viewer .vlabel.r {
+  right: 4px;
+}
+.viewer .vlabel.err {
+  top: 28px;
+  background: #a00000;
+  white-space: normal;
+  max-width: calc(50% - 12px);
+}
+.viewer:focus-visible {
+  outline: 2px dotted #000;
+  outline-offset: -3px;
+}
+.viewer .empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.viewer .empty-card {
+  background: var(--face);
+  border: 1px solid var(--face-dk);
+  padding: 14px 16px;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+}
+.viewer.drop .empty-card,
+.viewer.drop {
+  outline: 2px dashed #ffd400;
+  outline-offset: -6px;
+}
+.ed-side {
+  flex: none;
+  width: 330px;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--face-lo);
+  min-height: 0;
+}
+.desk .editor.expert .ed-side {
+  width: 380px;
+}
+.ed-side .tabs {
+  padding-top: 4px;
+}
+.ed-panel {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 6px;
+  position: relative;
+}
+.story {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+.story-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--face-lo);
+  background: #fff;
+  text-align: left;
+  min-height: 42px;
+}
+.story-btn:hover {
+  border-color: #f8b636;
+}
+.story-btn.on {
+  border-color: var(--sel);
+  box-shadow: inset 0 0 0 1px var(--sel);
+  background: #e3eefb;
+}
+.story-btn.na {
+  color: var(--face-dk);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.sitem {
+  background: #fff;
+  border: 1px solid var(--face-lo);
+}
+.sitem.sel {
+  border-color: var(--sel);
+  box-shadow: inset 0 0 0 1px var(--sel);
+}
+.sitem.off {
+  background: var(--face);
+  color: var(--face-dk);
+}
+.sitem.drag {
+  background-image: var(--img-checker-sel);
+  background-size: 2px 2px;
+}
+.sitem.dropbefore {
+  box-shadow: 0 -2px 0 #000;
+}
+.shead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 4px;
+  padding: 2px 3px;
+  min-height: 24px;
+}
+/* The step name is never cut off: it wraps, and the controls drop to their own line when it needs the room. */
+/* min-width stays "auto" (longest word): a word is never split; the controls wrap to the next line instead */
+.shead .name {
+  flex: 1 1 130px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  padding: 1px 2px;
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: left;
+}
+.shead .name .nm {
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 4px;
+}
+.shead .name:hover {
+  border-color: var(--face-hi) var(--face-dk) var(--face-dk) var(--face-hi);
+}
+.shead .name .lbl {
+  flex: 0 1 auto;
+  overflow-wrap: break-word;
+}
+.shead .sctl {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  flex: none;
+}
+.grip {
+  width: 8px;
+  height: 18px;
+  flex: none;
+  background-image: var(--img-dots);
+  background-size: 8px 18px;
+  cursor: var(--cur-move, move);
+  touch-action: none;
+}
+.sbody {
+  padding: 4px 6px 6px 18px;
+  border-top: 1px dotted var(--face-lo);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.sstatus {
+  padding: 0 4px;
+}
+.sstatus.error,
+.sstatus.unavailable {
+  color: #a00000;
+}
+.sstatus.stale {
+  color: #806000;
+}
+.reenc {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  color: #0d4f9c;
+  border: 1px dashed #7f9db9;
+  background: #f4f8ff;
+}
+.repeat-kids {
+  margin-left: 10px;
+  border-left: 2px solid #7f9db9;
+  padding-left: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.param {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  align-items: center;
+  gap: 4px 6px;
+}
+.param .val {
+  min-width: 46px;
+  text-align: right;
+}
+.param .hint {
+  grid-column: 1 / -1;
+}
+.tablepaint {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 1px;
+  background: var(--face-lo);
+  border: 1px solid var(--face-dk);
+  touch-action: none;
+}
+.tablepaint > div {
+  background: #fff;
+  text-align: center;
+  min-width: 0;
+  padding: 1px 0;
+}

@@ -1,0 +1,12 @@
+target/
+node_modules/
+web/dist/
+web/src/wasm/pkg/
+test-local/
+*.img
+.DS_Store
+web/shots/
+web/test-results/
+web/playwright-report/
+__pycache__/
+.claude/

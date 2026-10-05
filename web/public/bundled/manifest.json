@@ -1,0 +1,4 @@
+{
+  "comment": "Bundled roll-mate photos (CC0/CC-BY, licensed separately, see web/LICENSES-ASSETS.md). Add entries like {\"id\": \"beach\", \"file\": \"beach.jpg\", \"name\": \"Beach\", \"license\": \"CC0\", \"author\": \"…\"}. While this list is empty the app generates labelled placeholder photos.",
+  "photos": []
+}
