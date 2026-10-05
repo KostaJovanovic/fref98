@@ -11,10 +11,10 @@
   align-items: center;
   gap: 0;
   padding: 2px 2px 0;
-  background: #c0c0c0;
-  box-shadow: inset 0 1px #dfdfdf, inset 0 2px #fff;
+  background: var(--c-face);
+  box-shadow: inset 0 1px var(--c-light), inset 0 2px var(--c-hi);
   z-index: var(--z-taskbar);
-  color: #000;
+  color: var(--c-text);
   cursor: var(--cur-arrow, default);
 }
 
@@ -27,9 +27,9 @@
   align-items: center;
   border: 0;
   margin: 0;
-  background: #c0c0c0;
-  color: #000;
-  box-shadow: inset -1px -1px #000, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf;
+  background: var(--c-face);
+  color: var(--c-text);
+  box-shadow: inset -1px -1px var(--c-dark), inset 1px 1px var(--c-hi), inset -2px -2px var(--c-shadow), inset 2px 2px var(--c-light);
   white-space: nowrap;
   text-align: left;
   cursor: var(--cur-arrow, default);
@@ -59,13 +59,13 @@
 }
 .start.open,
 .start:active {
-  box-shadow: inset -1px -1px #fff, inset 1px 1px #000, inset -2px -2px #dfdfdf, inset 2px 2px #808080;
+  box-shadow: inset -1px -1px var(--c-hi), inset 1px 1px var(--c-dark), inset -2px -2px var(--c-light), inset 2px 2px var(--c-shadow);
   padding: 1px 0 0 4px;
 }
 /* the pressed Start button shows the dotted focus rectangle, as in 98 */
 .start.open,
 .start:focus-visible {
-  outline: 1px dotted #000;
+  outline: 1px dotted var(--c-text);
   outline-offset: -4px;
 }
 
@@ -75,7 +75,7 @@
   width: 3px;
   height: 20px;
   margin: 0 3px 0 4px;
-  box-shadow: inset 1px 1px #fff, inset -1px -1px #808080;
+  box-shadow: inset 1px 1px var(--c-hi), inset -1px -1px var(--c-shadow);
 }
 
 .tasks {
@@ -105,18 +105,18 @@
   text-overflow: ellipsis;
 }
 .task:active {
-  box-shadow: inset -1px -1px #fff, inset 1px 1px #000, inset -2px -2px #dfdfdf, inset 2px 2px #808080;
+  box-shadow: inset -1px -1px var(--c-hi), inset 1px 1px var(--c-dark), inset -2px -2px var(--c-light), inset 2px 2px var(--c-shadow);
   padding: 1px 3px 0 5px;
 }
 /* the active window: pressed in, dithered #FFF/#C0C0C0 face, bold text */
 .task.active {
-  box-shadow: inset -1px -1px #fff, inset 1px 1px #000, inset -2px -2px #dfdfdf, inset 2px 2px #808080;
-  background: repeating-conic-gradient(#fff 0 25%, #c0c0c0 0 50%) 0 0 / 2px 2px;
+  box-shadow: inset -1px -1px var(--c-hi), inset 1px 1px var(--c-dark), inset -2px -2px var(--c-light), inset 2px 2px var(--c-shadow);
+  background: repeating-conic-gradient(var(--c-win) 0 25%, var(--c-face) 0 50%) 0 0 / 2px 2px;
   padding: 1px 3px 0 5px;
   font-weight: 700;
 }
 .task:focus-visible {
-  outline: 1px dotted #000;
+  outline: 1px dotted var(--c-text);
   outline-offset: -4px;
 }
 
@@ -128,7 +128,7 @@
   align-items: center;
   gap: 1px;
   padding: 0 0 0 3px;
-  box-shadow: inset 1px 1px #808080, inset -1px -1px #fff;
+  box-shadow: inset 1px 1px var(--c-shadow), inset -1px -1px var(--c-hi);
   white-space: nowrap;
 }
 .tray .tray-ico {

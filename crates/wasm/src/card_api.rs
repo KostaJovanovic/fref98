@@ -48,6 +48,7 @@ impl Card {
             "cluster_bytes": c.vol.cluster_bytes,
             "cluster_count": c.vol.cluster_count,
             "data_start": c.vol.data_start,
+            "label": c.label,
             "files": c.files,
             "log": c.log,
         })

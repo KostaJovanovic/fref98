@@ -7,7 +7,14 @@ export type BusEvent =
   | 'exported'
   | 'long-start'
   | 'long-end'
+  /** The result is badly damaged; data `{ grey: true }` when almost nothing survived. */
   | 'heavy-damage'
+  /** "How bad?" reached an end: data = 'low' | 'max'. */
+  | 'slider-end'
+  | 'another-roll'
+  | 'undo'
+  /** A dropped or picked file is not something the app can open. */
+  | 'unreadable'
   | 'clean'
   | 'decode-events'
   | 'step-added'

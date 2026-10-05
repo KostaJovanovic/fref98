@@ -4,6 +4,7 @@
 // cached as PNG data URLs and exposed to CSS as custom properties.
 import { ditherAtkinson, ditherBayer, nearest, PALETTE } from './palette';
 import { drawText } from './pixeltext';
+import { schemeColors, type SchemeColors } from './scheme';
 
 type Ctx = CanvasRenderingContext2D;
 
@@ -28,11 +29,14 @@ export function scaleCanvas(src: HTMLCanvasElement, k: number): HTMLCanvasElemen
 }
 
 const urlCache = new Map<string, string>();
+/** The colour scheme the sprites are drawn in (part of every cache key, so a scheme change redraws them). */
+let artScheme = 'standard';
 export function cached(key: string, make: () => HTMLCanvasElement): string {
-  let u = urlCache.get(key);
+  const k = artScheme + '|' + key;
+  let u = urlCache.get(k);
   if (!u) {
     u = make().toDataURL('image/png');
-    urlCache.set(key, u);
+    urlCache.set(k, u);
   }
   return u;
 }
@@ -159,7 +163,14 @@ export function y2kTile(): string {
 // ------------------------------------------------------------------ Windows 98 control sprites
 // Redrawn from the documented 98 metrics (docs/WIN98_METRICS.md): 1-bit pixels in the 98 system colours.
 
-const C98 = { face: '#c0c0c0', hi: '#ffffff', light: '#dfdfdf', shadow: '#808080', dark: '#000000', navy: '#000080' };
+/** The system colours the sprites use: the current colour scheme's (ui/scheme.ts; Windows Standard first). */
+export const C98: SchemeColors = { ...schemeColors('standard') };
+
+/** Draws the sprites from now on in a scheme's colours (theme.ts then re-applies the CSS variables). */
+export function setArtColors(id: string, c: SchemeColors) {
+  artScheme = id;
+  Object.assign(C98, c);
+}
 
 /** Small glyphs (menu check/bullet/arrow, combo and scroll arrows, spin arrows) as pixel rows. */
 const GLYPH98: Record<string, string[]> = {
@@ -177,7 +188,7 @@ const GLYPH98: Record<string, string[]> = {
 export type Glyph98 = keyof typeof GLYPH98;
 
 /** A glyph in a colour; `emboss` draws the 98 disabled look (white copy 1 px down-right, grey on top). */
-export function glyph98(kind: Glyph98 | string, color = '#000000', emboss = false): string {
+export function glyph98(kind: Glyph98 | string, color = C98.text, emboss = false): string {
   return cached(`g98:${kind}:${color}:${emboss}`, () => {
     const rows = GLYPH98[kind] ?? GLYPH98.check;
     const w = Math.max(...rows.map((r) => r.length));
@@ -219,10 +230,10 @@ export function checkboxSprite(checked: boolean, state: 'n' | 'h' | 'd' | 'p' = 
   return cached(`cb98:${checked}:${state}`, () => {
     const c = makeCanvas(13, 13);
     const x = ctx2d(c);
-    x.fillStyle = state === 'd' || state === 'p' ? C98.face : C98.hi;
+    x.fillStyle = state === 'd' || state === 'p' ? C98.face : C98.win;
     x.fillRect(2, 2, 9, 9);
     bevel(c, 'sunken');
-    if (checked) ascii(GLYPH98.check, { '#': state === 'd' ? C98.shadow : C98.dark }, c, 3, 3);
+    if (checked) ascii(GLYPH98.check, { '#': state === 'd' ? C98.shadow : C98.wtext }, c, 3, 3);
     return c;
   });
 }
@@ -235,7 +246,7 @@ export function radioSprite(checked: boolean, state: 'n' | 'h' | 'd' | 'p' = 'n'
   return cached(`rb98:${checked}:${state}`, () => {
     const c = makeCanvas(12, 12);
     const x = ctx2d(c);
-    const fill = state === 'd' || state === 'p' ? C98.face : C98.hi;
+    const fill = state === 'd' || state === 'p' ? C98.face : C98.win;
     // the inside of the inner ring (the ring itself is painted over it below)
     for (let y = 1; y <= 10; y++) {
       const r = RADIO_IN[y];
@@ -255,13 +266,13 @@ export function radioSprite(checked: boolean, state: 'n' | 'h' | 'd' | 'p' = 'n'
     };
     paint(RADIO_OUT, C98.shadow, C98.hi);
     paint(RADIO_IN, C98.dark, C98.light);
-    if (checked) ascii(GLYPH98.radio, { '#': state === 'd' ? C98.shadow : C98.dark }, c, 4, 4);
+    if (checked) ascii(GLYPH98.radio, { '#': state === 'd' ? C98.shadow : C98.wtext }, c, 4, 4);
     return c;
   });
 }
 
 /** Back-compat: a small arrow glyph (used by older CSS as --img-arrow-down). */
-export function arrowGlyph(dir: 'up' | 'down' | 'left' | 'right', color = '#000000'): string {
+export function arrowGlyph(dir: 'up' | 'down' | 'left' | 'right', color = C98.text): string {
   return glyph98(dir === 'up' ? 'arrow-u' : dir === 'down' ? 'arrow-d' : dir === 'left' ? 'arrow-l' : 'arrow-r', color);
 }
 
@@ -301,7 +312,7 @@ export function progressBlock(): string {
   return cached('pblock98', () => {
     const c = makeCanvas(10, 14);
     const x = ctx2d(c);
-    x.fillStyle = C98.navy;
+    x.fillStyle = C98.sel;
     x.fillRect(0, 0, 8, 14);
     return c;
   });
@@ -336,7 +347,7 @@ export function bevelButton(w: number, h: number, glyph: Glyph98 | string, state
     const ox = Math.floor((w - gw) / 2) + (state === 'p' ? 1 : 0);
     const oy = Math.floor((h - gh) / 2) + (state === 'p' ? 1 : 0);
     if (state === 'd') ascii(rows, { '#': C98.hi }, c, ox + 1, oy + 1);
-    ascii(rows, { '#': state === 'd' ? C98.shadow : C98.dark }, c, ox, oy);
+    ascii(rows, { '#': state === 'd' ? C98.shadow : C98.text }, c, ox, oy);
     return c;
   });
 }
@@ -380,7 +391,7 @@ export function controlArtVars(): Record<string, string> {
   }
   for (const g of Object.keys(GLYPH98)) {
     v[`--img-g-${g}`] = u(glyph98(g));
-    v[`--img-g-${g}-w`] = u(glyph98(g, C98.hi));
+    v[`--img-g-${g}-w`] = u(glyph98(g, C98.seltext));
     v[`--img-g-${g}-d`] = u(glyph98(g, C98.shadow, true));
     v[`--img-g-${g}-g`] = u(glyph98(g, C98.shadow));
   }

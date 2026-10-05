@@ -18,7 +18,7 @@ import type { CardInfo, CardPreset, CarvedFile, CardEventType, ParamInfo } from 
 import { contactSheet, canvasToPng, sheetHit } from '../contact';
 import { thumbUrl } from '../thumbs';
 import { errorBox, message, progressDialog, progressDone, confirmBox } from '../ui/dialog';
-import { ditherBayer } from '../ui/palette';
+import { ditherBayer, hslToRgb } from '../ui/palette';
 import { registerContext } from '../ui/contextmenu';
 import type { MenuItem } from '../ui/menu';
 import { openApp } from './registry';
@@ -26,6 +26,7 @@ import { foldy } from '../foldy/foldy';
 import { dialog98, wizard98, wizardArt, listBox, pieChart, swatch98 } from './tools98';
 import * as bus from '../bus';
 import { ACCIDENTS, shoot, type ScenarioEvent } from './card-stories';
+import { volumeTitle } from './explorer-model';
 
 
 const STATE_COLORS = ['#202020', '#3366cc', '#2f8f2f', '#ff9933', '#cc0000', '#993399', '#00cccc', '#996633'];
@@ -95,7 +96,6 @@ class CardWindow {
   /** The item the keyboard is on (Shift+arrows move it, the anchor stays). */
   private focusKey: string | null = null;
   private lastTap = { key: '', t: 0 };
-  private label = 'REFRAG';
   private items: Item[] = [];
   private busy = false;
   /** Closing was confirmed ("Discard this card?"). */
@@ -127,7 +127,7 @@ class CardWindow {
         { label: '&Go', items: () => this.goMenu() },
         { label: '&Camera', items: () => this.cameraMenu() },
         { label: '&Tools', items: () => this.toolsMenu() },
-        { label: '&Help', items: () => [{ label: '&Help Topics', icon: 'help', onClick: () => openApp('help', 'card') }, { sep: true }, { label: '&About File Refragmenter', icon: 'about', onClick: () => openApp('about') }] },
+        { label: '&Help', items: () => [{ label: 'Removable &Disk Help', icon: 'help', onClick: () => openApp('help', 'card') }, { label: '&Help Topics', onClick: () => openApp('help') }, { sep: true }, { label: '&About File Refragmenter', icon: 'about', onClick: () => openApp('about') }] },
       ],
       status: [this.stObjs, this.stSize, this.stFree],
       phoneStatus: true,
@@ -168,12 +168,23 @@ class CardWindow {
     return engine().has('Card.simulate');
   }
 
+  /** The card's volume label as the engine wrote it ('' = no label). */
+  private get label(): string {
+    return this.card?.info.label ?? 'CARD';
+  }
+
+  /** "CARD (E:)", or "Removable Disk (E:)" with no label or no card. */
+  private driveName(): string {
+    return (this.card && this.label ? volumeTitle(this.label) : 'Removable Disk') + ' (E:)';
+  }
+
   // ------------------------------------------------------------ the window
 
   private render() {
     this.items = this.folderItems();
     for (const k of [...this.sel]) if (!this.items.some((i) => i.key === k)) this.sel.delete(k);
-    this.win.setTitle(this.folder === 'rebuilt' ? 'Rebuilt' : 'Removable Disk (E:)');
+    // 98 names a labelled drive by its label: "HOLIDAY (E:)"
+    this.win.setTitle(this.folder === 'rebuilt' ? 'Rebuilt' : this.driveName());
     this.renderToolbar();
     this.renderAddr();
     this.renderList();
@@ -688,7 +699,7 @@ class CardWindow {
       ];
     return [
       { label: '&Open', default: !it.deleted, disabled: !!it.deleted, onClick: () => this.openItem(key) },
-      ...(it.deleted ? [{ label: '&Recover…', default: true, onClick: () => this.recoverWizard() } as MenuItem] : []),
+      ...(it.deleted ? [{ label: 'Re&cover…', default: true, onClick: () => this.recoverWizard() } as MenuItem] : []),
       { sep: true },
       { label: '&Delete', disabled: !!it.deleted || this.busy, onClick: () => void this.deleteSelected() },
       { sep: true },
@@ -713,7 +724,6 @@ class CardWindow {
       { label: 'Arrange &Icons', sub: this.arrangeMenu() },
       { label: 'R&efresh', onClick: () => this.render() },
       { sep: true },
-      { label: '&Paste', disabled: true },
       { label: 'Copy &Pictures Here…', disabled: !this.available() || this.busy || rb, onClick: () => this.writeWizard() },
       { sep: true },
       { label: 'P&roperties', onClick: () => this.properties() },
@@ -1028,8 +1038,9 @@ class CardWindow {
     const body = h(
       'div',
       { class: 'col cd-format' },
-      h('div', { class: 'field-row' }, h('span', { class: 'flbl' }, 'Capacity:'), selectField('c', [['c', mb(info.size_bytes)]], () => {}, { label: 'Capacity', width: 140 })),
-      group('Format type', radio('cdfmt', 'Quick (erase)', true, () => (quick = true)), radio('cdfmt', 'Full', false, () => (quick = false)), radio('cdfmt', 'Copy system files only', false, () => {}, { disabled: true })),
+      // (a card has one capacity, and no system files to copy: those two 98 controls would do nothing here)
+      h('div', { class: 'field-row' }, h('span', { class: 'flbl' }, 'Capacity:'), h('span', null, mb(info.size_bytes))),
+      group('Format type', radio('cdfmt', 'Quick (erase)', true, () => (quick = true)), radio('cdfmt', 'Full', false, () => (quick = false))),
       group(
         'Other options',
         h('div', { class: 'field-row' }, h('span', { class: 'flbl' }, 'Label:'), textField(label, (v) => (label = v.toUpperCase().slice(0, 11)), { label: 'Label', width: 120 })),
@@ -1051,10 +1062,11 @@ class CardWindow {
           label: 'Start',
           primary: true,
           run: () => {
-            this.label = noLabel ? '' : label;
+            // the label goes on the card (boot sector and root entry)
+            const lab = noLabel ? '' : label;
             // a quick format in the same file system is the camera's; anything else is a PC format
             // no cluster size: the engine picks Windows' default for the file system and card size
-            const ev: ScenarioEvent = quick && fs === curFs ? { type: 'quick_format', _label: 'Quick format' } : { type: 'reformat_pc', fs, _label: `${quick ? 'Quick' : 'Full'} format (${fs.toUpperCase()})` };
+            const ev: ScenarioEvent = quick && fs === curFs ? { type: 'quick_format', label: lab, _label: 'Quick format' } : { type: 'reformat_pc', fs, label: lab, _label: `${quick ? 'Quick' : 'Full'} format (${fs.toUpperCase()})` };
             void this.addEvents([ev], 'Formatting…').then((ok) => ok && summary && this.card && this.formatSummary());
           },
         },
@@ -1098,11 +1110,17 @@ class CardWindow {
       height: 432,
       owner: this.win,
       buttons: [
-        { label: 'OK', primary: true, run: () => void (this.label = label) },
+        { label: 'OK', primary: true, run: () => void relabel() },
         { label: 'Cancel', cancel: true },
-        { label: 'Apply', disabled: true },
+        // Apply writes the label now and keeps the sheet open
+        { label: 'Apply', run: () => (void relabel(), false) },
       ],
     });
+    const relabel = async () => {
+      const want = label.trim();
+      if (!this.card || want === this.label) return;
+      await this.addEvents([{ type: 'set_label', label: want, _label: want ? `Label: ${want}` : 'Label removed' }], 'Writing the label…');
+    };
     draw();
   }
 
@@ -1248,7 +1266,10 @@ class CardWindow {
     if (!this.card) return;
     const existing = getWin('cardmap');
     if (existing) return existing.focus();
-    openWindow({ id: 'cardmap', title: 'Cluster Map - Removable Disk (E:)', short: 'Map', icon: 'grid', body: h('div', { class: 'cd-map' }), width: 520, height: 360, minWidth: 260, minHeight: 200, status: [h('div', { class: 'grow' }, '')], onResize: () => this.renderMap() });
+    // a resize drag redraws once per frame, not once per event
+    let raf = 0;
+    const later = () => void (raf ||= requestAnimationFrame(() => ((raf = 0), this.renderMap())));
+    openWindow({ id: 'cardmap', title: 'Cluster Map - Removable Disk (E:)', short: 'Map', icon: 'grid', body: h('div', { class: 'cd-map' }), width: 520, height: 360, minWidth: 260, minHeight: 200, status: [h('div', { class: 'grow' }, '')], onResize: later, onClose: () => cancelAnimationFrame(raf) });
     this.renderMap();
   }
 
@@ -1284,6 +1305,9 @@ class CardWindow {
     const x = c.getContext('2d')!;
     const img = x.createImageData(c.width, c.height);
     const prio = [0, 1, 2, 3, 6, 7, 4, 5];
+    // colours worked out once (not per cell): the state colours, and one hue per photo
+    const stateRgb = STATE_COLORS.map(hexRgb);
+    const photoRgb = new Map<number, [number, number, number]>();
     for (let i = 0; i < cells; i++) {
       // the most "interesting" state wins when one cell covers several clusters
       let st = 0;
@@ -1292,9 +1316,12 @@ class CardWindow {
         if (prio[map[j]] > prio[st]) st = map[j];
         if (owner[j] >= 0) own = owner[j];
       }
-      let col = STATE_COLORS[st] ?? '#000000';
-      if (this.colorBy === 'photo' && own >= 0) col = `hsl(${(own * 67) % 360} 70% 55%)`;
-      const rgb = cssToRgb(col);
+      let rgb = stateRgb[st] ?? [0, 0, 0];
+      if (this.colorBy === 'photo' && own >= 0) {
+        let p = photoRgb.get(own);
+        if (!p) photoRgb.set(own, (p = hslToRgb((own * 67) % 360, 0.7, 0.55)));
+        rgb = p;
+      }
       const cx = (i % cols) * cell;
       const cy = Math.floor(i / cols) * cell;
       for (let yy = 0; yy < cell - (cell > 2 ? 1 : 0); yy++)
@@ -1382,14 +1409,7 @@ function mb(n: number): string {
   return Math.round(n / 1024) + 'KB';
 }
 
-function cssToRgb(css: string): [number, number, number] {
-  const c = document.createElement('canvas').getContext('2d')!;
-  c.fillStyle = css;
-  const v = c.fillStyle as string;
-  if (v.startsWith('#')) {
-    const n = parseInt(v.slice(1), 16);
-    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-  }
-  const m = v.match(/\d+/g) ?? ['0', '0', '0'];
-  return [Number(m[0]), Number(m[1]), Number(m[2])];
+function hexRgb(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }

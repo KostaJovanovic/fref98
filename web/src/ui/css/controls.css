@@ -6,8 +6,8 @@
    Disabled text is #808080 embossed with #FFF one pixel down-right. */
 
 ::selection {
-  background: #000080;
-  color: #fff;
+  background: var(--c-sel);
+  color: var(--c-seltext);
 }
 
 /* ---------------------------------------------------------------- push buttons */
@@ -16,9 +16,9 @@
   min-width: 75px;
   padding: 0 12px;
   border: 0;
-  background: #c0c0c0;
-  color: #000;
-  box-shadow: inset -1px -1px #000, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf;
+  background: var(--c-face);
+  color: var(--c-text);
+  box-shadow: inset -1px -1px var(--c-dark), inset 1px 1px var(--c-hi), inset -2px -2px var(--c-shadow), inset 2px 2px var(--c-light);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -38,18 +38,18 @@
 /* the default button (and the focused one) gets an extra black ring */
 .btn.default,
 .btn:focus-visible {
-  box-shadow: inset -2px -2px #000, inset 1px 1px #000, inset 2px 2px #fff, inset -3px -3px #808080, inset 3px 3px #dfdfdf;
+  box-shadow: inset -2px -2px var(--c-dark), inset 1px 1px var(--c-dark), inset 2px 2px var(--c-hi), inset -3px -3px var(--c-shadow), inset 3px 3px var(--c-light);
 }
 .btn:focus-visible {
-  outline: 1px dotted #000;
+  outline: 1px dotted var(--c-text);
   outline-offset: -5px;
 }
 .btn:not(:disabled):active,
 .btn.pressed {
-  box-shadow: inset -1px -1px #fff, inset 1px 1px #000, inset -2px -2px #dfdfdf, inset 2px 2px #808080;
+  box-shadow: inset -1px -1px var(--c-hi), inset 1px 1px var(--c-dark), inset -2px -2px var(--c-light), inset 2px 2px var(--c-shadow);
 }
 .btn.default:not(:disabled):active {
-  box-shadow: inset 0 0 0 1px #000, inset 0 0 0 2px #808080;
+  box-shadow: inset 0 0 0 1px var(--c-dark), inset 0 0 0 2px var(--c-shadow);
 }
 /* pressed: the face content shifts 1 px down-right */
 .btn:not(:disabled):active > *,
@@ -57,11 +57,11 @@
   transform: translate(1px, 1px);
 }
 .btn:disabled {
-  color: #808080;
+  color: var(--c-gray);
   cursor: var(--cur-arrow, default);
 }
 .btn:disabled .tx {
-  text-shadow: 1px 1px 0 #fff;
+  text-shadow: 1px 1px 0 var(--c-hi);
 }
 /* disabled icons: the 98 emboss (ui/dom.ts emboss98Filter) */
 .btn:disabled img {
@@ -82,11 +82,11 @@
   cursor: var(--cur-arrow, default);
 }
 .tool:not(:disabled):hover {
-  border-color: #fff #808080 #808080 #fff;
+  border-color: var(--c-hi) var(--c-shadow) var(--c-shadow) var(--c-hi);
 }
 .tool.on,
 .tool:not(:disabled):active {
-  border-color: #808080 #fff #fff #808080;
+  border-color: var(--c-shadow) var(--c-hi) var(--c-hi) var(--c-shadow);
 }
 .tool:not(:disabled):active > * {
   transform: translate(1px, 1px);
@@ -96,10 +96,10 @@
   background-size: 2px 2px;
 }
 .tool:disabled {
-  color: #808080;
+  color: var(--c-gray);
 }
 .tool:disabled .tx {
-  text-shadow: 1px 1px 0 #fff;
+  text-shadow: 1px 1px 0 var(--c-hi);
 }
 .tool:disabled img {
   filter: url(#emboss98);
@@ -111,12 +111,12 @@
   display: inline-flex;
   align-items: center;
   position: relative;
-  background: #fff;
-  color: #000;
+  background: var(--c-win);
+  color: var(--c-text);
   border: 0;
   padding: 2px;
   min-height: 21px;
-  box-shadow: inset -1px -1px #fff, inset 1px 1px #808080, inset -2px -2px #dfdfdf, inset 2px 2px #000;
+  box-shadow: inset -1px -1px var(--c-hi), inset 1px 1px var(--c-shadow), inset -2px -2px var(--c-light), inset 2px 2px var(--c-dark);
 }
 .field > input,
 .field > textarea {
@@ -134,15 +134,15 @@
 .field.disabled,
 .field:has(> input:disabled),
 .field:has(> textarea:disabled) {
-  background: #c0c0c0;
-  color: #808080;
+  background: var(--c-face);
+  color: var(--c-gray);
 }
 textarea {
   resize: none;
 }
 input,
 textarea {
-  caret-color: #000;
+  caret-color: var(--c-wtext);
 }
 
 /* no native spinners anywhere */
@@ -170,10 +170,10 @@ input[type='number']::-webkit-outer-spin-button {
 .spin-btns > span {
   flex: 1;
   min-height: 7px;
-  background-color: #c0c0c0;
+  background-color: var(--c-face);
   background-repeat: no-repeat;
   background-position: center;
-  box-shadow: inset -1px -1px #000, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #fff;
+  box-shadow: inset -1px -1px var(--c-dark), inset 1px 1px var(--c-light), inset -2px -2px var(--c-shadow), inset 2px 2px var(--c-hi);
   cursor: var(--cur-arrow, default);
 }
 /* whole-pixel halves (a 17 px field interior splits 9 + 8, not 8.5 + 8.5, which blurs the bevels) */
@@ -187,7 +187,7 @@ input[type='number']::-webkit-outer-spin-button {
   background-image: var(--img-g-spin-d);
 }
 .spin-btns > span.p {
-  box-shadow: inset 0 0 0 1px #808080;
+  box-shadow: inset 0 0 0 1px var(--c-shadow);
   background-position: calc(50% + 1px) calc(50% + 1px);
 }
 .field.spin:has(> input:disabled) .spin-up {
@@ -219,8 +219,8 @@ input[type='number']::-webkit-outer-spin-button {
   align-items: center;
 }
 .combo:focus .combo-text {
-  background: #000080;
-  color: #fff;
+  background: var(--c-sel);
+  color: var(--c-seltext);
   outline: 1px dotted var(--focus-on-sel);
   outline-offset: -1px;
 }
@@ -229,22 +229,22 @@ input[type='number']::-webkit-outer-spin-button {
   width: 16px;
   align-self: stretch;
   min-height: 17px;
-  background-color: #c0c0c0;
+  background-color: var(--c-face);
   background-image: var(--img-g-arrow-d);
   background-repeat: no-repeat;
   background-position: center;
-  box-shadow: inset -1px -1px #000, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #fff;
+  box-shadow: inset -1px -1px var(--c-dark), inset 1px 1px var(--c-light), inset -2px -2px var(--c-shadow), inset 2px 2px var(--c-hi);
 }
 .combo.open .combo-btn {
-  box-shadow: inset 0 0 0 1px #808080;
+  box-shadow: inset 0 0 0 1px var(--c-shadow);
   background-position: calc(50% + 1px) calc(50% + 1px);
 }
 .combo.disabled {
-  background: #c0c0c0;
-  color: #808080;
+  background: var(--c-face);
+  color: var(--c-gray);
 }
 .combo.disabled .tx {
-  text-shadow: 1px 1px 0 #fff;
+  text-shadow: 1px 1px 0 var(--c-hi);
 }
 .combo.disabled .combo-btn {
   background-image: var(--img-g-arrow-d-d);
@@ -252,9 +252,9 @@ input[type='number']::-webkit-outer-spin-button {
 .combo-list {
   position: absolute;
   z-index: var(--z-combo-list);
-  background: #fff;
-  color: #000;
-  border: 1px solid #000;
+  background: var(--c-win);
+  color: var(--c-text);
+  border: 1px solid var(--c-dark);
   overflow-x: hidden;
   overflow-y: auto;
   cursor: var(--cur-arrow, default);
@@ -264,11 +264,11 @@ input[type='number']::-webkit-outer-spin-button {
   white-space: nowrap;
 }
 .combo-opt.hl {
-  background: #000080;
-  color: #fff;
+  background: var(--c-sel);
+  color: var(--c-seltext);
 }
 .combo-opt.dis {
-  color: #808080;
+  color: var(--c-gray);
 }
 
 /* ---------------------------------------------------------------- check boxes and radio buttons */
@@ -332,16 +332,16 @@ input[type='radio']:checked:disabled {
 }
 /* 98 draws the focus rectangle around the label, not the box */
 .check:has(> input:focus-visible) > .tx {
-  outline: 1px dotted #000;
+  outline: 1px dotted var(--c-text);
   outline-offset: 0;
 }
 .check.disabled,
 .check:has(> input:disabled) {
-  color: #808080;
+  color: var(--c-gray);
 }
 .check.disabled > .tx,
 .check:has(> input:disabled) > .tx {
-  text-shadow: 1px 1px 0 #fff;
+  text-shadow: 1px 1px 0 var(--c-hi);
 }
 
 /* ---------------------------------------------------------------- trackbar (slider) */
@@ -358,7 +358,7 @@ input[type='range'] {
 input[type='range']::-webkit-slider-runnable-track {
   height: 4px;
   background: transparent;
-  box-shadow: inset 1px 1px #808080, inset -1px -1px #fff, inset 2px 2px #000, inset -2px -2px #dfdfdf;
+  box-shadow: inset 1px 1px var(--c-shadow), inset -1px -1px var(--c-hi), inset 2px 2px var(--c-dark), inset -2px -2px var(--c-light);
 }
 input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -373,7 +373,7 @@ input[type='range']::-webkit-slider-thumb {
 input[type='range']::-moz-range-track {
   height: 4px;
   background: transparent;
-  box-shadow: inset 1px 1px #808080, inset -1px -1px #fff, inset 2px 2px #000, inset -2px -2px #dfdfdf;
+  box-shadow: inset 1px 1px var(--c-shadow), inset -1px -1px var(--c-hi), inset 2px 2px var(--c-dark), inset -2px -2px var(--c-light);
 }
 input[type='range']::-moz-range-thumb {
   width: 11px;
@@ -404,7 +404,7 @@ input[type='range'].ticks {
   background-size: 22px 42px;
 }
 input[type='range']:focus-visible {
-  outline: 1px dotted #000;
+  outline: 1px dotted var(--c-text);
   outline-offset: 0;
 }
 input[type='range']:disabled::-webkit-slider-thumb {
@@ -415,8 +415,8 @@ input[type='range']:disabled::-webkit-slider-thumb {
 .progress {
   height: 18px;
   padding: 2px;
-  background: #c0c0c0;
-  box-shadow: inset 1px 1px #808080, inset -1px -1px #fff;
+  background: var(--c-face);
+  box-shadow: inset 1px 1px var(--c-shadow), inset -1px -1px var(--c-hi);
   overflow: hidden;
   position: relative;
 }
@@ -438,8 +438,8 @@ input[type='range']:disabled::-webkit-slider-thumb {
 /* ---------------------------------------------------------------- group box: etched frame, label on the line */
 .group {
   position: relative;
-  border: 1px solid #808080;
-  box-shadow: inset 1px 1px #fff, 1px 1px #fff;
+  border: 1px solid var(--c-shadow);
+  box-shadow: inset 1px 1px var(--c-hi), 1px 1px var(--c-hi);
   padding: 12px 8px 8px;
   margin-top: 8px;
 }
@@ -452,8 +452,8 @@ input[type='range']:disabled::-webkit-slider-thumb {
   top: -8px;
   left: 6px;
   padding: 0 2px;
-  background: var(--face, #c0c0c0);
-  color: #000;
+  background: var(--face, var(--c-face));
+  color: var(--c-text);
 }
 
 /* ---------------------------------------------------------------- tabs: raised, the selected one 2 px taller and joined to the page */
@@ -468,13 +468,13 @@ input[type='range']:disabled::-webkit-slider-thumb {
 }
 .tab {
   border: 0;
-  background: #c0c0c0;
-  color: #000;
+  background: var(--c-face);
+  color: var(--c-text);
   padding: 1px 8px 1px;
   margin: 2px 0 2px;
   min-height: 18px;
   position: relative;
-  box-shadow: inset 1px 1px #fff, inset 2px 2px #dfdfdf, inset -1px 0 #000, inset -2px 0 #808080;
+  box-shadow: inset 1px 1px var(--c-hi), inset 2px 2px var(--c-light), inset -1px 0 var(--c-dark), inset -2px 0 var(--c-shadow);
   clip-path: polygon(0 2px, 1px 2px, 1px 1px, 2px 1px, 2px 0, calc(100% - 2px) 0, calc(100% - 2px) 1px, calc(100% - 1px) 1px, calc(100% - 1px) 2px, 100% 2px, 100% 100%, 0 100%);
   cursor: var(--cur-arrow, default);
 }
@@ -487,20 +487,20 @@ input[type='range']:disabled::-webkit-slider-thumb {
   outline: none;
 }
 .tab:focus-visible > .tx {
-  outline: 1px dotted #000;
+  outline: 1px dotted var(--c-text);
   outline-offset: 0;
 }
 .tabpage {
-  background: #c0c0c0;
-  box-shadow: inset -1px -1px #000, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf;
+  background: var(--c-face);
+  box-shadow: inset -1px -1px var(--c-dark), inset 1px 1px var(--c-hi), inset -2px -2px var(--c-shadow), inset 2px 2px var(--c-light);
   padding: 10px;
 }
 
 /* ---------------------------------------------------------------- list boxes */
 .list {
-  background: #fff;
+  background: var(--c-win);
   padding: 2px;
-  box-shadow: inset -1px -1px #fff, inset 1px 1px #808080, inset -2px -2px #dfdfdf, inset 2px 2px #000;
+  box-shadow: inset -1px -1px var(--c-hi), inset 1px 1px var(--c-shadow), inset -2px -2px var(--c-light), inset 2px 2px var(--c-dark);
   overflow: auto;
 }
 .li {
@@ -510,8 +510,8 @@ input[type='range']:disabled::-webkit-slider-thumb {
   gap: 5px;
 }
 .li.sel {
-  background: #000080;
-  color: #fff;
+  background: var(--c-sel);
+  color: var(--c-seltext);
 }
 .list:focus .li.sel {
   outline: 1px dotted var(--focus-on-sel);
@@ -524,7 +524,7 @@ input[type='range']:disabled::-webkit-slider-thumb {
   align-items: center;
   min-height: 18px;
   padding: 1px 4px;
-  box-shadow: inset 1px 1px #808080, inset -1px -1px #fff;
+  box-shadow: inset 1px 1px var(--c-shadow), inset -1px -1px var(--c-hi);
   white-space: nowrap;
   overflow: hidden;
 }
@@ -574,24 +574,24 @@ input[type='range']:disabled::-webkit-slider-thumb {
     height: 16px;
   }
   #app ::-webkit-scrollbar-track {
-    background-color: #c0c0c0;
+    background-color: var(--c-face);
     background-image: var(--img-sb-track);
     background-size: 2px 2px;
     image-rendering: pixelated;
   }
   #app ::-webkit-scrollbar-thumb {
-    background-color: #c0c0c0;
-    box-shadow: inset -1px -1px #000, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #fff;
+    background-color: var(--c-face);
+    box-shadow: inset -1px -1px var(--c-dark), inset 1px 1px var(--c-light), inset -2px -2px var(--c-shadow), inset 2px 2px var(--c-hi);
     min-height: 8px;
   }
   #app ::-webkit-scrollbar-corner {
-    background: #c0c0c0;
+    background: var(--c-face);
   }
   #app ::-webkit-scrollbar-button {
     display: block;
     width: 16px;
     height: 16px;
-    background-color: #c0c0c0;
+    background-color: var(--c-face);
     background-size: 16px 16px;
     image-rendering: pixelated;
   }
@@ -672,7 +672,7 @@ input[type='range']:disabled::-webkit-slider-thumb {
 .sep {
   height: 1px;
   background: var(--face-lo);
-  border-bottom: 1px solid #fff;
+  border-bottom: 1px solid var(--c-hi);
   margin: 4px 0;
 }
 .selectable {

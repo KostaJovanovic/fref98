@@ -2,7 +2,7 @@
 // flat-ish base, painted with flat fills in three shade bands (lit top left, mid, dark underside) and a
 // dark outline. Rendered in the ambient worker, run through our own JPEG codec at low quality, then
 // Bayer-dithered into the UI palette.
-import { ditherBayer } from '../ui/palette';
+import { ditherDepth } from '../ui/palette';
 
 export interface SkyParams {
   width: number;
@@ -183,7 +183,8 @@ export function renderSkyFrame(p: SkyParams): Uint8ClampedArray {
   return out;
 }
 
-/** Dithering happens after the JPEG round trip so the block artefacts survive into the palette image. */
-export function ditherSky(px: Uint8ClampedArray, w: number, h: number): void {
-  ditherBayer(px, w, h, 40);
+/** Dithering happens after the JPEG round trip so the block artefacts survive into the palette image; `depth`
+ *  is the desktop's colour depth (Display ▸ Settings ▸ Colors). */
+export function ditherSky(px: Uint8ClampedArray, w: number, h: number, depth = '256'): void {
+  ditherDepth(px, w, h, depth, 40);
 }

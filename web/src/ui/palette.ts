@@ -106,6 +106,67 @@ export function ditherBayer(px: Uint8ClampedArray | Uint8Array, w: number, h: nu
   }
 }
 
+/** HSL (h in degrees, s and l 0..1) to 0..255 RGB, as CSS hsl() computes it. */
+export function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  const k = (n: number) => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1));
+  return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
+}
+
+/** The 16 VGA colours (a 16-colour 98 desktop). */
+export const VGA16 = [
+  0x000000, 0x800000, 0x008000, 0x808000, 0x000080, 0x800080, 0x008080, 0xc0c0c0, 0x808080, 0xff0000, 0x00ff00, 0xffff00, 0x0000ff, 0xff00ff, 0x00ffff, 0xffffff,
+].map((c) => [(c >> 16) & 255, (c >> 8) & 255, c & 255]);
+
+function nearest16(r: number, g: number, b: number): number[] {
+  let best = VGA16[0];
+  let bd = Infinity;
+  for (const c of VGA16) {
+    const dr = r - c[0];
+    const dg = g - c[1];
+    const db = b - c[2];
+    const d = dr * dr * 3 + dg * dg * 4 + db * db * 2;
+    if (d < bd) {
+      bd = d;
+      best = c;
+    }
+  }
+  return best;
+}
+
+/** Display ▸ Settings ▸ Colors, in place: '16' orders into the VGA 16, '256' into our palette (ditherBayer),
+ *  'high' quantises to 5-6-5 bits with a fine ordered dither, 'true' leaves the pixels alone. Alpha binary. */
+export function ditherDepth(px: Uint8ClampedArray | Uint8Array, w: number, h: number, depth: string, spread = 40): void {
+  if (depth === '256') return ditherBayer(px, w, h, spread);
+  if (depth === 'true') {
+    for (let i = 3; i < px.length; i += 4) px[i] = px[i] >= 128 ? 255 : 0;
+    return;
+  }
+  const sixteen = depth === '16';
+  for (let y = 0; y < h; y++) {
+    const row = (y & 7) * 8;
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const f = (BAYER8[row + (x & 7)] + 0.5) / 64 - 0.5;
+      if (sixteen) {
+        // 16 colours are far apart: a wide spread, or a photo turns into flat blobs
+        const c = nearest16(px[i] + f * 128, px[i + 1] + f * 128, px[i + 2] + f * 128);
+        px[i] = c[0];
+        px[i + 1] = c[1];
+        px[i + 2] = c[2];
+      } else {
+        // 5 bits red and blue (steps of 8), 6 bits green (steps of 4)
+        const q = (v: number, step: number) => Math.max(0, Math.min(255, Math.round((v + f * step) / step) * step));
+        px[i] = Math.min(255, q(px[i], 8));
+        px[i + 1] = Math.min(255, q(px[i + 1], 4));
+        px[i + 2] = Math.min(255, q(px[i + 2], 8));
+      }
+      px[i + 3] = px[i + 3] >= 128 ? 255 : 0;
+    }
+  }
+}
+
 /** Atkinson error diffusion into the palette, in place (photo thumbnails). Alpha is made binary. */
 export function ditherAtkinson(px: Uint8ClampedArray | Uint8Array, w: number, h: number): void {
   const n = w * h;

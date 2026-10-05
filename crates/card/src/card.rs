@@ -88,6 +88,8 @@ pub struct Card {
     /// The camera adds its 160×120 EXIF thumbnail to photos that lack one (DCF cameras always
     /// write one). Off by default for the Rust API; the WASM `Card.simulate` turns it on.
     pub camera_thumbs: bool,
+    /// The volume label every format writes (boot sector and root entry); a format event may set it.
+    pub label: String,
     /// Per photo: thumbnail already added (photos[i] then holds the bytes the camera wrote).
     thumbed: Vec<bool>,
     /// Per photo: 1/8-scale DC image, computed once (thumbnails, Thumbs.db).
@@ -128,6 +130,19 @@ pub fn default_cluster_kb(fs: Fs, size_mb: u64) -> u64 {
     }
 }
 
+/// A FAT volume label as Windows writes one: upper case, at most 11 characters, none of the characters a
+/// label can't hold (empty = no label).
+pub fn volume_label(s: &str) -> String {
+    s.chars()
+        .filter(|c| c.is_ascii_graphic() || *c == ' ')
+        .filter(|c| !"\"*+,./:;<=>?[\\]|".contains(*c))
+        .map(|c| c.to_ascii_uppercase())
+        .take(11)
+        .collect::<String>()
+        .trim_end()
+        .to_string()
+}
+
 /// Most clusters a simulated card may have. Every cluster costs ~10 bytes of bookkeeping (more while
 /// overwriting), so a 64 GB card with 1 KB clusters (64 M of them) would need gigabytes.
 const MAX_CLUSTERS: u64 = 1 << 22;
@@ -160,6 +175,7 @@ impl Card {
             rng,
             power_loss: None,
             camera_thumbs: false,
+            label: "CARD".into(),
             thumbed: vec![false; np],
             small: vec![None; np],
         };
@@ -508,7 +524,7 @@ impl Card {
         let old_cb = self.vol.cluster_bytes;
         let old_count = old_state.len();
         let serial = self.rng.next_u32();
-        self.vol = Volume::format(&mut self.img, fs, cluster_bytes, serial, "CARD");
+        self.vol = Volume::format(&mut self.img, fs, cluster_bytes, serial, &self.label.clone());
         let n = self.vol.cluster_count as usize + 2;
         self.state = vec![ST_FREE; n];
         self.owner = vec![-1; n];
@@ -857,8 +873,21 @@ impl Card {
                     get_bool(e, "clear_high", true),
                     &e.get("names").and_then(|v| v.as_array()).map(|a| a.iter().filter_map(|n| n.as_str().map(String::from)).collect::<Vec<_>>()).unwrap_or_default(),
                 ),
-                "quick_format" => self.quick_format(),
+                "set_label" => {
+                    self.label = volume_label(get_str(e, "label", ""));
+                    let label = self.label.clone();
+                    self.vol.set_label(&mut self.img, &label);
+                }
+                "quick_format" => {
+                    if let Some(l) = e.get("label").and_then(|v| v.as_str()) {
+                        self.label = volume_label(l);
+                    }
+                    self.quick_format()
+                }
                 "reformat_pc" => {
+                    if let Some(l) = e.get("label").and_then(|v| v.as_str()) {
+                        self.label = volume_label(l);
+                    }
                     let fs = Fs::parse(get_str(e, "fs", "fat32"));
                     // no size given: what Windows picks for this file system and card size
                     let ckb = match e.get("cluster_kb").and_then(|v| v.as_i64()) {

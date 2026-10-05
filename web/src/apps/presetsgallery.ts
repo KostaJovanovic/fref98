@@ -10,6 +10,7 @@ import { PRESETS, presetAvailability, type Preset } from '../presets';
 import { pipeline } from '../pipeline';
 import { marquee, underConstruction, newBadge, spinningGlobe, hitCounter, visitCount } from '../ui/y2k';
 import { foldy } from '../foldy/foldy';
+import { presetLine } from '../foldy/lines';
 import { openApp } from './registry';
 import { Folder, propertySheet, standardButtons, type FolderSpec } from './explorer';
 
@@ -72,7 +73,7 @@ function spec(): FolderSpec<Preset> {
       },
       { label: '&Edit', items: () => [{ label: '&Undo', disabled: true }, { sep: true }, { label: 'Cu&t', disabled: true }, { label: '&Copy', disabled: true }, { label: '&Paste', disabled: true }, { sep: true }, ...fo.selectionItems()] },
       { label: '&View', items: () => fo.viewMenu() },
-      { label: '&Help', items: () => Folder.helpMenu() },
+      { label: '&Help', items: () => Folder.helpMenu({ id: 'folders', label: '&Presets Help' }) },
     ],
     toolbar: (fo) => standardButtons({ props: () => properties(fo.selected()[0]), canProps: () => fo.sel.size > 0 }),
     onProperties: (items) => items[0] && properties(items[0]),
@@ -95,8 +96,10 @@ function apply(p: Preset | undefined) {
   if (p) void openApp('editor', { preset: p.id });
 }
 
+/** As in the editor: the preset's real steps, opened in expert mode (Foldy says what they do). */
 function showHow(p: Preset) {
-  foldy.help(`${p.title}: ${p.story} ${p.foldy}`, [{ label: 'Apply it', run: () => apply(p) }]);
+  void openApp('editor', { preset: p.id, expert: true });
+  foldy.help(`${p.title}: ${p.story} ${presetLine(p)}`);
 }
 
 function properties(p: Preset | undefined) {

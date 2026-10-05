@@ -135,6 +135,32 @@ export function tickXs(w: number, n: number): number[] {
   return Array.from({ length: n + 1 }, (_, i) => 5 + Math.round((i * span) / n));
 }
 
+/** Tallest scroll spacer we make: browsers stop scrolling past ~17.9 M px (Firefox) or ~33 M px (Chrome). */
+export const SCROLL_CAP = 8_000_000;
+
+/** A virtual scroll for content `full` px tall in a `view` px viewport: the spacer stays under SCROLL_CAP and
+ *  the scroll position maps to the content linearly, so both ends stay reachable. */
+export function virtualScroll(full: number, view: number): { spacer: number; toContent(scrollTop: number): number; toScroll(contentTop: number): number } {
+  const spacer = Math.min(full, SCROLL_CAP);
+  const k = full <= spacer || spacer <= view ? 1 : (full - view) / (spacer - view);
+  return { spacer, toContent: (s) => Math.round(s * k), toScroll: (c) => Math.max(0, Math.round(c / k)) };
+}
+
+/** Is a decoded picture almost entirely the decoder's grey fill (nothing survived)? Samples up to ~4k pixels;
+ *  true when 90 % of them are within 8 of mid grey. */
+export function mostlyGrey(rgba: Uint8ClampedArray | Uint8Array): boolean {
+  const n = rgba.length >> 2;
+  if (!n) return false;
+  const stride = Math.max(1, Math.floor(n / 4096));
+  let grey = 0;
+  let seen = 0;
+  for (let p = 0; p < n; p += stride, seen++) {
+    const i = p * 4;
+    if (Math.abs(rgba[i] - 128) <= 8 && Math.abs(rgba[i + 1] - 128) <= 8 && Math.abs(rgba[i + 2] - 128) <= 8) grey++;
+  }
+  return grey >= seen * 0.9;
+}
+
 /** Spin-button stepping: adds `dir` steps, snaps to the step grid from `min` (or 0), clamps, and drops float
  *  noise. */
 export function spinStep(v: number, dir: 1 | -1, step = 1, min?: number, max?: number): number {

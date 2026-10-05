@@ -400,9 +400,10 @@ impl Volume {
             }
             Fs::ExFat => v.exfat_layout(img, label),
         }
-        if fs == Fs::Fat16 {
+        // no label: no label entry (the boot sector says NO NAME, as Windows writes it)
+        if fs == Fs::Fat16 && !label.is_empty() {
             v.write_label_entry(img, Dir::Root16, label);
-        } else if fs == Fs::Fat32 {
+        } else if fs == Fs::Fat32 && !label.is_empty() {
             v.write_label_entry(img, Dir::Cluster(2), label);
         }
         v.update_fsinfo(img);
@@ -411,7 +412,7 @@ impl Volume {
 
     fn write_boot(&self, img: &mut SparseImage, total_sectors: u64, spc: u64, label: &str) {
         let mut b = vec![0u8; 512];
-        let lab = pad(label, 11);
+        let lab = pad(if label.is_empty() { "NO NAME" } else { label }, 11);
         match self.fs {
             Fs::Fat16 | Fs::Fat32 => {
                 let fat16 = self.fs == Fs::Fat16;
@@ -514,7 +515,8 @@ impl Volume {
         // Root directory: label, bitmap, up-case.
         let ro = self.cluster_offset(root);
         let mut e = [0u8; 96];
-        e[0] = 0x83;
+        // (an empty label is the entry "not in use", 0x03)
+        e[0] = if label.is_empty() { 0x03 } else { 0x83 };
         let name: Vec<u16> = label.encode_utf16().take(11).collect();
         e[1] = name.len() as u8;
         for (i, ch) in name.iter().enumerate() {
@@ -563,6 +565,43 @@ impl Volume {
         for base in [SECTOR, 7 * SECTOR] {
             img.put_u32(base + 488, free);
             img.put_u32(base + 492, self.next_hint);
+        }
+    }
+
+    /// A new volume label without a format (Properties ▸ Label): the boot sector's field (and the FAT32
+    /// backup) and the root directory's label entry, which is added, renamed or (no label) deleted.
+    pub fn set_label(&mut self, img: &mut SparseImage, label: &str) {
+        match self.fs {
+            Fs::Fat16 | Fs::Fat32 => {
+                let at = if self.fs == Fs::Fat16 { 43 } else { 71 };
+                let lab = pad(if label.is_empty() { "NO NAME" } else { label }, 11);
+                img.write(at, &lab);
+                if self.fs == Fs::Fat32 {
+                    img.write(6 * SECTOR + at, &lab);
+                }
+                let dir = if self.fs == Fs::Fat16 { Dir::Root16 } else { Dir::Cluster(self.root_cluster) };
+                let slot = self.dir_slots(img, dir).into_iter().find(|&o| {
+                    let e = img.read_vec(o, 12);
+                    e[0] != 0 && e[0] != 0xE5 && e[11] != 0x0F && e[11] & 0x08 != 0
+                });
+                match (slot, label.is_empty()) {
+                    (Some(o), true) => img.write(o, &[0xE5]),
+                    (Some(o), false) => img.write(o, &pad(label, 11)),
+                    (None, false) => self.write_label_entry(img, dir, label),
+                    (None, true) => {}
+                }
+            }
+            Fs::ExFat => {
+                // the label entry is the root directory's first (exfat_layout puts it there)
+                let mut e = [0u8; 32];
+                e[0] = if label.is_empty() { 0x03 } else { 0x83 };
+                let name: Vec<u16> = label.encode_utf16().take(11).collect();
+                e[1] = name.len() as u8;
+                for (i, ch) in name.iter().enumerate() {
+                    e[2 + i * 2..4 + i * 2].copy_from_slice(&ch.to_le_bytes());
+                }
+                img.write(self.cluster_offset(self.root_cluster), &e);
+            }
         }
     }
 

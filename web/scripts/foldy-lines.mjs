@@ -70,16 +70,27 @@ function readSheet(files) {
   return rows;
 }
 
-const rows = readSheet(unzip(readFileSync(XLSX)));
-const head = rows.shift() ?? {};
-const yourCol = Object.keys(head).find((k) => /YOUR LINE/i.test(head[k]));
-if (!yourCol) throw new Error('no "YOUR LINE" column in the header row');
-const out = {};
-for (const row of rows) {
-  const id = (row.A ?? '').trim();
-  const text = (row[yourCol] ?? '').trim();
-  if (!id || !text) continue;
-  out[id] = text === '—' || text === '-' ? [] : text.split(' | ').map((s) => s.trim()).filter(Boolean);
+/** The sheet's lines: every ID in column A, and the user's text for those they wrote. */
+export function readLines(file = XLSX) {
+  const rows = readSheet(unzip(readFileSync(file)));
+  const head = rows.shift() ?? {};
+  const yourCol = Object.keys(head).find((k) => /YOUR LINE/i.test(head[k]));
+  if (!yourCol) throw new Error('no "YOUR LINE" column in the header row');
+  const ids = [];
+  const out = {};
+  for (const row of rows) {
+    const id = (row.A ?? '').trim();
+    if (!id) continue;
+    ids.push(id);
+    const text = (row[yourCol] ?? '').trim();
+    if (!text) continue;
+    out[id] = text === '—' || text === '-' ? [] : text.split(' | ').map((s) => s.trim()).filter(Boolean);
+  }
+  return { ids, lines: out, rows };
 }
-writeFileSync(OUT, JSON.stringify(out, null, 1) + '\n');
-console.log(`${Object.keys(out).length} of your lines -> ${path.relative(process.cwd(), OUT)}`);
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const { lines } = readLines();
+  writeFileSync(OUT, JSON.stringify(lines, null, 1) + '\n');
+  console.log(`${Object.keys(lines).length} of your lines -> ${path.relative(process.cwd(), OUT)}`);
+}

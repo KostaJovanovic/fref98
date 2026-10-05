@@ -16,13 +16,18 @@ import { clearWallpaperImage } from './wallpaper';
 import { settings, setSettings } from '../settings';
 import { resetSamples, ensureSamples } from '../importflow';
 import { loadRecent, rememberProject, forgetRecent, recentProjects, recentZip } from './recent';
+import { PROJECT_EXT } from '../brand';
+import { safeFileName } from '../filenames';
+import * as bus from '../bus';
 
 export { rememberProject };
 
-export async function saveProject() {
-  const name = (store.doc.name || 'Untitled').replace(/[^\w .-]+/g, '_');
+/** Saves the project as a download (and in Documents ▸ recent projects). The one place that does it: Save As
+ *  with the project type comes here too. */
+export async function saveProject(name = safeFileName(store.doc.name || 'Untitled')) {
   const zip = store.projectZip();
-  download(zip, name + '.rfg', 'application/zip');
+  download(zip, name + PROJECT_EXT, 'application/zip');
+  bus.emit('exported');
   await rememberProject(name, zip);
 }
 
@@ -42,7 +47,7 @@ async function openRecent(name: string) {
 /** Apps under Programs ▸ Accessories ▸ (when they exist in the registry). */
 const ACCESSORIES = ['hex', 'webcam', 'video'];
 /** Registry apps that live elsewhere in the Start menu (Settings, Help) or on the desktop only. */
-const NOT_PROGRAMS = new Set(['recycle', 'display', 'help', 'about', 'presets', ...ACCESSORIES]);
+const NOT_PROGRAMS = new Set(['recycle', 'display', 'help', 'about', 'presets', 'export', ...ACCESSORIES]);
 
 const appItem = (id: string): MenuItem => ({ label: APPS[id].title.replace(/&/g, '&&'), icon: APPS[id].icon, onClick: () => void openApp(id) });
 

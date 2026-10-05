@@ -4,7 +4,8 @@
 // Talking: the mouth (folder flap) steps open → half → closed every `frameMs`, ONLY while a word is spoken. Between
 // words he freezes on the exact frame he was on (even open) for a word / comma / sentence gap. The whole sprite
 // jolts on the closed frame. No bob while talking. The plan's `reveal` follows the mouth, but the panel types the
-// text faster on its own clock (textCharMs, foldy.ts); the full text shows at the latest when the line ends.
+// text faster on its own clock (textDelay: textCharMs per letter, pausing at , and . ! ?), and the line ends when
+// the text is done: the mouth never keeps flapping after the last letter.
 
 export interface FoldyTiming {
   /** One mouth step while a word is spoken. */
@@ -23,6 +24,10 @@ export interface FoldyTiming {
   joltPx: number;
   /** The text types out one character per this many ms, on its own clock (faster than the mouth). */
   textCharMs: number;
+  /** The typing pauses this much more after , ; : and dashes … */
+  textCommaMs: number;
+  /** … and after . ! ? … (REVISION §5: 250 and 400 ms). */
+  textSentenceMs: number;
   /** Idle bob: one full up-and-down. */
   bobPeriodMs: number;
   bobAmpPx: number;
@@ -59,6 +64,8 @@ export const DEFAULT_TIMING: FoldyTiming = {
   sentenceGapMs: 1000,
   joltPx: 1,
   textCharMs: 26,
+  textCommaMs: 250,
+  textSentenceMs: 400,
   bobPeriodMs: 2000,
   bobAmpPx: 1,
   bobFps: 8,
@@ -85,6 +92,8 @@ export const TIMING_RANGES: Record<keyof FoldyTiming, [number, number, number, s
   sentenceGapMs: [0, 3000, 50, 'Gap after a sentence', 'ms'],
   joltPx: [0, 3, 1, 'Jolt on closed frame', 'px'],
   textCharMs: [5, 150, 1, 'Text speed (per letter)', 'ms'],
+  textCommaMs: [0, 1500, 25, 'Text pause after a comma', 'ms'],
+  textSentenceMs: [0, 2000, 25, 'Text pause after a sentence', 'ms'],
   bobPeriodMs: [500, 6000, 100, 'Idle bob period', 'ms'],
   bobAmpPx: [0, 4, 1, 'Idle bob amplitude', 'px'],
   bobFps: [2, 30, 1, 'Idle bob steps/s', 'fps'],
@@ -197,6 +206,15 @@ export function segment(text: string): { from: number; to: number; letters: numb
     pending = null;
   }
   return out;
+}
+
+/** How long the panel waits after typing text[i] before the next character: textCharMs, plus a pause when a
+ *  word ends in , or . ! ? (not inside "1.5", and not after the last character). */
+export function textDelay(text: string, i: number, timing: FoldyTiming): number {
+  const next = text[i + 1];
+  if (next === undefined || !/\s/.test(next)) return timing.textCharMs;
+  const gap = gapKind(text.slice(0, i + 1).split(/\s/).pop() ?? '');
+  return timing.textCharMs + (gap === 'sentence' ? timing.textSentenceMs : gap === 'comma' ? timing.textCommaMs : 0);
 }
 
 /** The whole line as timed events. Pure and deterministic. */

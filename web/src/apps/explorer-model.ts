@@ -20,6 +20,12 @@ export function nextView(v: ViewMode, allowed: ViewMode[]): ViewMode {
   return cycle[(i + 1) % cycle.length];
 }
 
+/** A FAT volume label as 98's Explorer shows it: all-capital names in mixed case ("CARD" → "Card",
+ *  "HOLIDAY 2004" → "Holiday 2004"), the default "Allow all uppercase names" being off. */
+export function volumeTitle(label: string): string {
+  return label.replace(/[A-Z]+/g, (w, i: number) => (i === 0 || label[i - 1] === ' ' ? w[0] + w.slice(1).toLowerCase() : w.toLowerCase()));
+}
+
 /** 98's StrFormatByteSize: three significant digits ("512 bytes", "1.23KB", "12.3KB", "123KB", "1.20MB"). */
 export function fmtSize98(n: number): string {
   if (n < 1024) return `${n} bytes`;

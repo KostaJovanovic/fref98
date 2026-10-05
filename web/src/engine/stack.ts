@@ -169,7 +169,16 @@ export function poolOrder(order: string[], exclude: string | null): string[] {
   return [...order.slice(at + 1), ...order.slice(0, Math.max(0, at))];
 }
 
-/** Maps photo params from pool uids to indices in the pool list handed to the engine. */
+/** The choices of a photo param: "next photo", the pool, and, when the chosen photo is no longer in the pool
+ *  (deleted), that one too, saying the next photo stands in for it (resolvePhotoParams sends -1 then). */
+export function photoChoices(v: unknown, pool: { uid: string; name: string }[], nameOf: (uid: string) => string | undefined = () => undefined): [string, string][] {
+  const opts: [string, string][] = [['-1', 'Next photo in the pool'], ...pool.map((p): [string, string] => [p.uid, p.name])];
+  if (typeof v === 'string' && !pool.some((p) => p.uid === v)) opts.push([v, `${nameOf(v) ?? 'A deleted photo'} (gone: using the next photo)`]);
+  return opts;
+}
+
+/** Maps photo params from pool uids to indices in the pool list handed to the engine. A photo that is no longer
+ *  in the pool becomes -1, the next photo (photoChoices shows that in the step's settings). */
 export function resolvePhotoParams(params: Record<string, unknown>, info: StepInfo | undefined, uids: string[]): Record<string, unknown> {
   if (!info) return params;
   const out = { ...params };
@@ -387,4 +396,11 @@ export function removeNode(nodes: StackNode[], uidv: string): StackNode[] {
 
 export function countSteps(nodes: StackNode[]): number {
   return nodes.reduce((a, n) => a + (n.type === 'repeat' ? n.children.length : 1), 0);
+}
+
+/** Every seed in the stack mapped through f, the steps inside repeat groups included (hex edits have none). */
+export function mapSeeds(nodes: StackNode[], f: (seed: number) => number): StackNode[] {
+  return nodes.map((n) =>
+    n.type === 'step' ? { ...n, seed: f(n.seed) } : n.type === 'repeat' ? { ...n, seed: f(n.seed), children: n.children.map((c) => ({ ...c, seed: f(c.seed) })) } : n,
+  );
 }

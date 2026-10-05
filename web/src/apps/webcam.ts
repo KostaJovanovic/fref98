@@ -16,6 +16,7 @@ import { confirmBox, errorBox, message } from '../ui/dialog';
 import { mediaGlyph, type MediaGlyph } from './explorer-art';
 import { Folder } from './explorer';
 import * as bus from '../bus';
+import { keepAwake } from '../shell/screensaver';
 
 const CHEAP = new Set(['requantize', 'cbcr_swap', 'channel_drop', 'dc_offset', 'qtable_decode_swap', 'coeff_kill', 'color_matrix']);
 
@@ -45,6 +46,11 @@ function cheapSteps(nodes: StackNode[]): { id: string; params: Record<string, un
   return out;
 }
 
+/** The AVI's frame rate for n frames recorded in `secs`: a whole number from 1 to 30 (the engine's u32). */
+export function recFps(n: number, secs: number): number {
+  return Math.max(1, Math.min(30, Math.round(n / Math.max(0.5, secs))));
+}
+
 class Cam {
   private video = h('video', { playsInline: true, muted: true } as any) as HTMLVideoElement;
   private view = h('canvas', { width: 640, height: 480, 'aria-label': 'Live webcam preview' });
@@ -62,6 +68,7 @@ class Cam {
   private frameCount = 0;
   private unreg: () => void;
   private closing = false;
+  private unwake: (() => void) | null = null;
 
   constructor() {
     const body = h('div', { class: 'mp' });
@@ -78,7 +85,7 @@ class Cam {
       menu: [
         { label: '&File', items: () => [{ label: '&Snapshot to My Pictures', disabled: !this.stream, onClick: () => this.snap() }, { sep: true }, { label: '&Close', onClick: () => win?.close() }] },
         { label: '&Capture', items: () => this.captureMenu() },
-        { label: '&Help', items: () => Folder.helpMenu() },
+        { label: '&Help', items: () => Folder.helpMenu({ id: 'webcam', label: '&Camera Wizard Help' }) },
       ],
       status: [h('div', { class: 'grow' })],
       onClose: () => {
@@ -177,7 +184,7 @@ class Cam {
         'Continue',
         'webcam',
       );
-      if (!ok) return;
+      if (!ok || this.closing) return;
       agreed = true;
     }
     this.starting = true;
@@ -185,6 +192,7 @@ class Cam {
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
     } catch (e) {
+      if (this.closing) return;
       const name = (e as Error)?.name;
       message(
         'No camera',
@@ -194,34 +202,57 @@ class Cam {
       return;
     } finally {
       this.starting = false;
+      // Play is enabled again (it was greyed while starting)
+      if (!this.closing && !this.stream) this.render();
     }
-    if (!win) {
-      this.stream.getTracks().forEach((t) => t.stop());
-      this.stream = null;
-      return;
-    }
+    // the window can close during any of these waits: then the camera and the worker go at once
+    if (this.closing) return this.release(this.stream);
     this.video.srcObject = this.stream;
     await this.video.play().catch(() => {});
+    if (this.closing) return this.release(this.stream);
     this.eng = this.eng ?? new EngineClient('webcam');
     await this.eng.ready;
+    if (this.closing) return this.release(this.stream);
     this.running = true;
+    // a live camera keeps the screen saver away
+    this.unwake = keepAwake();
     this.render();
     void this.loop();
   }
 
-  private stop() {
-    this.running = false;
-    this.recording = null;
-    this.stream?.getTracks().forEach((t) => t.stop());
-    this.stream = null;
-    if (this.closing || !getWin('webcam')) {
-      // window closed: the private engine worker goes too
+  /** Lets go of a camera stream and (window closed) the private engine worker. */
+  private release(stream: MediaStream | null) {
+    stream?.getTracks().forEach((t) => t.stop());
+    this.video.srcObject = null;
+    if (this.stream === stream) this.stream = null;
+    if (this.closing) {
       this.eng?.dispose();
       this.eng = null;
+    }
+  }
+
+  private stop() {
+    this.running = false;
+    this.unwake?.();
+    this.unwake = null;
+    // a recording in progress is saved, not thrown away (also when the window closes)
+    const frames = this.recording;
+    this.recording = null;
+    const closed = this.closing || !getWin('webcam');
+    const eng = this.eng;
+    // (taken first, so release() leaves the worker to the recording)
+    if (closed) this.eng = null;
+    this.release(this.stream);
+    if (closed) {
+      if (frames?.length && eng) void this.saveRec(frames, eng).finally(() => eng.dispose());
+      else eng?.dispose();
       this.unreg();
       win = null;
       cam = null;
-    } else this.render();
+    } else {
+      if (frames?.length && eng) void this.saveRec(frames, eng);
+      this.render();
+    }
   }
 
   private async loop() {
@@ -291,10 +322,13 @@ class Cam {
     this.recording = null;
     this.render();
     if (!frames.length || !this.eng) return;
-    const secs = (performance.now() - this.recStart) / 1000;
-    const fps = Math.max(1, Math.min(30, Math.round(frames.length / Math.max(0.5, secs))));
+    await this.saveRec(frames, this.eng);
+  }
+
+  private async saveRec(frames: Uint8Array[], eng: EngineClient) {
+    const fps = recFps(frames.length, (performance.now() - this.recStart) / 1000);
     try {
-      const avi = await this.eng.aviWrite(frames, 640, 480, fps).promise;
+      const avi = await eng.aviWrite(frames, 640, 480, fps).promise;
       download(avi, 'webcam_refrag.avi', 'video/x-msvideo');
       bus.emit('exported');
     } catch (e) {

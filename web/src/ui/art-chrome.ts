@@ -1,11 +1,12 @@
 // Windows 98 window chrome, drawn pixel by pixel: 16×14 caption buttons (normal, pressed, disabled) and the
 // status-bar size grip. Colours and glyph sizes follow docs/WIN98_METRICS.md.
-import { ascii, cached } from './art';
+import { ascii, cached, C98 } from './art';
 
 export type CapKind = 'min' | 'max' | 'restore' | 'close' | 'help';
 export type CapState = 'n' | 'p' | 'd';
 
-const PAL: Record<string, string> = { W: '#ffffff', L: '#dfdfdf', F: '#c0c0c0', G: '#808080', K: '#000000' };
+/** W hilight, L light, F face, G shadow, K dark shadow, T button text: the current scheme's colours. */
+const pal = (): Record<string, string> => ({ W: C98.hi, L: C98.light, F: C98.face, G: C98.shadow, K: C98.dark, T: C98.text });
 
 /** The editor's stack-row drag grip, 8×18 (shown at 1× or 2×, never stretched): two raised 98 bars, like a
  *  rebar grip. W white, G shadow, '.' transparent. */
@@ -20,7 +21,8 @@ const GLYPHS: Record<CapKind, { x: number; y: number; rows: string[] }> = {
   help: { x: 5, y: 2, rows: ['.####', '##..##', '##..##', '...##', '..##', '..##', '', '..##', '..##'] },
 };
 
-/** Character rows (16×14) of a caption button: W/L/F/G/K are the 98 greys, '.' never occurs. */
+/** Character rows (16×14) of a caption button: W/L/F/G/K are the bevel shades and T the glyph, '.' never
+ *  occurs. */
 export function captionButtonRows(kind: CapKind, state: CapState = 'n'): string[] {
   const W = 16;
   const H = 14;
@@ -50,13 +52,13 @@ export function captionButtonRows(kind: CapKind, state: CapState = 'n'): string[
   if (state === 'd') {
     put(gl.x + 1, gl.y + 1, 'W');
     put(gl.x, gl.y, 'G');
-  } else put(gl.x + d, gl.y + d, 'K');
+  } else put(gl.x + d, gl.y + d, 'T');
   return g.map((r) => r.join(''));
 }
 
 /** Data URL of a caption button sprite. */
 export function captionButton(kind: CapKind, state: CapState = 'n'): string {
-  return cached(`cap98:${kind}:${state}`, () => ascii(captionButtonRows(kind, state), PAL));
+  return cached(`cap98:${kind}:${state}`, () => ascii(captionButtonRows(kind, state), pal()));
 }
 
 /** 12×12 size grip: three diagonal pairs of highlight and shadow (transparent elsewhere). */
@@ -74,7 +76,7 @@ export function sizeGripRows(): string[] {
 }
 
 export function sizeGrip(): string {
-  return cached('grip98', () => ascii(sizeGripRows(), PAL));
+  return cached('grip98', () => ascii(sizeGripRows(), pal()));
 }
 
 /** Sets the chrome sprites as CSS custom properties (--cap-min, --cap-min-p, --cap-min-d, …, --grip98). */

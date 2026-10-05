@@ -2,21 +2,23 @@
 // our Foldy tab; the beige monitor preview; OK / Cancel / Apply. A change shows at once (desktop and
 // monitor) but is only stored by OK or Apply; Cancel (or the close box) puts the stored values back.
 import { h, mount } from '../ui/dom';
-import { button, checkbox, group, numberField, selectField, slider, tabs } from '../ui/controls';
+import { button, checkbox, group, numberField, selectField, slider, tabs, textField } from '../ui/controls';
 import { openWindow, getWin, type Win } from '../ui/wm';
-import { settings, setSettings, previewSettings, revertPreview, savedSetting, defaultSettings, type Settings, type Wallpaper } from '../settings';
+import { settings, setSettings, previewSettings, revertPreview, savedSetting, defaultSettings, type Settings, type Wallpaper, type SaverKind, type ColorDepth } from '../settings';
 import { ui } from '../ui/scale';
-import { previewSaver } from '../shell/screensaver';
+import { previewSaver, saverOpts } from '../shell/screensaver';
+import { makeSaver, SAVERS } from '../shell/savers';
+import { SCHEMES } from '../ui/scheme';
 import { clearWallpaperImage, wallpaperImage } from '../shell/wallpaper';
 import { foldy } from '../foldy/foldy';
-import { snap, ditherBayer } from '../ui/palette';
+import { snap, ditherDepth } from '../ui/palette';
 import { tilePattern, iconImg } from '../ui/art';
 import { registerContext } from '../ui/contextmenu';
 import { renderSkyFrame } from '../engine/skygen';
 import { foldyStill } from '../foldy/sheet';
 import { pipeline } from '../pipeline';
 import { store } from '../state';
-import { crtMonitor, listBox, SCREEN } from './tools98';
+import { crtMonitor, listBox, SCREEN, dialog98 } from './tools98';
 
 const TABS = ['Background', 'Screen Saver', 'Appearance', 'Settings', 'Foldy'];
 const WALLPAPERS: [Wallpaper, string][] = [
@@ -25,10 +27,11 @@ const WALLPAPERS: [Wallpaper, string][] = [
   ['tiles', 'Tiles'],
   ['photo', 'My broken photo'],
 ];
-const SAVERS: [string, string][] = [
-  ['none', '(None)'],
-  ['starfield', 'JPEG Starfield'],
-  ['folders', 'Flying Folders'],
+const DEPTHS: [ColorDepth, string][] = [
+  ['16', '16 Colors'],
+  ['256', '256 Colors'],
+  ['high', 'High Color (16 bit)'],
+  ['true', 'True Color (24 bit)'],
 ];
 // the 98 desktop colours: teal first (the 98 default), then the VGA half-intensity set
 const SWATCHES = ['#008080', '#000000', '#000080', '#808080', '#800000', '#008000', '#808000', '#800080'];
@@ -207,33 +210,35 @@ class DisplayProps {
   private saverTab() {
     const ss = settings.screensaver;
     const kind = ss.enabled ? ss.kind : 'none';
-    let t = 0;
-    const stars = Array.from({ length: 60 }, () => ({ x: (Math.random() - 0.5) * 2, y: (Math.random() - 0.5) * 2, z: Math.random() }));
+    // the saver runs in its own little canvas (some frames wait for the engine); the monitor shows it
+    const sc = document.createElement('canvas');
+    sc.width = SCREEN.w;
+    sc.height = SCREEN.h;
+    const sx = sc.getContext('2d', { willReadFrequently: true })!;
+    const saver = kind === 'none' ? null : makeSaver(kind, SCREEN.w, SCREEN.h, saverOpts());
     const mon = crtMonitor((x, w, hh) => {
-      if (kind === 'none') return paintWallpaper(x, w, hh, () => mon.redraw());
-      x.fillStyle = '#000';
-      x.fillRect(0, 0, w, hh);
-      if (kind === 'starfield') {
-        for (const s of stars) {
-          s.z -= 0.02;
-          if (s.z <= 0.03) Object.assign(s, { x: (Math.random() - 0.5) * 2, y: (Math.random() - 0.5) * 2, z: 1 });
-          const c = Math.round(110 + 145 * (1 - s.z));
-          x.fillStyle = `rgb(${c},${c},${Math.min(255, c + 40)})`;
-          x.fillRect(Math.round(w / 2 + (s.x / s.z) * w * 0.5), Math.round(hh / 2 + (s.y / s.z) * hh * 0.5), s.z < 0.3 ? 2 : 1, s.z < 0.3 ? 2 : 1);
-        }
-      } else {
-        x.imageSmoothingEnabled = false;
-        const still = foldyStill(['body.open.paper', 'body.half.paper', 'body.closed', 'body.half.paper'][(t >> 2) % 4], 'eyes.happy');
-        for (const s of stars.slice(0, 8)) {
-          s.z -= 0.01;
-          if (s.z <= 0.08) Object.assign(s, { x: (Math.random() - 0.5) * 2, y: (Math.random() - 0.5) * 2, z: 1 });
-          const size = Math.max(4, Math.round(6 / s.z));
-          if (still) x.drawImage(still, Math.round(w / 2 + (s.x / s.z) * w * 0.35 - size / 2), Math.round(hh / 2 + (s.y / s.z) * hh * 0.35 - size / 2), size, size);
-        }
-      }
-      t++;
+      if (!saver) return paintWallpaper(x, w, hh, () => mon.redraw());
+      x.drawImage(sc, 0, 0);
     });
-    if (kind !== 'none') this.saverTimer = setInterval(() => (mon.el.isConnected ? mon.redraw() : this.stopSaver()), 100);
+    if (saver) {
+      let busy = false;
+      this.saverTimer = setInterval(() => {
+        if (!mon.el.isConnected) return this.stopSaver();
+        if (busy) return;
+        busy = true;
+        void Promise.resolve(saver.frame(sx))
+          .catch(() => {})
+          .then(() => {
+            if (settings.colorDepth !== 'true') {
+              const d = sx.getImageData(0, 0, SCREEN.w, SCREEN.h);
+              ditherDepth(d.data, SCREEN.w, SCREEN.h, settings.colorDepth, 40);
+              sx.putImageData(d, 0, 0);
+            }
+            busy = false;
+            mon.redraw();
+          });
+      }, 100);
+    }
     const prev = button('Preview', () => this.preview(), { disabled: kind === 'none' });
     this.page.append(
       mon.el,
@@ -242,8 +247,8 @@ class DisplayProps {
         h(
           'div',
           { class: 'row' },
-          selectField(kind, SAVERS, (v) => this.change({ screensaver: v === 'none' ? { ...settings.screensaver, enabled: false } : { ...settings.screensaver, enabled: true, kind: v as 'starfield' | 'folders' } }), { label: 'Screen saver', width: 170 }),
-          button('Settings…', () => {}, { disabled: true }),
+          selectField(kind, [['none', '(None)'], ...SAVERS], (v) => this.change({ screensaver: v === 'none' ? { ...settings.screensaver, enabled: false } : { ...settings.screensaver, enabled: true, kind: v as SaverKind } }), { label: 'Screen saver', width: 170 }),
+          button('Settings…', () => this.saverSettings(), { disabled: kind === 'none' }),
           prev,
         ),
         h(
@@ -261,6 +266,29 @@ class DisplayProps {
   private preview() {
     if (!settings.screensaver.enabled) return;
     previewSaver(document.getElementById('app')!, settings.screensaver.kind);
+  }
+
+  /** Screen Saver ▸ Settings…: the saver's speed (all of them) and the marquee's text. OK previews it here;
+   *  the property sheet's OK / Apply stores it, as in 98. */
+  private saverSettings() {
+    const ss = settings.screensaver;
+    let speed = ss.speed;
+    let text = ss.text;
+    const name = SAVERS.find(([k]) => k === ss.kind)?.[1] ?? 'Screen Saver';
+    const rows: HTMLElement[] = [h('div', { class: 'row' }, h('span', { class: 'dp-ilbl' }, 'Speed:'), h('span', null, 'Slow'), slider(speed, 1, 5, 1, (v) => (speed = v), { label: 'Speed', ticks: 4 }), h('span', null, 'Fast'))];
+    if (ss.kind === 'marquee') rows.push(h('div', { class: 'field-row' }, h('span', { class: 'flbl' }, 'Text:'), textField(text, (v) => (text = v), { label: 'Marquee text', width: 220 })));
+    dialog98({
+      title: name + ' Setup',
+      icon: 'display',
+      body: h('div', { class: 'col dp-saverset' }, ...rows),
+      width: 330,
+      height: ss.kind === 'marquee' ? 150 : 118,
+      owner: this.win,
+      buttons: [
+        { label: 'OK', primary: true, run: () => this.change({ screensaver: { ...settings.screensaver, speed, text: text.slice(0, 80) } }) },
+        { label: 'Cancel', cancel: true },
+      ],
+    });
   }
 
   private stopSaver() {
@@ -286,7 +314,7 @@ class DisplayProps {
     );
     this.page.append(
       prevBox,
-      h('div', { class: 'row dp-scheme' }, h('span', null, 'Scheme:'), selectField('std', [['std', 'Refragmenter Standard']], () => {}, { label: 'Scheme', width: 200 })),
+      h('div', { class: 'row dp-scheme' }, h('span', null, 'Scheme:'), selectField(settings.scheme, Object.entries(SCHEMES).map(([id, s]) => [id, s.name]), (v) => this.change({ scheme: v }), { label: 'Scheme', width: 200 })),
       group(
         'Visual effects',
         h('div', { class: 'row' }, h('span', { class: 'dp-ilbl' }, 'Animate windows and menus:'), selectField(String(settings.reducedMotion), [['auto', 'Follow my system'], ['false', 'On'], ['true', 'Off (reduced motion)']], (v) => this.change({ reducedMotion: v === 'auto' ? 'auto' : v === 'true' }), { label: 'Animations', width: 150 })),
@@ -297,7 +325,7 @@ class DisplayProps {
 
   private restoreDefaults() {
     const d = defaultSettings();
-    this.change({ wallpaper: d.wallpaper, solidColor: d.solidColor, cloudSpeed: d.cloudSpeed, screensaver: d.screensaver, uiScale: d.uiScale, bigText: d.bigText, reducedMotion: d.reducedMotion });
+    this.change({ wallpaper: d.wallpaper, solidColor: d.solidColor, cloudSpeed: d.cloudSpeed, screensaver: d.screensaver, uiScale: d.uiScale, bigText: d.bigText, reducedMotion: d.reducedMotion, scheme: d.scheme, colorDepth: d.colorDepth });
   }
 
   // ------------------------------------------------------------ Settings
@@ -305,17 +333,22 @@ class DisplayProps {
   private settingsTab() {
     const mon = crtMonitor((x, w, hh) => paintWallpaper(x, w, hh, () => mon.redraw()));
     const auto = settings.uiScale === 'auto';
-    const s: number = settings.uiScale === 'auto' ? 1 : settings.uiScale;
+    // Automatic: the slider and the size show what it picked (the scale now on screen)
+    const s: number = settings.uiScale === 'auto' ? Math.max(1, Math.min(3, Math.round(ui.k / (ui.dpr || 1)) || 1)) : settings.uiScale;
     // Less ← 3× 2× 1× → More (the 98 "Screen area" slider: more area = smaller UI)
     const area = slider(4 - s, 1, 3, 1, (v) => this.change({ uiScale: (4 - v) as 1 | 2 | 3 }), { label: 'Screen area', ticks: 2 });
-    const res = areaAt(s);
+    const res = auto ? { w: ui.w, h: ui.h } : areaAt(s);
     this.page.append(
       mon.el,
       h('div', { class: 'dp-display' }, h('div', null, 'Display:'), h('div', null, 'Refragmenter Plug and Play Monitor on 98 Gold Display Adapter')),
       h(
         'div',
         { class: 'dp-row' },
-        group('Colors', selectField('256', [['256', '256 Colors (dithered)']], () => {}, { label: 'Colors', width: 160 }), h('div', { class: 'dp-pal', 'aria-hidden': 'true' })),
+        group(
+          'Colors',
+          selectField(settings.colorDepth, DEPTHS, (v) => this.change({ colorDepth: v as ColorDepth }), { label: 'Colors', width: 160 }),
+          h('div', { class: 'dp-pal dp-pal-' + settings.colorDepth, 'aria-hidden': 'true' }),
+        ),
         group(
           'Screen area',
           h('div', { class: 'dp-ends' }, h('span', null, 'Less'), area, h('span', null, 'More')),
@@ -375,6 +408,7 @@ function areaAt(s: number): { w: number; h: number } {
 // ------------------------------------------------------------------ the miniature wallpaper
 
 let skyMini: HTMLCanvasElement | null = null;
+let skyMiniDepth = '';
 let tileImg: HTMLImageElement | null = null;
 
 function paintWallpaper(x: CanvasRenderingContext2D, w: number, hh: number, again: () => void) {
@@ -424,7 +458,7 @@ function paintWallpaper(x: CanvasRenderingContext2D, w: number, hh: number, agai
       x.imageSmoothingEnabled = true;
       x.drawImage(src, (w - sw * s) / 2, (hh - sh * s) / 2, sw * s, sh * s);
       const d = x.getImageData(0, 0, w, hh);
-      ditherBayer(d.data, w, hh, 40);
+      ditherDepth(d.data, w, hh, settings.colorDepth, 40);
       x.putImageData(d, 0, 0);
       // the monitor frame was drawn already: copy the new screen into it
       const host = x.canvas;
@@ -436,7 +470,8 @@ function paintWallpaper(x: CanvasRenderingContext2D, w: number, hh: number, agai
 }
 
 function paintSky(x: CanvasRenderingContext2D, w: number, hh: number) {
-  if (!skyMini) {
+  if (!skyMini || skyMiniDepth !== settings.colorDepth) {
+    skyMiniDepth = settings.colorDepth;
     // the real sky at desktop size (it is drawn at half resolution), shrunk into the monitor
     const W = Math.max(64, Math.ceil(ui.w / 2));
     const H = Math.max(48, Math.ceil(ui.h / 2));
@@ -453,7 +488,7 @@ function paintSky(x: CanvasRenderingContext2D, w: number, hh: number) {
     cx.imageSmoothingQuality = 'high';
     cx.drawImage(big, 0, 0, w, hh);
     const d = cx.getImageData(0, 0, w, hh);
-    ditherBayer(d.data, w, hh, 40);
+    ditherDepth(d.data, w, hh, settings.colorDepth, 40);
     cx.putImageData(d, 0, 0);
     skyMini = c;
   }

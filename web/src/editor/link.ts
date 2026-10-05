@@ -14,6 +14,17 @@ export const link = {
   picked: null as BlockSel | null,
   /** MCU rectangles highlighted from a hex selection */
   highlights: [] as { x: number; y: number; w: number; h: number }[],
+  /** The photo the selection belongs to. */
+  photo: null as string | null,
+  /** Another photo became current: its blocks and bytes are not the old ones, so the selection is dropped. */
+  follow(photo: string | null) {
+    if (photo === link.photo) return;
+    link.photo = photo;
+    if (!link.picked && !link.highlights.length) return;
+    link.picked = null;
+    link.highlights = [];
+    for (const l of ls) l();
+  },
   pick(b: BlockSel | null) {
     link.picked = b;
     for (const l of ls) l();

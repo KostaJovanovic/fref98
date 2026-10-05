@@ -75,6 +75,18 @@ export interface ToolSpec {
   run: () => void;
 }
 
+export type DropRole = 'bin' | 'pictures';
+
+/** The drop target under an element: a folder window with a drop role (not the source), or the desktop's
+ *  Recycle Bin icon. */
+export function dropRoleAt(el: Element | null, source: Element | null, roles: { el: Element; role?: DropRole }[]): DropRole | null {
+  if (!el) return null;
+  if (el.closest('.dicon[data-app="recycle"]')) return 'bin';
+  const w = el.closest('.win');
+  if (!w || w === source) return null;
+  return roles.find((r) => r.el === w)?.role ?? null;
+}
+
 export interface FolderSpec<T> {
   id: string;
   title: string;
@@ -114,6 +126,11 @@ export interface FolderSpec<T> {
   onUndo?: () => void;
   onProperties?: (items: T[]) => void;
   onDrop?: (files: File[]) => void;
+  /** What this window is when items are dragged onto it from another one. */
+  dropRole?: DropRole;
+  /** Items dragged out of this window and let go over a drop target (another folder window, or the desktop's
+   *  Recycle Bin icon = 'bin'). Without it, items don't drag. */
+  onDragTo?: (items: T[], target: DropRole) => void;
   /** View ▸ as Web Page. */
   webView?: () => HTMLElement;
   /** Right status-bar zone: [icon, text]. */
@@ -376,8 +393,14 @@ export class Folder<T> {
     ];
   }
 
-  static helpMenu(): MenuItem[] {
-    return [{ label: '&Help Topics', icon: 'help', onClick: () => void openApp('help') }, { sep: true }, { label: '&About File Refragmenter', onClick: () => void openApp('about') }];
+  /** The Help menu of a folder-style window: its own topic first when it has one (as Hex Doctor and the card). */
+  static helpMenu(topic?: { id: string; label: string }): MenuItem[] {
+    return [
+      ...(topic ? [{ label: topic.label, icon: 'help', onClick: () => void openApp('help', topic.id) } as MenuItem] : []),
+      { label: '&Help Topics', icon: topic ? undefined : 'help', onClick: () => void openApp('help') },
+      { sep: true },
+      { label: '&About File Refragmenter', icon: 'about', onClick: () => void openApp('about') },
+    ];
   }
 
   // ---------------------------------------------------------------- commands
@@ -643,8 +666,10 @@ export class Folder<T> {
           return;
         }
         this.lastTap = { key: k, t: now };
-        this.select([k]);
+        // pressing one of several selected items keeps them all (they may be about to be dragged)
+        if (!(this.sel.has(k) && this.spec.onDragTo)) this.select([k]);
         this.anchor = k;
+        this.dragItems(e, k);
       }
       this.setFocus(k);
     });
@@ -665,6 +690,57 @@ export class Folder<T> {
         if (files.length) drop(files);
       });
     }
+  }
+
+  /** Dragging the selection (mouse and pen; a finger's press is the context menu): a screen-doored icon
+   *  follows the pointer, the no-drop cursor shows away from a target, and letting go over one hands the items
+   *  to spec.onDragTo. A press without a move is a plain click (only `k` stays selected). */
+  private dragItems(e: PointerEvent, k: string) {
+    const s = this.spec;
+    if (!s.onDragTo || e.pointerType === 'touch') return;
+    const items = this.selected();
+    if (!items.length) return;
+    const app = document.getElementById('app')!;
+    const p0 = toUi(e);
+    let last = { x: e.clientX, y: e.clientY };
+    let ghost: HTMLElement | null = null;
+    const target = () => dropRoleAt(document.elementFromPoint(last.x, last.y), this.win.el, [...folders].map((f) => ({ el: f.win.el, role: f.spec.dropRole })));
+    // the page is watched, not a captured element: a capture would send the click (and the double-click
+    // that opens the item) to the list instead of the item
+    const move = (ev: PointerEvent) => {
+      if (ev.pointerId !== e.pointerId) return;
+      last = { x: ev.clientX, y: ev.clientY };
+      const p = toUi(ev);
+      if (!ghost) {
+        if (Math.hypot(p.x - p0.x, p.y - p0.y) < 4) return;
+        ghost = h('div', { class: 'fv-dragghost', 'aria-hidden': 'true' }, iconImg(s.iconOf(items[0]), 32), items.length > 1 ? h('span', { class: 'tx' }, `${items.length} items`) : null);
+        app.append(ghost);
+        app.classList.add('item-drag');
+      }
+      ghost.style.left = Math.round(p.x - 16) + 'px';
+      ghost.style.top = Math.round(p.y - 16) + 'px';
+      app.classList.toggle('nodrop', !target());
+    };
+    const end = (ev: PointerEvent) => {
+      if (ev.pointerId !== e.pointerId) return;
+      removeEventListener('pointermove', move, true);
+      removeEventListener('pointerup', end, true);
+      removeEventListener('pointercancel', end, true);
+      app.classList.remove('item-drag', 'nodrop');
+      const cancelled = ev.type !== 'pointerup';
+      if (!ghost) {
+        // a click: the press kept a multiple selection for a possible drag; now it is just this item
+        if (!cancelled && this.sel.size > 1 && !e.shiftKey && !e.ctrlKey && !e.metaKey) this.select([k]);
+        return;
+      }
+      ghost.remove();
+      last = { x: ev.clientX, y: ev.clientY };
+      const t = cancelled ? null : target();
+      if (t) s.onDragTo!(items, t);
+    };
+    addEventListener('pointermove', move, true);
+    addEventListener('pointerup', end, true);
+    addEventListener('pointercancel', end, true);
   }
 
   /** Rubber band from empty space: a 1 px dotted rectangle; plain replaces, Shift adds, Ctrl toggles. */

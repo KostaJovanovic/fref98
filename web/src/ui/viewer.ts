@@ -72,15 +72,29 @@ export class Viewer {
   private pointers = new Map<number, { x: number; y: number }>();
   private raf = 0;
   private heatCanvas: HTMLCanvasElement | null = null;
+  private heatOff: HTMLCanvasElement | null = null;
   private labelKey = '';
+  private offScale: () => void;
+  private resizeObs: ResizeObserver;
 
   constructor() {
     this.canvas = h('canvas', { class: 'view', 'aria-hidden': 'true' });
     this.labels = h('div');
     this.el = h('div', { class: 'viewer', role: 'img', tabIndex: 0, 'aria-label': 'Photo preview. Arrow keys pan, plus and minus zoom, 0 fits, 1 shows actual pixels.' }, this.canvas, this.labels);
     this.bind();
-    onScale(() => this.render());
-    new ResizeObserver(() => this.render()).observe(this.el);
+    this.offScale = onScale(() => this.render());
+    this.resizeObs = new ResizeObserver(() => this.render());
+    this.resizeObs.observe(this.el);
+  }
+
+  /** Lets go of everything outside the viewer (the window closed): no listener keeps it, or its canvases, alive. */
+  dispose() {
+    this.offScale();
+    this.resizeObs.disconnect();
+    cancelAnimationFrame(this.raf);
+    this.onPick = this.onZoom = this.onMask = null;
+    this.heat = this.heatCanvas = this.heatOff = null;
+    this.panes = [];
   }
 
   setPanes(panes: Pane[], mode: Viewer['mode']) {
@@ -294,12 +308,14 @@ export class Viewer {
     if (this.heat && this.heatCanvas && p === this.main()) {
       const hw = this.heat.bw * this.heat.block * zx;
       const hh = this.heat.bh * this.heat.block * zy;
-      const off = document.createElement('canvas');
+      // one off-screen canvas for the viewer's life, resized only with the view (so the checker pattern,
+      // cached per context, is made once too)
+      const off = (this.heatOff ??= document.createElement('canvas'));
       const vw = this.canvas.width;
       const vh = this.canvas.height;
-      off.width = vw;
-      off.height = vh;
+      if (off.width !== vw || off.height !== vh) ((off.width = vw), (off.height = vh));
       const o = off.getContext('2d')!;
+      o.globalCompositeOperation = 'copy';
       o.imageSmoothingEnabled = false;
       o.drawImage(this.heatCanvas, ox, oy, hw, hh);
       o.globalCompositeOperation = 'destination-in';

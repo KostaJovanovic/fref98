@@ -16,7 +16,7 @@ let testN = 0;
 
 /** Groups for the two columns. */
 const GROUPS: [string, (keyof FoldyTiming)[]][] = [
-  ['Talking', ['textCharMs', 'frameMs', 'lettersPerStep', 'minSteps', 'wordGapMs', 'commaGapMs', 'sentenceGapMs', 'joltPx', 'lingerMs', 'moodHoldMs']],
+  ['Talking', ['textCharMs', 'textCommaMs', 'textSentenceMs', 'frameMs', 'lettersPerStep', 'minSteps', 'wordGapMs', 'commaGapMs', 'sentenceGapMs', 'joltPx', 'lingerMs', 'moodHoldMs']],
   ['Idle and pain', ['bobPeriodMs', 'bobAmpPx', 'bobFps', 'eyeLagSteps', 'blinkMinMs', 'blinkMaxMs', 'blinkFrameMs', 'doubleBlinkPct', 'painMs', 'painFps', 'tearPx', 'winceMs']],
 ];
 

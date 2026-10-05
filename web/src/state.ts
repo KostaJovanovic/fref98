@@ -7,6 +7,8 @@ import { hashString, stableJson, uid } from './engine/hash';
 import { kvGet, kvSet, kvDelete, kvKeys } from './engine/storage';
 import { zipStore, unzip } from './engine/zip';
 import { APP_VERSION } from './engine/recipe';
+import * as bus from './bus';
+import { link } from './editor/link';
 
 export type PhotoSource = 'user' | 'bundled' | 'placeholder' | 'recovered' | 'webcam';
 
@@ -77,6 +79,7 @@ export class Store {
   }
 
   emit(why: string) {
+    link.follow(this.doc.current);
     for (const l of this.listeners) l(why);
   }
 
@@ -98,6 +101,7 @@ export class Store {
       this.doc = s;
       this.reconcileBin();
       this.emit('undo');
+      bus.emit('undo');
       this.scheduleSave();
     }
   }

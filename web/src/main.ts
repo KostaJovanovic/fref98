@@ -16,6 +16,7 @@ import { engine } from './engine/client';
 import { showSplash } from './apps/splash';
 import { errorBox } from './ui/dialog';
 import { onStorageError } from './engine/storage';
+import { settings, setSettings } from './settings';
 
 async function boot() {
   const root = document.getElementById('app')!;
@@ -87,7 +88,7 @@ async function boot() {
     }
   }
 
-  (window as any).__refrag = { store, pipeline, engine, ui, foldy, openApp };
+  (window as any).__refrag = { store, pipeline, engine, ui, foldy, openApp, settings, setSettings };
   // Foldy starts talking once the splash is gone
   await splash;
   foldy.startTutorial(!!store.current);
