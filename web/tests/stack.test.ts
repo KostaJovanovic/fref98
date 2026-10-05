@@ -103,6 +103,39 @@ describe('runStack', () => {
     expect(r2.output[0]).toBe(1);
   });
 
+  // audit B2 (07-6)
+  it('a stale patch stays stale when a later step comes from the cache', async () => {
+    const { apply } = fakeApply();
+    const cache = new LruCache<Uint8Array>(1e6);
+    const nodes: StackNode[] = [makePatch('different', [{ offset: 0, bytes: [9] }]), makeStep('add', catalog.get('add'), { n: 1 }, 1)];
+    await runStack('s7', src, nodes, { apply, cache, catalog, pool: null });
+    const again = await runStack('s7', src, nodes, { apply, cache, catalog, pool: null });
+    expect(again.results.map((x) => x.status)).toEqual(['stale', 'cached']);
+  });
+
+  // audit B2 (07-7)
+  it('a failed step is retried on the next run instead of being hidden by the cache', async () => {
+    const { apply, calls } = fakeApply();
+    let flaky = true;
+    const flakyApply: ApplyFn = async (id, params, input, seed, pool) => {
+      if (id === 'blur' && flaky) throw new Error('worker restarted');
+      return apply(id, params, input, seed, pool);
+    };
+    const cache = new LruCache<Uint8Array>(1e6);
+    const nodes: StackNode[] = [makeStep('blur', catalog.get('blur'), {}, 1), makeStep('add', catalog.get('add'), { n: 1 }, 2)];
+    const first = await runStack('s8', src, nodes, { apply: flakyApply, cache, catalog, pool: null });
+    expect(first.results[0].status).toBe('error');
+    flaky = false;
+    calls.length = 0;
+    const second = await runStack('s8', src, nodes, { apply: flakyApply, cache, catalog, pool: null });
+    expect(calls).toEqual(['blur:1', 'add:2']);
+    expect(second.results.map((x) => x.status)).toEqual(['ok', 'ok']);
+    expect([...second.output]).toEqual([3, 2, 1, 1]);
+    // and once it worked, a cached run no longer shows the old error
+    const third = await runStack('s8', src, nodes, { apply: flakyApply, cache, catalog, pool: null });
+    expect(third.results.map((x) => x.status)).toEqual(['cached', 'cached']);
+  });
+
   it('can stop between steps', async () => {
     const { apply } = fakeApply();
     const nodes = [makeStep('add', catalog.get('add'), { n: 1 }, 1), makeStep('add', catalog.get('add'), { n: 1 }, 2)];

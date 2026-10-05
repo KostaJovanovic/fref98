@@ -14,6 +14,7 @@ import { openApp } from './apps/registry';
 import { foldy } from './foldy/foldy';
 import { engine } from './engine/client';
 import { showSplash } from './apps/splash';
+import { errorBox } from './ui/dialog';
 
 async function boot() {
   const root = document.getElementById('app')!;
@@ -47,14 +48,20 @@ async function boot() {
     openApp('editor');
   });
 
-  // the splash stays while the engine loads (at least ~1 s; a click skips it)
+  // the splash stays while the engine loads (at least ~1 s; a click skips it). A failure here must not
+  // stop the boot silently: say so, and start without the engine (the windows still open).
+  let bootError: unknown = null;
   const engineReady = (async () => {
     await store.restoreAutosave();
     await pipeline.init();
-  })();
+  })().catch((e) => {
+    bootError = e;
+    console.error('engine failed to start', e);
+  });
   const splash = showSplash(root, engineReady);
   await engineReady;
   openApp('editor');
+  if (bootError) errorBox(`The picture engine could not start (${(bootError as Error)?.message ?? bootError}). Reloading the page usually fixes it.`);
   await ensureSamples();
 
   // recipe shared in the URL fragment (bundled photos only)

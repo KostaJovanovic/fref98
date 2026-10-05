@@ -13,6 +13,7 @@ let exportsList: string[] = [];
 const cards = new Map<number, any>();
 let nextCard = 1;
 const pools = new Map<string, Uint8Array[]>();
+let lastAvi: Uint8Array | null = null;
 
 const post = (msg: unknown, transfer: Transferable[] = []) => (self as unknown as Worker).postMessage(msg, transfer);
 
@@ -206,7 +207,10 @@ async function handle(op: string, a: any): Promise<{ result: unknown; transfer?:
     case 'aviRead':
       return { result: JSON.parse(need('avi_read')(a.avi)) };
     case 'aviFrame': {
-      const out: Uint8Array = need('avi_frame')(a.avi, a.index | 0);
+      // The client sends the AVI once and then only frame numbers (see EngineClient.aviFrame).
+      if (a.avi) lastAvi = a.avi;
+      else if (!lastAvi) throw new Error('AVI_MISSING');
+      const out: Uint8Array = need('avi_frame')(lastAvi, a.index | 0);
       return { result: out, transfer: [out.buffer] };
     }
     // ---- card ----
@@ -292,6 +296,9 @@ self.onmessage = async (ev: MessageEvent) => {
     const { result, transfer } = await handle(msg.op, msg.args ?? {});
     post({ id: msg.id, ok: true, result }, transfer ?? []);
   } catch (e) {
-    post({ id: msg.id, ok: false, error: errText(e) });
+    // A trap (a Rust panic, running out of memory) leaves the WASM instance in an unknown state:
+    // tell the client, which replaces this worker.
+    const trapped = typeof WebAssembly !== 'undefined' && e instanceof WebAssembly.RuntimeError;
+    post({ id: msg.id, ok: false, error: (trapped ? 'ENGINE_CRASHED:' : '') + errText(e) });
   }
 };

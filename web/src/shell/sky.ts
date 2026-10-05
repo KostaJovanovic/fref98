@@ -23,6 +23,8 @@ export class Sky {
   private busySince = 0;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private inflight = false;
+  /** Sky frames that failed in a row. */
+  private fails = 0;
   private photoKey = '';
   private longOps = 0;
 
@@ -189,13 +191,15 @@ export class Sky {
           this.canvas.style.width = w * PX + 'px';
           this.canvas.style.height = hh * PX + 'px';
           this.context().putImageData(new ImageData(new Uint8ClampedArray(r.rgba.buffer as ArrayBuffer), w, hh), 0, 0);
+          this.fails = 0;
         })
-        .catch(() => {})
+        .catch(() => void this.fails++)
         .finally(() => (this.inflight = false));
     }
     if (!still || this.damage > 0 || this.busySince) {
       if (!still) this.t++;
-      this.timer = setTimeout(() => this.tick(), 125);
+      // An engine that keeps failing (no sky op, crashed for good) is asked every 5 s, not 8 times a second.
+      this.timer = setTimeout(() => this.tick(), this.fails >= 5 ? 5000 : 125);
     }
   }
 
