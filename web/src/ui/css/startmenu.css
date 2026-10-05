@@ -1,0 +1,39 @@
+/* ------------------------------------------------------------------ Start menu (Windows 98) */
+
+/* The root level is a ui/menu.ts popup dressed by shell/startmenu.ts: the 21 px banner inside the bevel on
+   the left, 32 px rows with 24 px icons. Its cascades (Programs, Documents, Settings) are plain 98 menus with
+   20 px rows. */
+.menu.startmenu {
+  padding-left: 24px;
+  z-index: 7000;
+}
+.menu.startmenu > .sm-banner {
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 21px;
+}
+.menu.startmenu > .mi {
+  min-height: 32px;
+}
+.menu.startmenu > .mi > .mck {
+  width: 34px;
+}
+.menu.startmenu > .mi > .mck img.ico {
+  width: 24px;
+  height: 24px;
+}
+.menu.startmenu > .mi > .mlabel {
+  padding-right: 18px;
+}
+.menu.startmenu > .msep {
+  margin-left: 2px;
+}
+.sm-open .menu:not(.startmenu) .mi {
+  min-height: 20px;
+}
+
+/* phones: the menu fills the width above the tab bar */
+.phone .menu.startmenu {
+  min-width: 70%;
+}

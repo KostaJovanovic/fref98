@@ -1,0 +1,1054 @@
+/* ------------------------------------------------------------------ tools: Removable Disk, Hex Doctor, Save As, Display, Help */
+/* Metrics from docs/WIN98_METRICS.md. Everything here is 98 grey face, sunken white fields and our pixel font. */
+
+/* ---------------------------------------------------------------- shared: dialogs, list boxes, disabled labels */
+.dis,
+.dis .tx {
+  color: #808080;
+  text-shadow: 1px 1px 0 #fff;
+}
+.dlg98 {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  height: 100%;
+}
+.dlg98 > :first-child {
+  flex: 1;
+  min-height: 0;
+}
+.dlg98.side {
+  flex-direction: row;
+}
+.dlg-btns {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  flex: none;
+}
+.dlg-btns.col {
+  flex-direction: column;
+  justify-content: flex-start;
+}
+.lb98 {
+  outline: none;
+}
+.lb98 .li {
+  white-space: nowrap;
+  cursor: var(--cur-arrow, default);
+}
+.lb98 .li > .lbl {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lb98 .li.dim {
+  color: #808080;
+}
+.lb98 .li.sel.dim {
+  color: #c0c0c0;
+}
+.lb98:not(:focus) .li.sel {
+  background: #000080;
+}
+.lb98:focus .li.sel {
+  outline: 1px dotted #ffff00;
+  outline-offset: -1px;
+}
+.sw98 {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 1px solid #000;
+  flex: none;
+}
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.field-row > label,
+.field-row > .flbl {
+  flex: none;
+}
+
+/* ---------------------------------------------------------------- wizards: bitmap left, page right, etched line, buttons */
+.wiz98 {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 10px 10px 10px;
+}
+.wiz-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 12px;
+}
+.wiz-art {
+  flex: none;
+  box-shadow: inset 1px 1px #808080, inset -1px -1px #fff;
+  padding: 1px;
+  align-self: flex-start;
+}
+.wiz-art canvas {
+  display: block;
+}
+.wiz-page {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: auto;
+}
+.wiz-title {
+  margin-bottom: 2px;
+}
+.wiz-line {
+  flex: none;
+  height: 2px;
+  margin: 10px 0 10px;
+  border-top: 1px solid #808080;
+  border-bottom: 1px solid #fff;
+}
+.wiz-btns {
+  flex: none;
+  display: flex;
+  justify-content: flex-end;
+}
+.wiz-gap {
+  width: 8px;
+}
+.wiz-page .lb98 {
+  flex: 1;
+  min-height: 60px;
+}
+.wiz-page .progress {
+  flex: none;
+}
+
+/* ---------------------------------------------------------------- Display Properties */
+.dp98 {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 6px 6px 6px;
+}
+.dp-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 10px 8px;
+}
+.dp-btns {
+  flex: none;
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding-top: 6px;
+}
+.crt-wrap {
+  flex: none;
+  display: flex;
+  justify-content: center;
+}
+.crt-wrap canvas {
+  display: block;
+}
+.dp-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.dp-row > .group {
+  flex: 1;
+  min-width: 0;
+  margin-top: 8px;
+}
+.dp-row > .group .combo {
+  max-width: 100%;
+}
+.dp-left {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.dp-list {
+  height: 80px;
+}
+.dp-right {
+  flex: none;
+  width: 116px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 16px;
+}
+.dp-swatches {
+  display: grid;
+  grid-template-columns: repeat(4, 26px);
+  gap: 2px;
+}
+.dp-sw {
+  width: 26px;
+  min-width: 26px;
+  height: 22px;
+  padding: 2px;
+}
+.dp-sw .dp-chip {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 1px solid #000;
+}
+.dp-sw:disabled .dp-chip {
+  border-color: #808080;
+  -webkit-mask: repeating-conic-gradient(#000 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+  mask: repeating-conic-gradient(#000 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+}
+.phone .dp-row {
+  flex-direction: column;
+  align-items: stretch;
+}
+.phone .dp-right {
+  width: auto;
+  padding-top: 0;
+}
+.dp-ends {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+}
+.dp-ends input[type='range'] {
+  flex: 1;
+  min-width: 0;
+  width: 60px;
+}
+.dp-right input[type='range'] {
+  width: 100%;
+}
+.dp-wait {
+  margin-top: 8px;
+}
+.dp-display {
+  display: flex;
+  gap: 6px;
+}
+.dp-res {
+  text-align: center;
+  margin-top: 3px;
+}
+.dp-pal {
+  height: 12px;
+  margin-top: 6px;
+  background-image: linear-gradient(to right, #000 0 12.5%, #800000 0 25%, #008000 0 37.5%, #808000 0 50%, #000080 0 62.5%, #800080 0 75%, #008080 0 87.5%, #c0c0c0 0);
+  box-shadow: inset 1px 1px #808080, inset -1px -1px #fff;
+}
+.dp-ilbl {
+  flex: 1;
+}
+.dp-restore {
+  justify-content: flex-end;
+  margin-top: auto;
+}
+.dp-foldy-art canvas {
+  display: block;
+}
+.dp-foldy {
+  align-items: flex-start;
+}
+
+/* ---------------------------------------------------------------- Removable Disk (E:): a 98 Explorer window */
+.cd98 {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.cd-toolbar {
+  padding: 2px 2px;
+}
+.cd-big.tool {
+  flex-direction: column;
+  height: 38px;
+  min-width: 46px;
+  gap: 2px;
+}
+.cd-addr {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 3px;
+  border-bottom: 1px solid #808080;
+  box-shadow: 0 1px #fff;
+  margin-bottom: 3px;
+}
+.cd-addrlbl {
+  flex: none;
+  color: #000;
+  padding: 0 2px;
+}
+.cd-addr > span:last-child {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+.cd-addrbox {
+  flex: 1;
+}
+.cd-view {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: #fff;
+  box-shadow: inset -1px -1px #fff, inset 1px 1px #808080, inset -2px -2px #dfdfdf, inset 2px 2px #000;
+  padding: 4px;
+  outline: none;
+  margin: 0 2px 2px;
+  align-content: flex-start;
+}
+.cd-large,
+.cd-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+}
+.cd-item {
+  cursor: var(--cur-arrow, default);
+}
+.cd-large .cd-item {
+  width: 75px;
+  height: 70px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding-top: 4px;
+}
+.cd-large .cd-name,
+.cd-thumbs .cd-name {
+  max-width: 72px;
+  text-align: center;
+  padding: 0 1px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+.cd-thumbs .cd-item {
+  width: 108px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 2px;
+}
+.cd-thumbs .cd-name {
+  max-width: 104px;
+}
+.cd-frame {
+  width: 96px;
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #808080;
+  background: #fff;
+}
+.cd-thumbimg {
+  max-width: 94px;
+  max-height: 94px;
+}
+.cd-ico {
+  display: flex;
+  flex: none;
+}
+.cd-item.sel .cd-name {
+  background: #000080;
+  color: #fff;
+}
+.cd-view:focus .cd-item.sel .cd-name {
+  outline: 1px dotted #ffff00;
+  outline-offset: -1px;
+}
+/* selected: the icon dithered with navy (a 1:1 checker masked by the icon's own shape, as on the desktop) */
+.cd-ico {
+  position: relative;
+}
+.cd-item.sel .cd-ico[style]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-conic-gradient(#000080 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+  -webkit-mask-image: var(--mask-src);
+  mask-image: var(--mask-src);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+.cd-thumbs .cd-item.sel .cd-frame {
+  border-color: #000080;
+}
+/* deleted files: screen-doored 50 %, like a cut file in 98 */
+.cd-item.ghost .cd-ico img {
+  -webkit-mask: repeating-conic-gradient(#000 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+  mask: repeating-conic-gradient(#000 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+}
+.cd-item.ghost .cd-name {
+  color: #808080;
+}
+.cd-item.ghost.sel .cd-name {
+  color: #c0c0c0;
+}
+/* Details: a header row and columns */
+.cd-details {
+  padding: 0 2px 2px;
+}
+.cd-head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  height: 18px;
+  margin: 0 -2px 2px;
+  z-index: 1;
+}
+.cd-head > span {
+  display: flex;
+  align-items: center;
+  padding: 0 5px;
+  background: #c0c0c0;
+  box-shadow: inset -1px -1px #000, inset 1px 1px #fff, inset -2px -2px #808080;
+}
+.cd-details .cd-item {
+  display: flex;
+  align-items: center;
+  height: 17px;
+  white-space: nowrap;
+}
+.cd-details .cd-ico {
+  width: 18px;
+}
+.cd-c0 {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cd-head .cd-c0 {
+  padding-left: 23px;
+}
+.cd-c1 {
+  width: 76px;
+  text-align: right;
+  justify-content: flex-end;
+  padding-right: 8px;
+}
+.cd-c2 {
+  width: 120px;
+  overflow: hidden;
+}
+.cd-c3 {
+  width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cd-c4 {
+  width: 56px;
+  text-align: right;
+  justify-content: flex-end;
+  padding-right: 4px;
+}
+.cd-details .cd-item > span:not(.cd-ico) {
+  padding-left: 5px;
+}
+.cd-details .cd-item.sel .cd-name {
+  outline: none;
+}
+.cd-empty {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  max-width: 460px;
+  align-items: flex-start;
+}
+.cd-none {
+  padding: 8px;
+  color: #808080;
+}
+.cd-sheet {
+  background: #000;
+  min-height: 100%;
+}
+.cd-sheetc {
+  display: block;
+}
+.cd-st {
+  width: 80px;
+}
+.cd-st2 {
+  width: 220px;
+}
+/* wizards, Format, Properties, History, Cluster Map */
+.cd-desc {
+  min-height: 40px;
+}
+.cd-pick {
+  flex: 1;
+  min-height: 80px;
+}
+.cd-tools {
+  gap: 4px;
+}
+.cd-flbl {
+  width: 84px;
+}
+.cd-format .group {
+  margin-top: 10px;
+}
+.cd-format .group > .field-row {
+  margin-top: 4px;
+}
+.cd-sheetbox {
+  display: flex;
+  flex-direction: column;
+}
+.cd-props {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.cd-prow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cd-ptop {
+  gap: 12px;
+}
+.cd-nosw {
+  width: 14px;
+  flex: none;
+}
+.cd-pk {
+  width: 76px;
+  flex: none;
+}
+.cd-pv {
+  flex: 1;
+  text-align: right;
+}
+.cd-pb {
+  width: 64px;
+  text-align: right;
+}
+.cd-etch {
+  height: 2px;
+  border-top: 1px solid #808080;
+  border-bottom: 1px solid #fff;
+  margin: 2px 0;
+}
+.cd-pie {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+.cd-pie canvas {
+  display: block;
+}
+.cd-pbtn {
+  justify-content: flex-end;
+}
+.cd-tool {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cd-toolbtn {
+  display: flex;
+  justify-content: flex-end;
+}
+.cd-log {
+  flex: 1;
+  min-height: 0;
+}
+.cd-hist {
+  min-height: 0;
+}
+.cd-histlist {
+  flex: 1;
+  min-height: 80px;
+  padding: 2px;
+}
+.cd-hrow {
+  padding: 2px 3px;
+  border-bottom: 1px solid #dfdfdf;
+}
+.cd-hhead {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.cd-hparams {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 0 2px 18px;
+}
+.cd-param > .flbl {
+  width: 150px;
+}
+.cd-map {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  height: 100%;
+}
+.cd-maptop {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cd-mapbox {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: #000;
+  box-shadow: inset -1px -1px #fff, inset 1px 1px #808080, inset -2px -2px #dfdfdf, inset 2px 2px #000;
+  padding: 2px;
+}
+.cd-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+.cd-leg {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* ---------------------------------------------------------------- Save As (the 98 common dialog) */
+.sa98 {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 100%;
+  padding: 8px 8px 8px;
+}
+.sa-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sa-lbl {
+  white-space: nowrap;
+}
+.sa-tools {
+  display: flex;
+  gap: 1px;
+}
+.sa-list {
+  flex: 1;
+  min-height: 0;
+  background: #fff;
+  padding: 3px;
+  box-shadow: inset -1px -1px #fff, inset 1px 1px #808080, inset -2px -2px #dfdfdf, inset 2px 2px #000;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  overflow-x: auto;
+  overflow-y: hidden;
+  outline: none;
+}
+.sa-list.det {
+  flex-wrap: nowrap;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 2px;
+}
+.sa-file {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 17px;
+  max-width: 200px;
+  padding-right: 4px;
+  cursor: var(--cur-arrow, default);
+}
+.sa-file > .sa-fn {
+  padding: 0 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sa-file.sel > .sa-fn {
+  background: #000080;
+  color: #fff;
+}
+.sa-list.det .sa-file {
+  max-width: none;
+}
+.sa-list.det .sa-fn {
+  flex: 1;
+  min-width: 0;
+}
+.sa-sz {
+  width: 64px;
+  text-align: right;
+  padding-right: 6px;
+}
+.sa-ty {
+  width: 120px;
+}
+.sa-head {
+  display: flex;
+  height: 18px;
+  margin: -2px -2px 2px;
+}
+.sa-head > span {
+  display: flex;
+  align-items: center;
+  padding: 0 5px;
+  background: #c0c0c0;
+  box-shadow: inset -1px -1px #000, inset 1px 1px #fff, inset -2px -2px #808080;
+}
+.sa-head > .sa-fn {
+  flex: 1;
+}
+.sa-head > .sa-sz {
+  justify-content: flex-end;
+  width: 70px;
+}
+.sa-grid {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 6px 8px;
+  align-items: center;
+}
+.sa-grid .btn {
+  min-width: 75px;
+}
+.sa-grid > .field {
+  width: 100%;
+}
+.sa-vlist,
+.sa-vdet {
+  display: block;
+  width: 12px;
+  height: 10px;
+  background-repeat: no-repeat;
+}
+.sa-vlist {
+  background-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0), linear-gradient(#000 0 0), linear-gradient(#000 0 0), linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+  background-size: 4px 2px, 4px 2px, 4px 2px, 4px 2px, 4px 2px, 4px 2px;
+  background-position: 0 0, 0 4px, 0 8px, 7px 0, 7px 4px, 7px 8px;
+}
+.sa-vdet {
+  background-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+  background-size: 12px 2px, 12px 2px, 12px 2px;
+  background-position: 0 0, 0 4px, 0 8px;
+}
+.sa-batch {
+  flex: 1;
+  min-height: 80px;
+}
+.sa-opt > .flbl {
+  width: 100px;
+}
+.sa-url {
+  word-break: break-all;
+}
+
+/* ---------------------------------------------------------------- Help (98 HTML Help) */
+.hh98 {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.hh-toolbar {
+  flex: none;
+  display: flex;
+  gap: 1px;
+  padding: 2px 4px 3px;
+  border-bottom: 1px solid #808080;
+  box-shadow: 0 1px #fff;
+  margin-bottom: 4px;
+}
+.hh-big.tool {
+  flex-direction: column;
+  height: 38px;
+  min-width: 48px;
+  gap: 2px;
+  padding: 2px 4px;
+}
+.hh-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 4px;
+  padding: 0 2px 2px;
+}
+.hh-nav {
+  flex: none;
+  width: 206px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.hh-tabpage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 6px 6px;
+}
+.hh-tree {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: #fff;
+  padding: 3px;
+  box-shadow: inset -1px -1px #fff, inset 1px 1px #808080, inset -2px -2px #dfdfdf, inset 2px 2px #000;
+  outline: none;
+}
+.hh-node {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 18px;
+  white-space: nowrap;
+  cursor: var(--cur-arrow, default);
+}
+.hh-leaf {
+  padding-left: 18px;
+}
+.hh-lbl {
+  padding: 0 2px;
+}
+.hh-node.sel > .hh-lbl {
+  background: #000080;
+  color: #fff;
+}
+.hh-tree:focus .hh-node.kb > .hh-lbl {
+  outline: 1px dotted #000;
+}
+.hh-list {
+  flex: 1;
+  min-height: 0;
+}
+.hh-list .li {
+  cursor: var(--cur-arrow, default);
+  white-space: nowrap;
+}
+.hh-btnrow {
+  display: flex;
+  justify-content: flex-end;
+}
+.hh-searchrow {
+  display: flex;
+  gap: 4px;
+}
+.hh-searchrow > .field {
+  flex: 1;
+  min-width: 0;
+}
+.hh-topic.y2k {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  outline: none;
+  box-shadow: inset -1px -1px #fff, inset 1px 1px #808080, inset -2px -2px #dfdfdf, inset 2px 2px #000;
+  padding: 10px 12px;
+}
+.hh-head {
+  margin-bottom: 8px;
+}
+.hh-topic .marquee {
+  margin-bottom: 8px;
+}
+.hh-see {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+.hh-link {
+  color: #66ccff;
+  text-decoration: underline;
+  cursor: var(--cur-hand, pointer);
+}
+.hh-link:focus {
+  outline: 1px dotted #ffffff;
+}
+.hh-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  color: #c0c0c0;
+}
+
+/* ---------------------------------------------------------------- Hex Doctor */
+.hx98 {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.hx-wrap {
+  min-height: 0;
+}
+.hx-left {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 2px;
+}
+.hx-grid.hexscroll {
+  border: 0;
+  box-shadow: inset -1px -1px #fff, inset 1px 1px #808080, inset -2px -2px #dfdfdf, inset 2px 2px #000;
+  padding: 2px;
+  outline: none;
+}
+.hx-spacer {
+  position: relative;
+}
+.hx-spacer > canvas {
+  position: sticky;
+  top: 0;
+}
+.hx-keypad {
+  gap: 2px;
+}
+.hx-side.hexside {
+  width: 240px;
+  border-left: 0;
+  padding: 2px 4px 4px;
+  gap: 3px;
+}
+.hx-lbl {
+  margin-top: 2px;
+}
+.hx-side .list {
+  flex: 1;
+  min-height: 60px;
+}
+.hx-side .li.mi {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: var(--cur-arrow, default);
+}
+.hx-side .li.mi:focus {
+  background: #000080;
+  color: #fff;
+  outline: none;
+}
+.hx-segname {
+  min-width: 40px;
+}
+.hx-note {
+  flex: none;
+}
+.hx-st {
+  min-width: 70px;
+}
+.hx-goto .group > .check {
+  display: flex;
+}
+
+/* the Appearance preview: the desktop with an inactive window, an active one and a message box */
+.ap-prev {
+  position: relative;
+  height: 150px;
+  flex: none;
+  background: #008080;
+  box-shadow: inset 1px 1px #808080, inset -1px -1px #fff, inset 2px 2px #000, inset -2px -2px #dfdfdf;
+  overflow: hidden;
+}
+.ap-win {
+  position: absolute;
+  background: #c0c0c0;
+  padding: 3px;
+  box-shadow: inset -1px -1px #000, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #fff;
+}
+.ap-cap {
+  height: 18px;
+  display: flex;
+  align-items: center;
+  padding: 0 3px;
+  font-weight: 700;
+  background: linear-gradient(to right, #000080, #1084d0);
+  color: #fff;
+}
+.ap-inactive {
+  left: 10px;
+  top: 10px;
+  width: 230px;
+  height: 80px;
+}
+.ap-inactive .ap-cap {
+  background: linear-gradient(to right, #808080, #b5b5b5);
+  color: #c0c0c0;
+}
+.ap-active {
+  left: 22px;
+  top: 34px;
+  width: 260px;
+  height: 104px;
+}
+.ap-menu {
+  display: flex;
+  gap: 0;
+  height: 18px;
+  align-items: center;
+}
+.ap-menu > span {
+  padding: 0 6px;
+}
+.ap-selm {
+  background: #000080;
+  color: #fff;
+}
+.ap-text {
+  margin-top: 2px;
+  height: 52px;
+  background: #fff;
+  padding: 4px;
+  box-shadow: inset -1px -1px #fff, inset 1px 1px #808080, inset -2px -2px #dfdfdf, inset 2px 2px #000;
+}
+.ap-msg {
+  left: 120px;
+  top: 82px;
+  width: 170px;
+  height: 64px;
+}
+.ap-msgbody {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 4px;
+}
+.ap-ok {
+  min-width: 48px;
+}

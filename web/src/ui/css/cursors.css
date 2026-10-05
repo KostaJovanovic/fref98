@@ -1,0 +1,18 @@
+/* Busy cursors (ui/cursors.ts). The probe animation changes nothing visible: its animationstart tells
+   cursors.ts that a busy scope appeared, so the hourglass frames are swapped only while something is busy. */
+@keyframes cur-busy-probe {
+  from {
+    --cur-probe: 0;
+  }
+  to {
+    --cur-probe: 1;
+  }
+}
+.wm-busy,
+.cur-busy {
+  animation: cur-busy-probe 1ms;
+}
+.cur-busy,
+.cur-busy * {
+  cursor: var(--cur-wait, wait) !important;
+}

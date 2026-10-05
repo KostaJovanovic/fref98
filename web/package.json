@@ -1,0 +1,24 @@
+{
+  "name": "refragmenter-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT OR Apache-2.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build && node scripts/postbuild.mjs",
+    "preview": "vite preview",
+    "wasm": "node scripts/wasm.mjs",
+    "test": "vitest run",
+    "test:full": "npm run wasm && vitest run",
+    "shots": "node scripts/shots.mjs",
+    "font": "python scripts/build_font.py",
+    "lines": "node scripts/foldy-lines.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.2",
+    "vitest": "^4.1.11"
+  }
+}

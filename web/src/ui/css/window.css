@@ -1,0 +1,281 @@
+/* ------------------------------------------------------------------ windows (Windows 98, see docs/WIN98_METRICS.md) */
+
+.win {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  min-width: 112px;
+  min-height: 27px;
+  padding: 4px;
+  background: #c0c0c0;
+  color: #000;
+  /* window frame: outer ring #DFDFDF / #000, inner ring #FFF / #808080 */
+  box-shadow: inset -1px -1px #000, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #fff;
+}
+.win.fixed {
+  padding: 3px;
+}
+.win.max {
+  padding: 0;
+  box-shadow: none;
+}
+/* the 98 drag frame: the window stays put while a halftone outline (XOR'd onto whatever is under it) tracks the
+   pointer; the window jumps there on release */
+.drag-frame {
+  position: absolute;
+  z-index: 99999;
+  box-sizing: border-box;
+  padding: 4px;
+  pointer-events: none;
+  background: repeating-conic-gradient(#fff 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+  mix-blend-mode: difference;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+.drag-frame.fixed {
+  padding: 3px;
+}
+.win:focus-visible {
+  outline: none;
+}
+.win.hidden {
+  display: none;
+}
+/* open / close dissolve (wm.ts ditherAnim): the mask tile is drawn at device pixels, 8 UI px per tile */
+.win.anim {
+  -webkit-mask-image: var(--fade-mask);
+  mask-image: var(--fade-mask);
+  -webkit-mask-size: 8px 8px;
+  mask-size: 8px 8px;
+}
+.win.closing {
+  pointer-events: none;
+}
+.win.kbmove,
+.win.kbmove * {
+  cursor: var(--cur-move, move) !important;
+}
+
+/* caption */
+.win-title,
+.win-zoom {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 2px;
+  background: linear-gradient(to right, #000080, #1084d0);
+  color: #fff;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.win-title {
+  flex: none;
+  height: 18px;
+  margin-bottom: 1px;
+  touch-action: none;
+}
+.win:not(.active) .win-title,
+.win.active.flash .win-title,
+.win-zoom.inactive {
+  background: linear-gradient(to right, #808080, #b5b5b5);
+  color: #c0c0c0;
+}
+.win-title .ttl,
+.win-zoom .ttl {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.win-title .cap-ico {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+.win-btns {
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+.tbtn {
+  flex: none;
+  width: 16px;
+  height: 14px;
+  border: 0;
+  padding: 0;
+  background-color: #c0c0c0;
+  background-repeat: no-repeat;
+  background-size: 16px 14px;
+  cursor: var(--cur-arrow, default);
+}
+.tbtn.close {
+  margin-left: 2px;
+}
+.tbtn[data-k='min'] {
+  background-image: var(--cap-min);
+}
+.tbtn[data-k='max'] {
+  background-image: var(--cap-max);
+}
+.tbtn[data-k='restore'] {
+  background-image: var(--cap-restore);
+}
+.tbtn[data-k='close'] {
+  background-image: var(--cap-close);
+}
+.tbtn[data-k='min']:active:hover {
+  background-image: var(--cap-min-p);
+}
+.tbtn[data-k='max']:active:hover {
+  background-image: var(--cap-max-p);
+}
+.tbtn[data-k='restore']:active:hover {
+  background-image: var(--cap-restore-p);
+}
+.tbtn[data-k='close']:active:hover {
+  background-image: var(--cap-close-p);
+}
+.tbtn[data-k='min']:disabled {
+  background-image: var(--cap-min-d);
+}
+.tbtn[data-k='max']:disabled {
+  background-image: var(--cap-max-d);
+}
+.tbtn[data-k='close']:disabled {
+  background-image: var(--cap-close-d);
+}
+.tbtn:focus-visible {
+  outline: none;
+}
+
+/* the caption-zoom bar of minimise / maximise / restore */
+.win-zoom {
+  position: absolute;
+  z-index: 100000;
+  pointer-events: none;
+}
+.win-zoom img {
+  flex: none;
+}
+
+/* client area */
+.win-frame {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.win-menu {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+}
+.win-menu > button {
+  height: 18px;
+  border: 0;
+  padding: 0 6px;
+  background: transparent;
+  cursor: var(--cur-arrow, default);
+}
+.win-menu > button:hover {
+  box-shadow: inset -1px -1px #808080, inset 1px 1px #fff;
+}
+.win-menu > button.open {
+  box-shadow: inset 1px 1px #808080, inset -1px -1px #fff;
+}
+.win-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  position: relative;
+}
+.win-status {
+  flex: none;
+  display: flex;
+  gap: 2px;
+  height: 20px;
+  padding-top: 2px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.win:not(.fixed):not(.max) .win-status {
+  padding-right: 14px;
+}
+.win-status > * {
+  display: flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 4px;
+  overflow: hidden;
+  box-shadow: inset 1px 1px #808080, inset -1px -1px #fff;
+}
+.win-status > .grow {
+  flex: 1;
+}
+.win-foldy {
+  flex: none;
+  display: none;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 4px 6px;
+  border-top: 1px solid #808080;
+  background: #ffffe1;
+}
+.win-foldy.on {
+  display: flex;
+}
+
+/* sizing: 8 hit zones on the frame (corners are L-shaped by clip-path) and the status-bar grip */
+.win-rz {
+  position: absolute;
+  z-index: 3;
+  touch-action: none;
+}
+.win-grip {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 12px;
+  height: 12px;
+  z-index: 2;
+  background-image: var(--grip98);
+  background-size: 12px 12px;
+  cursor: var(--cur-nwse, nwse-resize);
+  touch-action: none;
+}
+.win.max .win-rz,
+.win.max .win-grip,
+.win.nostatus .win-grip,
+.phone .win-rz,
+.phone .win-grip {
+  display: none;
+}
+
+/* busy: after 500 ms the scope shows the working-in-background cursor; nothing is painted */
+.wm-busy,
+.wm-busy * {
+  cursor: var(--cur-wait-bg, progress) !important;
+}
+
+/* phones: full-screen sheets with a big caption and a big close button */
+.phone .win {
+  padding: 0;
+  box-shadow: none;
+}
+.phone .win-title {
+  height: 44px;
+  margin-bottom: 0;
+  padding: 0 4px 0 8px;
+  gap: 6px;
+}
+.phone .tbtn {
+  width: 48px;
+  height: 42px;
+  background-size: 48px 42px;
+}
+.phone .tbtn.min,
+.phone .tbtn.max {
+  display: none;
+}

@@ -1,0 +1,188 @@
+/* ------------------------------------------------------------------ Windows 98 menus, tooltips, balloons */
+
+.menu {
+  position: absolute;
+  z-index: 7000;
+  background: #c0c0c0;
+  color: #000;
+  /* raised window-frame bevel: outer #DFDFDF / #000, inner #FFF / #808080 */
+  box-shadow: inset -1px -1px #000, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #fff;
+  padding: 3px;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  white-space: nowrap;
+  outline: none;
+  cursor: var(--cur-arrow, default);
+}
+.menu .mi {
+  display: flex;
+  align-items: center;
+  min-height: calc(17px * var(--ts));
+  padding: 0;
+  color: #000;
+  background: transparent;
+  cursor: var(--cur-arrow, default);
+}
+.menu .mi .mck {
+  flex: none;
+  width: 20px;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.menu .mi .mck.narrow {
+  width: 20px;
+}
+.menu .mi .mck img.ico {
+  width: 16px;
+  height: 16px;
+}
+.menu .mi .mlabel {
+  flex: 1;
+  padding-right: 8px;
+}
+.menu .mi .mlabel u {
+  text-decoration: underline;
+  text-underline-offset: 1px;
+  text-decoration-thickness: 1px;
+}
+.menu .mi .macc {
+  flex: none;
+  padding: 0 4px 0 16px;
+}
+.menu .mi .marr {
+  flex: none;
+  width: 14px;
+  align-self: stretch;
+  background-repeat: no-repeat;
+  background-position: 4px center;
+}
+.menu .mi.sub .marr {
+  background-image: var(--img-g-arrow-r);
+}
+.menu .mi.chk .mck {
+  background-image: var(--img-g-check);
+}
+.menu .mi.rad .mck {
+  background-image: var(--img-g-radio);
+}
+.menu .mi.def .mlabel,
+.menu .mi.def .macc {
+  font-weight: 700;
+}
+/* highlight: navy bar, white text and glyphs */
+.menu .mi.hl {
+  background: #000080;
+  color: #fff;
+}
+.menu .mi.hl.sub .marr {
+  background-image: var(--img-g-arrow-r-w);
+}
+.menu .mi.hl.chk .mck {
+  background-image: var(--img-g-check-w);
+}
+.menu .mi.hl.rad .mck {
+  background-image: var(--img-g-radio-w);
+}
+/* disabled: embossed grey (white copy 1 px down-right); highlighted disabled items stay grey, flat */
+.menu .mi.dis {
+  color: #808080;
+}
+.menu .mi.dis .tx {
+  text-shadow: 1px 1px 0 #fff;
+}
+.menu .mi.dis.sub .marr {
+  background-image: var(--img-g-arrow-r-d);
+}
+.menu .mi.dis.chk .mck {
+  background-image: var(--img-g-check-d);
+}
+.menu .mi.dis.rad .mck {
+  background-image: var(--img-g-radio-d);
+}
+.menu .mi.dis.hl {
+  color: #808080;
+}
+.menu .mi.dis.hl .tx {
+  text-shadow: none;
+}
+.menu .mi.dis.hl.sub .marr {
+  background-image: var(--img-g-arrow-r-g);
+}
+.menu .mi.dis.hl.chk .mck {
+  background-image: var(--img-g-check-g);
+}
+.menu .mi.dis img.ico {
+  filter: grayscale(1) contrast(0.5);
+}
+.mhead {
+  padding: 2px 6px 1px 20px;
+  color: #000;
+  font-weight: 700;
+}
+/* etched separator: 1 px #808080 over 1 px #FFFFFF */
+.msep {
+  height: 2px;
+  margin: 3px 1px 4px;
+  border-top: 1px solid #808080;
+  border-bottom: 1px solid #fff;
+}
+
+/* menu-bar titles: mnemonic underline like the popup items; while a menu is open, hovering just tracks */
+.win-menu u {
+  text-decoration: underline;
+  text-underline-offset: 1px;
+  text-decoration-thickness: 1px;
+}
+.win-menu > button.open:hover {
+  box-shadow: inset 1px 1px #808080, inset -1px -1px #fff;
+}
+
+/* list rows that borrow the menu look (Hex Doctor's segment list) */
+button.mi {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px;
+  border: 0;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  white-space: nowrap;
+}
+button.mi:hover,
+button.mi:focus-visible {
+  background: #000080;
+  color: #fff;
+}
+
+/* ------------------------------------------------------------------ tooltip (98: #FFFFE1, 1 px black) */
+.tooltip {
+  position: absolute;
+  z-index: 9500;
+  background: #ffffe1;
+  color: #000;
+  border: 1px solid #000;
+  padding: 1px 3px 2px;
+  max-width: 320px;
+  white-space: pre-line;
+  pointer-events: none;
+}
+.tooltip.help {
+  /* the "What's This?" popup is wider and wraps */
+  padding: 4px 6px;
+  max-width: 280px;
+}
+
+.balloon {
+  position: absolute;
+  z-index: 6500;
+  background: #ffffe1;
+  border: 1px solid #000;
+  padding: 6px 8px;
+  max-width: 280px;
+}

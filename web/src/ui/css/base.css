@@ -1,0 +1,141 @@
+/* File Refragmenter — an original XP-era homage. Everything is pixel-exact: bitmap font at whole sizes, no
+   border-radius, no blur, no alpha blending (checkerboard screen-door instead), nearest-neighbour scaling.
+   Art images are generated at runtime (src/ui/art.ts) and handed in as custom properties. */
+
+@font-face {
+  font-family: 'Refragmenter Pixel';
+  src: url('../../assets/fonts/refrag-pixel.ttf') format('truetype');
+  font-weight: 400;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Refragmenter Pixel';
+  src: url('../../assets/fonts/refrag-pixel-bold.ttf') format('truetype');
+  font-weight: 700;
+  font-display: block;
+}
+
+:root {
+  /* Windows 98 "Windows Standard" scheme (docs/WIN98_METRICS.md) */
+  --face: #c0c0c0;
+  --face-hi: #ffffff;
+  --face-lo: #808080;
+  --face-dk: #404040;
+  --frame: #0054e3;
+  --frame-in: #7aa6e8;
+  --sel: #000080;
+  --sel-text: #ffffff;
+  --text: #000000;
+  --link: #0000ff;
+  --field-border: #808080;
+  --btn-border: #000000;
+  --taskbar-h: 30px;
+  --title-h: 22px;
+  --tick: 13px;
+  --ts: 1;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+}
+
+body {
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+.svgdefs {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+#app {
+  position: relative;
+  overflow: hidden;
+  font-family: 'Refragmenter Pixel', monospace;
+  font-size: calc(13px * var(--ts));
+  line-height: calc(16px * var(--ts));
+  color: var(--text);
+  cursor: var(--cur-arrow, default);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  text-rendering: optimizeSpeed;
+  font-kerning: none;
+  font-synthesis: none;
+}
+
+/* The crisp-text trick: glyphs render on a transparent layer, then their alpha is thresholded to 0 or 1. */
+.tx {
+  filter: url(#crisp);
+}
+
+img,
+canvas,
+.px {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+img.ico {
+  display: inline-block;
+  vertical-align: middle;
+  flex: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+  margin: 0;
+}
+
+a,
+.link {
+  color: var(--link);
+  text-decoration: underline;
+  cursor: var(--cur-hand, pointer);
+}
+
+button,
+[role='button'],
+.dicon,
+.task,
+.mi,
+.sm-item,
+.tab,
+.li,
+.card-tile {
+  /* 98: buttons, icons and menu items use the arrow; only hyperlinks get the hand */
+  cursor: var(--cur-arrow, default);
+}
+
+input:not([type]),
+input[type='text'],
+input[type='number'],
+input[type='search'],
+input[type='password'],
+textarea,
+[contenteditable='true'] {
+  cursor: var(--cur-text, text);
+}
+
+:focus {
+  outline: none;
+}
+:focus-visible {
+  outline: 1px dotted #000;
+  outline-offset: -3px;
+}
