@@ -17,7 +17,7 @@ import { toRecipe, canShareAsLink, linkRecipe, recipeToFragment, APP_VERSION } f
 import type { StackNode } from '../engine/stack';
 import { contactSheet, canvasToPng, type SheetStyle } from '../contact';
 import { canEncodeMp4, encodeMp4 } from '../engine/mp4';
-import { errorBox, message, progressDialog, progressDone } from '../ui/dialog';
+import { errorBox, message, confirmBox, progressDialog, progressDone } from '../ui/dialog';
 import { registerContext } from '../ui/contextmenu';
 import { dialog98 } from './tools98';
 import * as bus from '../bus';
@@ -125,17 +125,12 @@ class SaveAs {
         for (const u of this.unreg) u();
         sa = null;
       },
-    });
-    body.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        e.stopPropagation();
-        this.win.close();
-      } else if (e.key === 'Enter' && (e.target === this.nameInput || e.target === this.list)) {
-        e.preventDefault();
-        if (e.target === this.list && this.selName) this.name = this.selName.replace(/\.[^.]+$/, '');
+      // Enter is Save (from the file list: save under the picked name)
+      enter: (t) => {
+        if (t === this.list && this.selName) this.name = this.selName.replace(/\.[^.]+$/, '');
         void this.save();
-      }
+      },
+      esc: () => this.win.close(),
     });
     this.unreg.push(
       registerContext('.sa-list .sa-file', (t) => {
@@ -259,7 +254,7 @@ class SaveAs {
     }
     // (My Pictures keeps every save as a new picture, so only Downloads can "replace")
     const exists = this.place === 'downloads' && savedNames.some((f) => f.name.toLowerCase() === file.toLowerCase());
-    if (exists && !(await yesNo('Save As', `${file} already exists.\nDo you want to replace it?`))) return;
+    if (exists && !(await confirmBox('Save As', `${file} already exists.\nDo you want to replace it?`, 'Yes', 'warning', 'No'))) return;
     const name = file.replace(/\.[^.]+$/, '');
     const place = this.place;
     this.win.close();
@@ -290,20 +285,6 @@ class SaveAs {
   }
 }
 
-function yesNo(title: string, text: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    let done = false;
-    const w = message(title, text, 'warning', [
-      { label: 'Yes', primary: true, run: () => ((done = true), resolve(true)) },
-      { label: 'No', run: () => ((done = true), resolve(false)) },
-    ]);
-    const prev = w.opts.onClose;
-    w.opts.onClose = () => {
-      if (!done) resolve(false);
-      return prev?.();
-    };
-  });
-}
 
 // ------------------------------------------------------------------ the options dialogs
 

@@ -928,16 +928,7 @@ export function propertySheet(p: PropSheet): Win {
   const cancel = h('button', { class: 'btn', type: 'button', onclick: () => win.close() }, 'Cancel');
   apply.addEventListener('click', () => void commit());
   const body = h('div', { class: 'xw-props' }, tabBar, page, h('div', { class: 'xw-pbtns' }, ok, cancel, apply));
-  body.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      win.close();
-    } else if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'BUTTON') {
-      e.preventDefault();
-      ok.click();
-    }
-  });
-  win = openWindow({ id: p.id, title: p.title, icon: p.icon, body, width: 362, height: 420, resizable: false });
+  win = openWindow({ id: p.id, title: p.title, icon: p.icon, body, width: 362, height: 420, resizable: false, enter: () => ok.click(), esc: () => win.close() });
   requestAnimationFrame(() => {
     // fit the sheet to its General page
     const need = Math.min(body.scrollHeight + 25, 600);

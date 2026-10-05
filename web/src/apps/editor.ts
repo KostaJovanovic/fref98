@@ -288,7 +288,7 @@ class Editor {
     const CI = (globalThis as { ClipboardItem?: typeof ClipboardItem }).ClipboardItem;
     const fail = () =>
       message('Copy', 'This browser doesn’t let a web page put pictures on the clipboard. Use Export… to save the picture instead.', 'info', [
-        { label: 'Export…', run: () => openApp('export') },
+        { label: 'Export…', run: () => void openApp('export') },
         { label: 'OK', primary: true },
       ]);
     if (!CI || !navigator.clipboard?.write) return void fail();
@@ -362,10 +362,8 @@ class Editor {
 
   private renderTabs() {
     const t = tabs(['Simple', 'Expert'], this.tab, (i) => this.setTab(i));
-    const hadFocus = this.tabBar.contains(document.activeElement);
     this.tabBar.replaceWith(t);
     this.tabBar = t;
-    if (hadFocus) (t.querySelector('.tab.on') as HTMLElement | null)?.focus();
   }
 
   // ------------------------------------------------------------------ panels

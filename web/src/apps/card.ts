@@ -92,6 +92,8 @@ class CardWindow {
   private showDeleted = true;
   private sel = new Set<string>();
   private anchor: string | null = null;
+  /** The item the keyboard is on (Shift+arrows move it, the anchor stays). */
+  private focusKey: string | null = null;
   private label = 'REFRAG';
   private items: Item[] = [];
   private busy = false;
@@ -357,6 +359,8 @@ class CardWindow {
   // ------------------------------------------------------------ selection and keys
 
   private click(key: string, ctrl: boolean, shift: boolean) {
+    // Shift extends from the anchor, which stays put; the arrows then move on from the focused item
+    this.focusKey = key;
     if (shift && this.anchor) {
       const keys = this.items.map((i) => i.key);
       const a = keys.indexOf(this.anchor);
@@ -395,7 +399,8 @@ class CardWindow {
     });
     this.list.addEventListener('keydown', (e) => {
       const keys = this.items.map((i) => i.key);
-      const cur = this.anchor ? keys.indexOf(this.anchor) : -1;
+      const focus = this.focusKey ?? this.anchor;
+      const cur = focus ? keys.indexOf(focus) : -1;
       const step = (d: number) => {
         e.preventDefault();
         const j = Math.max(0, Math.min(keys.length - 1, cur + d));
@@ -404,16 +409,25 @@ class CardWindow {
           this.list.querySelector<HTMLElement>(`.cd-item[data-key="${keys[j]}"]`)?.scrollIntoView({ block: 'nearest' });
         }
       };
-      const across = this.view === 'details' ? 1 : Math.max(1, Math.floor(this.list.clientWidth / 76));
-      if (e.key === 'ArrowRight') step(this.view === 'details' ? 0 : 1);
+      // items per row, as laid out (icons and thumbnails have different widths)
+      const across = () => {
+        const its = [...this.list.querySelectorAll<HTMLElement>('.cd-item')];
+        let n = 0;
+        while (n < its.length && its[n].offsetTop === its[0].offsetTop) n++;
+        return Math.max(1, n);
+      };
+      if (e.altKey && e.key === 'Enter') {
+        e.preventDefault();
+        this.properties();
+      } else if (e.key === 'ArrowRight') step(this.view === 'details' ? 0 : 1);
       else if (e.key === 'ArrowLeft') step(this.view === 'details' ? 0 : -1);
-      else if (e.key === 'ArrowDown') step(across);
-      else if (e.key === 'ArrowUp') step(-across);
+      else if (e.key === 'ArrowDown') step(across());
+      else if (e.key === 'ArrowUp') step(-across());
       else if (e.key === 'Home') step(-keys.length);
       else if (e.key === 'End') step(keys.length);
-      else if (e.key === 'Enter' && this.anchor) {
+      else if (e.key === 'Enter' && focus) {
         e.preventDefault();
-        this.openItem(this.anchor);
+        this.openItem(focus);
       } else if (e.key === 'Delete') {
         e.preventDefault();
         void this.deleteSelected();
@@ -423,9 +437,6 @@ class CardWindow {
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
         e.preventDefault();
         this.selectAll();
-      } else if (e.altKey && e.key === 'Enter') {
-        e.preventDefault();
-        this.properties();
       }
     });
   }
@@ -446,7 +457,7 @@ class CardWindow {
     }
     this.folder = f;
     this.sel.clear();
-    this.anchor = null;
+    this.anchor = this.focusKey = null;
     if (f === 'rebuilt' && this.view === 'large') this.view = 'thumbs';
     if (f === 'root' && (this.view === 'thumbs' || this.view === 'sheet')) this.view = 'large';
     this.render();
@@ -623,7 +634,7 @@ class CardWindow {
   private itemMenu(key: string): MenuItem[] {
     if (!this.sel.has(key)) {
       this.sel = new Set([key]);
-      this.anchor = key;
+      this.anchor = this.focusKey = key;
       this.syncSel();
     }
     const it = this.item(key);

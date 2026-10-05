@@ -6,6 +6,7 @@ import { iconImg } from '../ui/art';
 import { checkbox, numberField, selectField, slider, textField, button } from '../ui/controls';
 import { showMenu, type MenuItem } from '../ui/menu';
 import { toUi } from '../ui/scale';
+import { trackDrag } from '../ui/wm-drag';
 import type { ParamInfo, StepInfo } from '../engine/types';
 import { makeRepeat, makeStep, moveNode, removeNode, replaceNode, reencodeMarkers, findNode, type NodeResult, type StackNode, type StepItem } from '../engine/stack';
 import { newSeed } from '../engine/hash';
@@ -344,10 +345,15 @@ export class StackView {
     grid.addEventListener('pointerdown', (e) => {
       grid.setPointerCapture(e.pointerId);
       paint(e);
+      // every move paints (no frame batching: a fast stroke must not skip cells)
       const mv = (ev: PointerEvent) => paint(ev);
-      const up = () => (grid.removeEventListener('pointermove', mv), grid.removeEventListener('pointerup', up));
+      const ends = ['pointerup', 'pointercancel', 'lostpointercapture'] as const;
+      const up = () => {
+        grid.removeEventListener('pointermove', mv);
+        for (const k of ends) grid.removeEventListener(k, up);
+      };
       grid.addEventListener('pointermove', mv);
-      grid.addEventListener('pointerup', up);
+      for (const k of ends) grid.addEventListener(k, up);
     });
     const fill = (f: (i: number, v: number) => number) => {
       for (let i = 0; i < 64; i++) {
@@ -371,12 +377,11 @@ export class StackView {
   private bindDrag(grip: HTMLElement, item: HTMLElement, index: number) {
     grip.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      grip.setPointerCapture(e.pointerId);
       item.classList.add('drag');
       let target = index;
+      const y0 = toUi(e).y;
       const rows = () => [...this.list.children].filter((c) => (c as HTMLElement).classList.contains('sitem')) as HTMLElement[];
-      const mv = (ev: PointerEvent) => {
-        const y = toUi(ev).y;
+      const track = (y: number) => {
         const rs = rows();
         target = rs.length;
         for (let i = 0; i < rs.length; i++) {
@@ -389,19 +394,19 @@ export class StackView {
         }
         rs.forEach((r, i) => r.classList.toggle('dropbefore', i === target && i !== index && i !== index + 1));
       };
-      const up = () => {
-        grip.removeEventListener('pointermove', mv);
-        grip.removeEventListener('pointerup', up);
+      trackDrag(e, grip, toUi, (_dx, dy) => track(y0 + dy), (_dx, dy, moved, cancelled) => {
         item.classList.remove('drag');
         for (const r of rows()) r.classList.remove('dropbefore');
-        let to = target > index ? target - 1 : target;
+        // a cancelled touch (a scroll or a system gesture took it) moves nothing
+        if (!moved || cancelled) return;
+        track(y0 + dy);
+        for (const r of rows()) r.classList.remove('dropbefore');
+        const to = target > index ? target - 1 : target;
         if (to !== index) {
           this.focusUid = item.dataset.uid!;
           this.commit(moveNode(this.o.get(), index, to), null, true);
         }
-      };
-      grip.addEventListener('pointermove', mv);
-      grip.addEventListener('pointerup', up);
+      });
     });
   }
 

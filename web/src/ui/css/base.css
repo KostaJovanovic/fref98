@@ -33,6 +33,16 @@
   --title-h: 22px;
   --tick: 13px;
   --ts: 1;
+  /* stacking layers, bottom to top (windows are 10 + their place in the window list, see ui/wm.ts) */
+  --z-taskbar: 5000;
+  --z-balloon: 6500;
+  --z-menu: 7000;
+  --z-combo-list: 7100;
+  --z-saver: 9000;
+  --z-tooltip: 9500;
+  --z-drag-frame: 99999;
+  --z-win-zoom: 100000;
+  --z-splash: 2147483000;
 }
 
 * {

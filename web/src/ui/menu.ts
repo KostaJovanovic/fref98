@@ -4,8 +4,9 @@
 // No shadow, navy highlight, embossed grey disabled items, 98 check marks, radio bullets and etched lines.
 import { h, tx } from './dom';
 import { iconImg } from './art';
-import { ui } from './scale';
-import { placeAtPoint, placeBelow, placeSubmenu, parseMnemonic, mnemonicKey, nextIndex, type Box } from './uimath';
+import { ui, uiRect } from './scale';
+import { popupLifecycle, closePopup } from './popup';
+import { placeAtPoint, placeBelow, placeSubmenu, parseMnemonic, mnemonicKey, nextIndex } from './uimath';
 
 export interface MenuItem {
   /** Text; a single & marks the mnemonic letter ("&Open"), && is a literal &. */
@@ -66,7 +67,6 @@ interface Session {
 let session: Session | null = null;
 let layer: HTMLElement | null = null;
 let pendingKeyboard = false;
-const otherPopups = new Set<() => void>();
 
 export function setMenuLayer(el: HTMLElement) {
   layer = el;
@@ -76,12 +76,6 @@ export function setMenuLayer(el: HTMLElement) {
 /** The overlay layer menus, drop-down lists and tooltips are placed in (the app root). */
 export function menuLayer(): HTMLElement | null {
   return layer;
-}
-
-/** Other popups (drop-down lists) register a closer, so opening a menu closes them. */
-export function trackPopup(close: () => void): () => void {
-  otherPopups.add(close);
-  return () => otherPopups.delete(close);
 }
 
 export function closeMenu() {
@@ -108,14 +102,6 @@ export function mnemonicLabel(label: string): HTMLSpanElement {
     sp.append(m.text.slice(0, m.index), u, m.text.slice(m.index + 1));
   }
   return sp;
-}
-
-/** UI-pixel rect of an element relative to the menu layer. */
-function boxOf(el: Element): Box {
-  const r = el.getBoundingClientRect();
-  const rr = layer!.getBoundingClientRect();
-  const f = rr.width / ui.w || 1;
-  return { x: (r.left - rr.left) / f, y: (r.top - rr.top) / f, w: r.width / f, h: r.height / f };
 }
 
 function buildLevel(items: MenuItem[], parent: Level | null, opts: MenuOpts): Level {
@@ -258,7 +244,7 @@ function openChild(lv: Level, i: number, keyboard: boolean) {
   const W = ui.w;
   const H = ui.h;
   c.el.style.maxHeight = H + 'px';
-  const p = placeSubmenu(boxOf(row), boxOf(lv.el), c.el.offsetWidth, Math.min(c.el.offsetHeight, H), W, H);
+  const p = placeSubmenu(uiRect(row), uiRect(lv.el), c.el.offsetWidth, Math.min(c.el.offsetHeight, H), W, H);
   c.el.style.left = p.x + 'px';
   c.el.style.top = p.y + 'px';
   lv.child = c;
@@ -355,8 +341,7 @@ function inMenus(t: Node | null): boolean {
 }
 
 function openSession(items: MenuItem[], place: (w: number, h: number) => { x: number; y: number }, opts: MenuOpts, anchor: HTMLElement | null): () => void {
-  session?.close(false);
-  for (const c of otherPopups) c();
+  closePopup();
   if (!layer) return () => {};
   const keyboard = opts.keyboard ?? pendingKeyboard;
   const prevFocus = session ? null : (document.activeElement as HTMLElement | null);
@@ -395,7 +380,7 @@ function openSession(items: MenuItem[], place: (w: number, h: number) => { x: nu
     s.close(false);
     t.click();
   };
-  const onResize = () => s.close(false);
+  let end = () => {};
   let closed = false;
   const s: Session = {
     root,
@@ -406,9 +391,7 @@ function openSession(items: MenuItem[], place: (w: number, h: number) => { x: nu
     close: (restoreFocus = true) => {
       if (closed) return;
       closed = true;
-      removeEventListener('pointerdown', onDown, true);
-      removeEventListener('keydown', onKey, true);
-      removeEventListener('resize', onResize);
+      end();
       bar?.removeEventListener('pointerover', onBarOver);
       closeChild(root);
       if (root.openTimer) clearTimeout(root.openTimer);
@@ -425,9 +408,7 @@ function openSession(items: MenuItem[], place: (w: number, h: number) => { x: nu
     },
   };
   session = s;
-  setTimeout(() => !closed && addEventListener('pointerdown', onDown, true), 0);
-  addEventListener('keydown', onKey, true);
-  addEventListener('resize', onResize);
+  end = popupLifecycle({ close: () => s.close(false), onOutside: onDown, onKey });
   bar?.addEventListener('pointerover', onBarOver);
   root.el.focus({ preventScroll: true });
   if (keyboard) setHl(root, firstSelectable(root));
@@ -444,7 +425,7 @@ export function showMenu(items: MenuItem[], x: number, y: number, opts: MenuOpts
  *  and Left/Right walk along it. */
 export function menuAt(anchor: HTMLElement, items: MenuItem[], opts: MenuOpts = {}): () => void {
   if (!layer) return () => {};
-  const a = boxOf(anchor);
+  const a = uiRect(anchor);
   return openSession(items, (w, hh) => placeBelow(a, w, hh, ui.w, ui.h), { minWidth: anchor.closest('[role="menubar"]') ? undefined : Math.round(a.w), ...opts }, anchor);
 }
 

@@ -399,9 +399,7 @@ function ownSteps(p: PhotoData) {
     maskEraser: () => false,
   });
   const body = h('div', { class: 'pad col' }, h('p', null, `Steps applied to "${p.name}" whenever another step borrows it (as a donor header, a neighbour on the card, …). One level only.`), sv.el);
-  const w = openWindow({ id, title: `Own steps: ${p.name}`, icon: 'presets', body, width: 380, height: 420 });
   const un = store.on(() => sv.render());
-  const prev = w.opts.onClose;
-  w.opts.onClose = () => (un(), prev?.());
+  openWindow({ id, title: `Own steps: ${p.name}`, icon: 'presets', body, width: 380, height: 420, onClose: () => void un() });
   sv.render(true);
 }

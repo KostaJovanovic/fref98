@@ -195,20 +195,21 @@ export function shutDown() {
   );
   const desk = document.querySelector<HTMLElement>('.desktop');
   const dim = h('div', { class: 'shutdown-dim', 'aria-hidden': 'true' });
-  const w = message('Shut Down File Refragmenter', body, 'shutdown', [
-    { label: 'OK', primary: true, run: () => void doShutDown(choice) },
-    { label: 'Cancel' },
-    { label: 'Help', run: () => void openApp('help') },
-  ]);
+  const w = message(
+    'Shut Down File Refragmenter',
+    body,
+    'shutdown',
+    [
+      { label: 'OK', primary: true, run: () => void doShutDown(choice) },
+      { label: 'Cancel' },
+      { label: 'Help', run: () => void openApp('help') },
+    ],
+    { onClose: () => dim.remove() },
+  );
   if (desk && w.el.parentElement === desk) {
     dim.style.zIndex = w.el.style.zIndex;
     desk.insertBefore(dim, w.el);
   }
-  const prev = w.opts.onClose;
-  w.opts.onClose = () => {
-    dim.remove();
-    return prev?.();
-  };
 }
 
 async function doShutDown(choice: 'close' | 'restart' | 'clear') {

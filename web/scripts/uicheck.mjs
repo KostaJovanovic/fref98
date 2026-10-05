@@ -89,9 +89,12 @@ async function audits(tag) {
 await audits('all apps open');
 
 // ------------------------------------------------------------------ right-click surfaces
-async function rightClick(name, find) {
-  await pg.keyboard.press('Escape');
-  await pg.waitForTimeout(100);
+async function rightClick(name, find, esc = true) {
+  // (Esc closes an open menu, and also a dialog that has the focus)
+  if (esc) {
+    await pg.keyboard.press('Escape');
+    await pg.waitForTimeout(100);
+  }
   const pt = await pg.evaluate(find);
   if (!pt || (!pt.x && !pt.y)) return check(`right-click: ${name}`, false, pt?.what ?? 'no target found');
   const before = await pg.evaluate(() => window.__cm.length);
@@ -140,7 +143,7 @@ await rightClick('text field', () => {
   if (!f) return { x: 0, y: 0, what: `none of ${all.length} inputs reachable: ` + all.map((i) => { const r = i.getBoundingClientRect(); return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.className; }).join(',') };
   const r = f.getBoundingClientRect();
   return { x: r.left + r.width / 2, y: r.top + r.height / 2, what: 'input[type=' + f.type + ']' };
-});
+}, false);
 await rightClick('taskbar', () => {
   const t = document.querySelector('.taskbar');
   if (!t) return null;
@@ -292,6 +295,118 @@ await pg.waitForTimeout(300);
     }
   }
 }
+// 5. dialog keys and focus (audit B5)
+{
+  const active = () => pg.evaluate(() => {
+    const a = document.activeElement;
+    const w = a?.closest('.win');
+    return { inActive: !!w && w.classList.contains('active'), msg: !!w?.querySelector('.msgbox'), tag: a?.tagName, label: a?.getAttribute('aria-label') ?? '', tab: a?.classList.contains('tab') ? a.textContent : null };
+  });
+  const liveBoxes = () => pg.locator('.win:not(.closing) .msgbox').count();
+  await pg.evaluate(() => window.__refrag.openApp('export'));
+  await pg.waitForTimeout(500);
+  const name = pg.locator('.win.active .sa-grid .field > input').first();
+  await name.click();
+  const newFolder = pg.locator('.win.active [aria-label="Create New Folder"]');
+  const openBox = async () => {
+    await newFolder.click();
+    await pg.waitForTimeout(400);
+  };
+  // 01-2: with the focus on the caption (a click there), Esc and Enter still reach the box
+  await openBox();
+  await pg.locator('.win.active .win-title .ttl').click();
+  await pg.keyboard.press('Escape');
+  await pg.waitForTimeout(300);
+  check('Esc closes a message box after a click on its caption', (await liveBoxes()) === 0);
+  await openBox();
+  await pg.locator('.win.active .win-title .ttl').click();
+  await pg.keyboard.press('Enter');
+  await pg.waitForTimeout(300);
+  check('Enter presses the default button with the focus on the caption', (await liveBoxes()) === 0);
+  // 01-3: Tab and Shift+Tab stay inside the modal box
+  await openBox();
+  let inside = true;
+  for (const k of ['Tab', 'Tab', 'Tab', 'Shift+Tab', 'Shift+Tab', 'Shift+Tab', 'Shift+Tab']) {
+    await pg.keyboard.press(k);
+    const a = await active();
+    inside &&= a.inActive && a.msg;
+  }
+  check('Tab and Shift+Tab stay inside a modal message box', inside);
+  // 01-5: closing it gives the focus back to the control that had it (the button that opened it)
+  await pg.keyboard.press('Escape');
+  await pg.waitForTimeout(300);
+  const back = await active();
+  check('closing a modal box puts the focus back on the owner’s control', back.inActive && back.label === 'Create New Folder' && !back.msg, JSON.stringify(back));
+  await pg.keyboard.press('Escape');
+  await pg.waitForTimeout(300);
+  check('Esc closes Save As', (await pg.locator('.win:not(.closing)[aria-label="Save As"]').count()) === 0);
+
+  // 02-13 + 06-16: tabs keep the focus on the arrow keys; Ctrl+PgDn/PgUp switch tabs
+  await pg.evaluate(() => window.__refrag.openApp('display'));
+  await pg.waitForTimeout(500);
+  await pg.locator('.win.active .tab', { hasText: 'Background' }).click();
+  await pg.keyboard.press('ArrowRight');
+  await pg.keyboard.press('ArrowRight');
+  const t2 = await active();
+  check('arrow keys walk along the tabs with the focus on them', t2.tab === 'Appearance', JSON.stringify(t2));
+  await pg.keyboard.press('Control+PageDown');
+  const t3 = await pg.locator('.win.active .tab.on').textContent();
+  check('Ctrl+PgDn picks the next tab', t3 === 'Settings', String(t3));
+  await pg.keyboard.press('Escape');
+  await pg.waitForTimeout(300);
+
+  // 06-3: Ctrl+O runs the editor's own Open (our file picker), never the browser's Open dialog
+  await pg.evaluate(() => window.__refrag.openApp('editor'));
+  await pg.waitForTimeout(400);
+  await pg.locator('.win.active .win-title .ttl').click();
+  const chooser = pg.waitForEvent('filechooser', { timeout: 2000 }).then(() => true, () => false);
+  await pg.keyboard.press('Control+o');
+  check('Ctrl+O opens the active window’s Open command', await chooser);
+
+  // 01-18: closing a window during keyboard Move ends the move (no outline left behind)
+  await pg.evaluate(() => window.__refrag.openApp('about'));
+  await pg.waitForTimeout(500);
+  await pg.keyboard.press('Alt+Space');
+  await pg.waitForTimeout(150);
+  await pg.keyboard.press('m');
+  await pg.waitForTimeout(100);
+  const framed = await pg.locator('.drag-frame').count();
+  await pg.keyboard.press('Alt+F4');
+  await pg.waitForTimeout(300);
+  check('closing a window ends its keyboard Move', framed === 1 && (await pg.locator('.drag-frame').count()) === 0, `frame before ${framed}`);
+
+  // 01-8: a drag whose pointer capture is lost drops its outline frame
+  await pg.evaluate(() => window.__refrag.openApp('about'));
+  await pg.waitForTimeout(500);
+  const cap = await pg.locator('.win.active .win-title .ttl').boundingBox();
+  await pg.mouse.move(cap.x + 4, cap.y + 4);
+  await pg.mouse.down();
+  await pg.mouse.move(cap.x + 40, cap.y + 30, { steps: 4 });
+  await pg.waitForTimeout(100);
+  const dragging = await pg.locator('.drag-frame').count();
+  await pg.evaluate(() => document.querySelector('.win.active .win-title').dispatchEvent(new PointerEvent('lostpointercapture', { pointerId: 1 })));
+  await pg.waitForTimeout(50);
+  check('a drag that loses its pointer capture ends', dragging === 1 && (await pg.locator('.drag-frame').count()) === 0, `frame before ${dragging}`);
+  await pg.mouse.up();
+  await pg.keyboard.press('Alt+F4');
+  await pg.waitForTimeout(300);
+
+  // 01-14: a window maximised on a bigger screen restores inside the smaller one
+  await pg.evaluate(() => window.__refrag.openApp('help'));
+  await pg.waitForTimeout(500);
+  await pg.evaluate(() => (document.querySelector('.win.active').style.left = '1100px'));
+  await pg.locator('.win.active .tbtn.max').click();
+  await pg.waitForTimeout(400);
+  await pg.setViewportSize({ width: 900, height: 700 });
+  await pg.waitForTimeout(400);
+  await pg.locator('.win.active .tbtn.max').click();
+  await pg.waitForTimeout(500);
+  const rb = await pg.locator('.win.active').boundingBox();
+  check('restore keeps the window on a screen that shrank', rb.x >= 0 && rb.x + rb.width <= 900, JSON.stringify(rb));
+  await pg.setViewportSize({ width: 1280, height: 800 });
+  await pg.waitForTimeout(400);
+}
+
 await audits('after interaction');
 await shot(pg, 'desktop');
 
