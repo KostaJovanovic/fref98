@@ -89,25 +89,31 @@ fn predict(num: i64, qk: i64, al: i32) -> i16 {
 /// coefficients (and, with no AC data at all, the DC itself) from neighbouring DC values.
 /// `turbo` = libjpeg-turbo >= 2.1 (5x5 window, 9 coefficients, DC interpolation, kernels
 /// measured against libjpeg-turbo 3); otherwise IJG 6b (3x3 window, 5 coefficients, K.8).
-fn smooth(img: &CoeffImage, parsed: &Parsed, turbo: bool) -> Option<Vec<Vec<i16>>> {
+const SMOOTH_POS: [usize; 10] = [0, 1, 8, 16, 9, 2, 3, 10, 17, 24];
+
+/// Whether block smoothing applies to this image at all (decided once for every component).
+fn smoothing_applies(img: &CoeffImage, parsed: &Parsed, turbo: bool) -> bool {
     if !parsed.meta.progressive || parsed.coef_bits.len() != img.comps.len() {
-        return None;
+        return false;
     }
-    const POS: [usize; 10] = [0, 1, 8, 16, 9, 2, 3, 10, 17, 24];
     let ncoef = if turbo { 10 } else { 6 };
     let mut useful = false;
     for (ci, c) in img.comps.iter().enumerate() {
         let cb = &parsed.coef_bits[ci];
-        if POS[..ncoef].iter().any(|&i| c.q[i] == 0) || cb[0] < 0 {
-            return None;
+        if SMOOTH_POS[..ncoef].iter().any(|&i| c.q[i] == 0) || cb[0] < 0 {
+            return false;
         }
         useful |= (1..ncoef).any(|k| cb[k] != 0);
     }
-    if !useful {
-        return None;
-    }
-    let mut out = Vec::with_capacity(img.comps.len());
-    for (ci, c) in img.comps.iter().enumerate() {
+    useful
+}
+
+/// The smoothed coefficients of component `ci` (call only when `smoothing_applies`). One component
+/// at a time, so a large image never holds a smoothed copy of every plane at once.
+fn smooth(img: &CoeffImage, parsed: &Parsed, turbo: bool, ci: usize) -> Vec<i16> {
+    const POS: [usize; 10] = SMOOTH_POS;
+    {
+        let c = &img.comps[ci];
         let cur = parsed.coef_bits[ci];
         // libjpeg-turbo: below the last iMCU row that got real data, the previous scan's state.
         let mut prev = cur;
@@ -234,9 +240,8 @@ fn smooth(img: &CoeffImage, parsed: &Parsed, turbo: bool) -> Option<Vec<Vec<i16>
                 }
             }
         }
-        out.push(data);
+        data
     }
-    Some(out)
 }
 
 /// Inverse DCT of a whole component into a block-padded plane. `simd` selects libjpeg-turbo's
@@ -253,7 +258,8 @@ pub fn idct_comp(c: &Comp, coef: &[i16], simd: bool) -> Plane8 {
             // Each coefficient moves a pixel by at most |deq|/4, and the C range limit only wraps
             // beyond +-512 around 128, so below a sum of ~2048 both variants agree; only take
             // the slower SIMD emulation for blocks with large coefficients.
-            if simd && blk.iter().zip(c.q.iter()).map(|(&v, &q)| (v as i32 * q as i32).unsigned_abs()).sum::<u32>() > 1900 {
+            // (u64: 64 coefficients of up to 32767 x 65535 overflow a u32 sum.)
+            if simd && blk.iter().zip(c.q.iter()).map(|(&v, &q)| (v as i64 * q as i64).unsigned_abs()).sum::<u64>() > 1900 {
                 idct_islow_simd(blk, &c.q, &mut p.data[off..], w);
             } else {
                 idct_islow(blk, &c.q, &mut p.data[off..], w);
@@ -264,15 +270,17 @@ pub fn idct_comp(c: &Comp, coef: &[i16], simd: bool) -> Plane8 {
 }
 
 pub fn render_planes(img: &CoeffImage, parsed: &Parsed, opts: &DecodeOpts) -> Planes {
-    let smoothed = smooth(img, parsed, opts.personality != Personality::Gdiplus);
-    let up = UpOpts { fancy: opts.fancy, fancy_h1v2: opts.personality != Personality::Gdiplus };
+    let turbo = opts.personality != Personality::Gdiplus;
+    let smoothing = smoothing_applies(img, parsed, turbo);
+    let up = UpOpts { fancy: opts.fancy, fancy_h1v2: turbo };
     let planes = img
         .comps
         .iter()
         .enumerate()
         .map(|(ci, c)| {
-            let coef = smoothed.as_ref().map(|s| &s[ci][..]).unwrap_or(&c.coef[..]);
-            let p = idct_comp(c, coef, opts.personality != Personality::Gdiplus);
+            let smoothed = smoothing.then(|| smooth(img, parsed, turbo, ci));
+            let coef = smoothed.as_deref().unwrap_or(&c.coef[..]);
+            let p = idct_comp(c, coef, turbo);
             let (dw, dh) = c.sample_dims(img);
             if img.comps.len() == 1 {
                 upsample(&p, dw.max(img.width), dh.max(img.height), 1, 1, 1, 1, img.width, img.height, up)

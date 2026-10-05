@@ -255,7 +255,8 @@ if (!msgShown) {
     await shot(pg, 'message-box', { x: Math.max(0, wb.x - 20), y: Math.max(0, wb.y - 20), width: Math.min(1280, wb.width + 40), height: wb.height + 40 });
     await pg.keyboard.press('Escape');
     await pg.waitForTimeout(200);
-    check('Esc closes the message box', (await pg.locator('.msgbox').count()) === 0);
+    // A closed window stays in the DOM for its dissolve (marked .closing and inert).
+    check('Esc closes the message box', (await pg.locator('.win:not(.closing) .msgbox').count()) === 0);
   }
 }
 // 3. drop-down list open

@@ -519,9 +519,9 @@ impl Volume {
         None
     }
 
-    /// Create a subdirectory and return it.
-    pub fn mkdir(&mut self, img: &mut SparseImage, parent: Dir, name: &str, stamp: u32) -> Dir {
-        let c = self.alloc(1, Policy::NextFree)[0];
+    /// Create a subdirectory and return it; None when the card has no free cluster left.
+    pub fn mkdir(&mut self, img: &mut SparseImage, parent: Dir, name: &str, stamp: u32) -> Option<Dir> {
+        let &c = self.alloc(1, Policy::NextFree).first()?;
         self.mark(img, c, true);
         img.fill(self.cluster_offset(c), self.cluster_bytes, 0);
         self.fat_set(img, c, self.eoc());
@@ -537,7 +537,7 @@ impl Volume {
             img.write(base, &fat_entry(".          ", 0x10, c, 0, stamp));
             img.write(base + 32, &fat_entry("..         ", 0x10, parent_c, 0, stamp));
         }
-        Dir::Cluster(c)
+        Some(Dir::Cluster(c))
     }
 
     /// Write a directory entry (or exFAT entry set). `contiguous` sets exFAT NoFatChain.

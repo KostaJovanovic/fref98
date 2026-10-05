@@ -20,7 +20,10 @@ fn pool_body<'a>(ctx: &StepCtx<'a>, p: &Value) -> Result<&'a [u8], String> {
         .pool_photo(if idx < 0 { 0 } else { idx })
         .ok_or("This step needs another photo in My Pictures.")?;
     let s = jpeg::scan_start(d).unwrap_or(0);
-    Ok(&d[s..])
+    // A donor that ends right after its header has no picture data to lend (and an empty body would
+    // make the steps that repeat it loop forever).
+    let body = d.get(s..).filter(|b| !b.is_empty()).ok_or("The other photo has no picture data after its header.")?;
+    Ok(body)
 }
 
 fn region(p: &Value, s: usize, len: usize) -> (usize, usize) {

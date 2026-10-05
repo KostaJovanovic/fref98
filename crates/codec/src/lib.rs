@@ -51,8 +51,9 @@ pub fn encode_like(img: &Image, like: &[u8]) -> Vec<u8> {
 }
 
 /// Add or replace the EXIF APP1 so that IFD1 carries `thumb_jpeg` as the embedded thumbnail.
+/// The file comes back unchanged when the thumbnail doesn't fit in the 64 KB Exif block.
 pub fn with_exif_thumbnail(jpeg: &[u8], thumb_jpeg: &[u8]) -> Vec<u8> {
-    exif::with_thumbnail(jpeg, thumb_jpeg)
+    exif::with_thumbnail(jpeg, thumb_jpeg).unwrap_or_else(|_| jpeg.to_vec())
 }
 
 /// Codec step catalog (all steps implemented in this crate).

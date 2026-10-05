@@ -12,9 +12,15 @@ use crate::markers::{is_rst, name as marker_name};
 use crate::tables::NATURAL_ORDER;
 use serde::Serialize;
 
+/// Tallest frame decoded; taller ones lose their bottom rows. The width is never clamped: a narrower
+/// MCU grid would re-wrap every row and paint damage that isn't in the file.
 pub const MAX_DIM: usize = 16384;
-pub const MAX_PIXELS: usize = 80_000_000;
+/// Most pixels decoded (taller frames lose their bottom rows). Every pixel costs ~16 bytes of working
+/// memory, so this keeps a 39-byte file that claims 65535x65535 well under a WASM worker's budget
+/// while leaving headroom above 48 MP phone photos.
+pub const MAX_PIXELS: usize = 50_000_000;
 const MAX_EVENTS: usize = 1000;
+const MAX_SCANS: usize = 1000;
 
 #[derive(Serialize, Clone, Debug)]
 pub struct Event {
@@ -369,6 +375,8 @@ impl<'a> Dec<'a> {
             // No frame header at all: fall back to the size recorded in Exif (grey image).
             let dims = self.out.meta.segments.iter().filter(|(m, _)| *m == 0xE1).find_map(|(_, p)| crate::exif::dims(p));
             if let Some((w, h)) = dims {
+                // The synthetic SOF holds 16-bit sizes; don't let a bigger Exif value wrap around.
+                let (w, h) = (w.min(65535), h.min(65535));
                 self.ev("header_repaired", -1, 0, format!("no frame header; using the {}x{} size recorded in Exif", w, h));
                 let mut sof = vec![8, (h >> 8) as u8, h as u8, (w >> 8) as u8, w as u8, 3];
                 sof.extend_from_slice(&[1, 0x21, 0, 2, 0x11, 1, 3, 0x11, 1]);
@@ -420,6 +428,13 @@ impl<'a> Dec<'a> {
         }
         let ncomp = self.out.img.as_ref().map(|i| i.comps.len()).unwrap_or(0);
         if ncomp == 0 || ncomp > 4 {
+            return false;
+        }
+        // A real start-of-scan further on means these bytes are just padding between header segments
+        // (libjpeg: "extraneous bytes before marker"): skip them instead of decoding the rest of the
+        // header as picture data.
+        if self.d.get(start..).is_some_and(|rest| rest.windows(2).any(|w| w == [0xFF, 0xDA])) {
+            self.ev("header_repaired", -1, start, "stray bytes between header segments were skipped".into());
             return false;
         }
         self.ev("header_repaired", -1, start, "image data without a start-of-scan header; assuming one scan of all components".into());
@@ -569,10 +584,9 @@ impl<'a> Dec<'a> {
             height = (width * 3 / 4).max(8);
             self.ev("header_repaired", -1, at, format!("frame height is zero; guessing {}", height));
         }
-        if width > MAX_DIM || height > MAX_DIM {
-            self.ev("header_repaired", -1, at, format!("{}x{} is too large; clamped", width, height));
-            width = width.min(MAX_DIM);
-            height = height.min(MAX_DIM);
+        if height > MAX_DIM {
+            self.ev("header_repaired", -1, at, format!("{}x{} is too tall; only the top {} rows are decoded", width, height, MAX_DIM));
+            height = MAX_DIM;
         }
         if width * height > MAX_PIXELS {
             height = (MAX_PIXELS / width).max(1);
@@ -609,11 +623,12 @@ impl<'a> Dec<'a> {
 
     /// Returns the position to continue marker parsing from.
     fn read_sos(&mut self, p: &[u8], at: usize, end: usize) -> usize {
-        self.sos_seen = true;
         let Some(img) = self.out.img.as_ref() else {
+            // Not counted as "seen": the real scan (and the header-only fallbacks) are still to come.
             self.ev("header_repaired", -1, at, "start of scan before any frame header; skipped".into());
             return crate::markers::scan_data_end(self.d, end);
         };
+        self.sos_seen = true;
         let ncomp = img.comps.len();
         let ids: Vec<u8> = img.comps.iter().map(|c| c.id).collect();
         let ns = p.first().copied().unwrap_or(0) as usize;
@@ -621,8 +636,15 @@ impl<'a> Dec<'a> {
         for k in 0..ns.min(4) {
             let cs = p.get(1 + 2 * k).copied().unwrap_or(0);
             let t = p.get(2 + 2 * k).copied().unwrap_or(0);
-            let idx = match ids.iter().position(|&c| c == cs) {
-                Some(i) => i,
+            // With duplicate ids (every component called 1), take the first one not used by this scan yet.
+            let first = ids.iter().position(|&c| c == cs);
+            let idx = match (0..ncomp).find(|&i| ids[i] == cs && !scan.comps.contains(&i)).or(first) {
+                Some(i) => {
+                    if Some(i) != first {
+                        self.out.event("header_repaired", -1, at as i64, format!("component id {} is used more than once; matched by position", cs));
+                    }
+                    i
+                }
                 None => {
                     let guess = if ns == ncomp { k } else { k.min(ncomp - 1) };
                     self.out.event("header_repaired", -1, at as i64, format!("scan names unknown component {}; using component #{}", cs, guess + 1));
@@ -680,6 +702,16 @@ impl<'a> Dec<'a> {
         };
         let meta_prog = self.out.meta.progressive;
         let ri = self.out.meta.restart_interval;
+        // Like libjpeg-turbo's -maxscans: real files have at most a few dozen scans, and a file of
+        // thousands of tiny empty ones would otherwise take minutes.
+        if self.out.meta.scans.len() >= MAX_SCANS {
+            if self.out.meta.scans.len() == MAX_SCANS {
+                self.out.event("unsupported", -1, data_start as i64, format!("more than {MAX_SCANS} scans; the rest are ignored"));
+                self.out.meta.scans.push(scan.clone());
+            }
+            self.out.img = Some(img);
+            return crate::markers::scan_data_end(d, data_start);
+        }
         self.out.meta.scans.push(scan.clone());
 
         // Latch quantisation tables (libjpeg latch_quant_tables).
@@ -885,6 +917,10 @@ impl<'a> Dec<'a> {
                             }
                         }
                     }
+                } else if ri == 0 {
+                    // A progressive scan that ran out of data, with no restart marker to resync on:
+                    // the remaining MCUs keep what earlier scans gave them, so stop walking them.
+                    break;
                 }
                 continue;
             }
