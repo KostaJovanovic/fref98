@@ -56,6 +56,10 @@ const DEFAULTS: Settings = {
   autoArrange: false,
 };
 
+/** Every setting this version stores (the optional ones have no default). */
+const OPTIONAL: (keyof Settings)[] = ['fillDonor', 'wallpaperPhoto'];
+const KNOWN = new Set<string>([...Object.keys(DEFAULTS), ...OPTIONAL]);
+
 const KEY = 'refragmenter.settings.v1';
 const OLD_KEY = 'jpegit.settings.v1'; // before the rename
 try {
@@ -75,9 +79,10 @@ function load(): Settings {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const s = JSON.parse(raw);
-      // v0.18 cut the Classic theme: a saved theme ('xp' or 'classic') means the one 98 look now
-      if (s && typeof s === 'object' && 'theme' in s) {
-        delete s.theme;
+      // keys this version doesn't know (v0.18 cut the Classic theme's 'theme', …) are dropped, in storage too
+      const foreign = s && typeof s === 'object' ? Object.keys(s).filter((k) => !KNOWN.has(k)) : [];
+      if (foreign.length) {
+        for (const k of foreign) delete s[k];
         try {
           localStorage.setItem(KEY, JSON.stringify(s));
         } catch {
@@ -108,12 +113,25 @@ export function setSettings(patch: Partial<Settings>) {
   const changed = Object.keys(patch) as (keyof Settings)[];
   Object.assign(settings, patch);
   Object.assign(saved, JSON.parse(JSON.stringify(patch)));
+  persist();
+  for (const l of listeners) l(settings, changed);
+}
+
+/** Changes some fields of an object setting. The stored value gets them on top of what is stored and the live
+ *  one on top of what is shown, so another dialog's unapplied preview is neither stored nor lost. */
+export function setSubSettings<K extends 'foldy' | 'screensaver'>(k: K, patch: Partial<Settings[K]>) {
+  (saved as any)[k] = { ...saved[k], ...JSON.parse(JSON.stringify(patch)) };
+  (settings as any)[k] = { ...settings[k], ...patch };
+  persist();
+  for (const l of listeners) l(settings, [k]);
+}
+
+function persist() {
   try {
     localStorage.setItem(KEY, JSON.stringify(saved));
   } catch {
     /* ignore */
   }
-  for (const l of listeners) l(settings, changed);
 }
 
 /** Shows a change live without storing it (Display Properties before OK/Apply). `setSettings` stores it,

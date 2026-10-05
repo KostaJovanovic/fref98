@@ -6,7 +6,7 @@
 // applyEnabled, hideBalloon, glitchBurst, enterContext, startTutorial, startChatter, init. New: pain(), tuning().
 import { h } from '../ui/dom';
 import { ui, onScale } from '../ui/scale';
-import { settings, setSettings, onSettings, reducedMotion } from '../settings';
+import { settings, setSubSettings, onSettings, reducedMotion } from '../settings';
 import { windows, activeWin, onWm, type Win } from '../ui/wm';
 import { nonsense, TIPS, TUTORIAL } from './lines';
 import { Player, type Mood } from './player';
@@ -118,7 +118,7 @@ class Foldy {
   /** Bring him back (tray icon / Start menu / Help). */
   show() {
     this.hiddenForSession = false;
-    if (!settings.foldy.enabled) setSettings({ foldy: { ...settings.foldy, enabled: true } });
+    if (!settings.foldy.enabled) setSubSettings('foldy', { enabled: true });
     this.applyEnabled();
     this.say('I’m back. Click me any time for help.', { kind: 'reaction', mood: 'happy' });
   }
@@ -412,7 +412,7 @@ class Foldy {
     bus.on('exported', () => {
       if (!settings.foldy.tutorialDone) {
         this.say(TUTORIAL.done, { kind: 'tutorial', mood: 'happy' });
-        setSettings({ foldy: { ...settings.foldy, tutorialDone: true } });
+        setSubSettings('foldy', { tutorialDone: true });
         this.tutorialStep = null;
       } else this.say('Saved. Enjoy your broken file.', { kind: 'reaction', mood: 'happy' });
     });
@@ -439,7 +439,7 @@ class Foldy {
     const c = this.msg?.opts.context;
     if (c && c !== mode) this.hideBalloon();
     if (mode === 'expert' && !settings.foldy.expertIntroDone) {
-      setSettings({ foldy: { ...settings.foldy, expertIntroDone: true } });
+      setSubSettings('foldy', { expertIntroDone: true });
       this.say(TUTORIAL.expert, { kind: 'tutorial', context: 'expert' });
     }
   }
