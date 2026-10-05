@@ -1,5 +1,25 @@
 import { describe, it, expect } from 'vitest';
-import { compareRects, boxToImage, sizeNote } from '../src/ui/compare';
+import { compareRects, boxToImage, sizeNote, fitZoom, ZOOMS } from '../src/ui/compare';
+
+// 01-10 (D4): the preview was smoothed at every zoom below 1; now it never is, and zooming out is 1/n decimation
+describe('preview zoom steps', () => {
+  it('are whole numbers up and 1/n down', () => {
+    for (const z of ZOOMS) {
+      if (z >= 1) expect(Number.isInteger(z), String(z)).toBe(true);
+      else expect(Number.isInteger(1 / z) || Math.abs(1 / z - Math.round(1 / z)) < 1e-9, String(z)).toBe(true);
+    }
+    expect(ZOOMS).not.toContain(2 / 3);
+  });
+  it('fit snaps down to a whole step or 1/n', () => {
+    expect(fitZoom(3.7)).toBe(3);
+    expect(fitZoom(1)).toBe(1);
+    expect(fitZoom(0.9)).toBe(1 / 2);
+    expect(fitZoom(0.5)).toBe(1 / 2);
+    expect(fitZoom(0.4)).toBe(1 / 3);
+    expect(fitZoom(0.26)).toBe(1 / 4);
+    expect(fitZoom(0.01)).toBe(1 / 100);
+  });
+});
 
 const view = (over: Partial<Parameters<typeof compareRects>[4]> = {}) => ({ x: 0, y: 0, w: 1000, h: 800, zoom: 0.5, cx: 0, cy: 0, ...over });
 

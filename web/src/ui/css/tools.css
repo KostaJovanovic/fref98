@@ -54,7 +54,7 @@
   background: #000080;
 }
 .lb98:focus .li.sel {
-  outline: 1px dotted #ffff00;
+  outline: 1px dotted var(--focus-on-sel);
   outline-offset: -1px;
 }
 .sw98 {
@@ -246,10 +246,12 @@
   text-align: center;
   margin-top: 3px;
 }
+/* eight 18 px chips at whole-pixel edges (percent stops would land between pixels) */
 .dp-pal {
+  width: 144px;
   height: 12px;
   margin-top: 6px;
-  background-image: linear-gradient(to right, #000 0 12.5%, #800000 0 25%, #008000 0 37.5%, #808000 0 50%, #000080 0 62.5%, #800080 0 75%, #008080 0 87.5%, #c0c0c0 0);
+  background-image: linear-gradient(to right, #000 0 18px, #800000 0 36px, #008000 0 54px, #808000 0 72px, #000080 0 90px, #800080 0 108px, #008080 0 126px, #c0c0c0 0);
   box-shadow: inset 1px 1px #808080, inset -1px -1px #fff;
 }
 .dp-ilbl {
@@ -380,7 +382,7 @@
   color: #fff;
 }
 .cd-view:focus .cd-item.sel .cd-name {
-  outline: 1px dotted #ffff00;
+  outline: 1px dotted var(--focus-on-sel);
   outline-offset: -1px;
 }
 /* selected: the icon dithered with navy (a 1:1 checker masked by the icon's own shape, as on the desktop) */
@@ -847,8 +849,14 @@
   background: #000080;
   color: #fff;
 }
-.hh-tree:focus .hh-node.kb > .hh-lbl {
-  outline: 1px dotted #000;
+/* the focus rectangle sits on the keyboard row, else on the selected topic */
+.hh-tree:focus .hh-node.kb > .hh-lbl,
+.hh-tree:focus:not(:has(.kb)) .hh-node.sel > .hh-lbl {
+  outline: 1px dotted var(--ring, #000);
+}
+/* on the navy selection the rectangle is the XOR colour, as everywhere (black would vanish) */
+.hh-node.sel > .hh-lbl {
+  --ring: var(--focus-on-sel);
 }
 .hh-list {
   flex: 1;

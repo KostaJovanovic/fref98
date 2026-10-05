@@ -46,7 +46,7 @@ export class StackView {
 
   constructor(private o: StackViewOpts) {
     this.list = h('div', { class: 'stack', role: 'list', 'aria-label': 'Steps (top runs first)' });
-    const add = button('Add step…', () => this.addMenu(add), { cls: 'primary', icon: iconImg('presets', 16) });
+    const add = button('Add step…', () => this.addMenu(add), { icon: iconImg('presets', 16) });
     const rep = button('Repeat group', () => this.addRepeat(), { title: 'Add a "Repeat N times" group' });
     this.el = h('div', { class: 'col' }, h('div', { class: 'row wrap' }, add, rep), this.list);
   }

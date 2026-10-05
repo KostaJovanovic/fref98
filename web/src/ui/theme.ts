@@ -1,11 +1,12 @@
 // Generates the theme's art at startup and exposes it to CSS as custom properties on the app root.
 import { checker, tilePattern, y2kTile, ascii, cached, makeCanvas, controlArtVars } from './art';
+import { GRIP_ROWS } from './art-chrome';
 import { onScale } from './scale';
 import { initCursors, refreshCursors } from './cursors';
 import { settings } from '../settings';
 
 function dots(): string {
-  return cached('dots', () => ascii(['', '.XX..XX', '.XX..XX', '', '', '.XX..XX', '.XX..XX', '', '', '.XX..XX', '.XX..XX', '', '', '.XX..XX', '.XX..XX'], { X: '#aca899' }));
+  return cached('grip', () => ascii(GRIP_ROWS, { W: '#ffffff', G: '#808080' }, makeCanvas(8, 18)));
 }
 
 function tailBorder(): string {

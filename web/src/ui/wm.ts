@@ -178,7 +178,7 @@ export function modalOf(w: Win): Win | null {
 }
 
 function deskSize() {
-  const tb = (layer && parseInt(getComputedStyle(layer).getPropertyValue('--taskbar-h'))) || (ui.phone ? 56 : 30);
+  const tb = (layer && parseInt(getComputedStyle(layer).getPropertyValue('--taskbar-h'))) || (ui.phone ? 56 : 28);
   return { w: ui.w, h: ui.h - tb };
 }
 

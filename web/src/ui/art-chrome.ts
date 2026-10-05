@@ -7,6 +7,10 @@ export type CapState = 'n' | 'p' | 'd';
 
 const PAL: Record<string, string> = { W: '#ffffff', L: '#dfdfdf', F: '#c0c0c0', G: '#808080', K: '#000000' };
 
+/** The editor's stack-row drag grip, 8×18 (shown at 1× or 2×, never stretched): two raised 98 bars, like a
+ *  rebar grip. W white, G shadow, '.' transparent. */
+export const GRIP_ROWS = ['........', '.WW..WW.', ...Array<string>(14).fill('.WG..WG.'), '.GG..GG.', '........'];
+
 // glyphs at their 98 offsets inside the 16×14 face (unpressed)
 const GLYPHS: Record<CapKind, { x: number; y: number; rows: string[] }> = {
   min: { x: 4, y: 9, rows: ['######', '######'] },

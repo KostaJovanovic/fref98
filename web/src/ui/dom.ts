@@ -161,7 +161,34 @@ export function ensureCrispFilter() {
   ct.appendChild(fa);
   f.appendChild(ct);
   svg.appendChild(f);
+  svg.appendChild(emboss98Filter(NS));
   document.body.appendChild(svg);
+}
+
+/** `filter: url(#emboss98)`: the 98 disabled look for any icon, in 98 colours only. The dark pixels (luma below
+ *  200/255) turn #808080, over a white copy 1 px down-right; everything else goes. Same rule as explorer-art's
+ *  embossed(). */
+function emboss98Filter(NS: string): Element {
+  const el = (tag: string, attrs: Record<string, string>, ...kids: Element[]): Element => {
+    const e = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    e.append(...kids);
+    return e;
+  };
+  return el(
+    'filter',
+    { id: 'emboss98', 'color-interpolation-filters': 'sRGB', x: '0', y: '0', width: '1', height: '1' },
+    // alpha = 8 × (0.8468 − luma), cut at 0.5 below: on for luma < 200/255; only where the icon is opaque
+    el('feColorMatrix', { in: 'SourceGraphic', type: 'matrix', values: '0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  -2.4 -4.72 -0.88 0 6.774', result: 'dark' }),
+    el('feComposite', { in: 'dark', in2: 'SourceAlpha', operator: 'in', result: 'darkIn' }),
+    el('feComponentTransfer', { in: 'darkIn', result: 'mask' }, el('feFuncA', { type: 'discrete', tableValues: '0 1' })),
+    el('feFlood', { 'flood-color': '#808080', result: 'g' }),
+    el('feComposite', { in: 'g', in2: 'mask', operator: 'in', result: 'grey' }),
+    el('feOffset', { in: 'mask', dx: '1', dy: '1', result: 'down' }),
+    el('feFlood', { 'flood-color': '#ffffff', result: 'w' }),
+    el('feComposite', { in: 'w', in2: 'down', operator: 'in', result: 'white' }),
+    el('feMerge', {}, el('feMergeNode', { in: 'white' }), el('feMergeNode', { in: 'grey' })),
+  );
 }
 
 /** Glyphs only stay crisp when a text run starts on a whole device pixel horizontally (Chrome/DirectWrite

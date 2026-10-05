@@ -127,6 +127,14 @@ export function contextCandidates<E, B>(chain: E[], entries: ContextEntry<B>[], 
   return out;
 }
 
+/** Tick x positions (whole px) of a trackbar `w` px wide with `n` intervals: from the thumb centre at 5 px to
+ *  the one at w - 6. */
+export function tickXs(w: number, n: number): number[] {
+  const span = w - 11;
+  if (span <= 0 || n <= 0) return [];
+  return Array.from({ length: n + 1 }, (_, i) => 5 + Math.round((i * span) / n));
+}
+
 /** Spin-button stepping: adds `dir` steps, snaps to the step grid from `min` (or 0), clamps, and drops float
  *  noise. */
 export function spinStep(v: number, dir: 1 | -1, step = 1, min?: number, max?: number): number {

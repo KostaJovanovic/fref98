@@ -25,6 +25,16 @@ export interface CompareView {
   cy: number;
 }
 
+/** Preview zoom steps. Below 1 only 1/n: the preview is never smoothed, so zooming out is plain decimation
+ *  (every n-th pixel), and 1/n keeps that even. */
+export const ZOOMS = [1 / 8, 1 / 6, 1 / 4, 1 / 3, 1 / 2, 1, 2, 3, 4, 6, 8, 12, 16, 24, 32];
+
+/** The fit-to-window zoom for a raw fit factor: whole steps up, 1/n down. */
+export function fitZoom(raw: number): number {
+  if (raw >= 1) return Math.floor(raw);
+  return 1 / Math.ceil(1 / Math.max(raw, 1e-6) - 1e-9);
+}
+
 export function compareRects(beforeW: number, beforeH: number, afterW: number, afterH: number, view: CompareView): { before: Box; after: Box } {
   const aw = Math.max(1, afterW);
   const ah = Math.max(1, afterH);

@@ -117,7 +117,7 @@
   background-image: var(--img-g-check-g);
 }
 .menu .mi.dis img.ico {
-  filter: grayscale(1) contrast(0.5);
+  filter: url(#emboss98);
 }
 .mhead {
   padding: 2px 6px 1px 20px;

@@ -1,5 +1,7 @@
 // Bundled "roll mate" photos. The real set is supplied later via public/bundled/manifest.json; until then
 // (or when the manifest is empty) a few procedural placeholders are generated at runtime and labelled so.
+// Their text is photo content, not UI, so it is drawn smooth in the system fonts: the pixel-font rule
+// (PLAN.md) covers the shell, not the pictures it edits.
 import { engine } from './client';
 
 export interface BundledEntry {

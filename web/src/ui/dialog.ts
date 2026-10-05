@@ -182,8 +182,11 @@ export function progressDialog(title: string, opts: { onCancel?: () => void; mes
   let handle!: ProgressHandle;
   const cancel = h('button', { class: 'btn default', onclick: () => handle.close() }, 'Cancel');
   const body = h('div', { class: 'pad col' }, h('div', { class: 'row' }, iconImg('disk', 32), text), bar, h('div', { class: 'row', style: { justifyContent: 'flex-end' } }, cancel));
-  const win = openWindow({ id, title, icon: 'disk', body, width: 380, height: 120 + CHROME_H, minHeight: 60, resizable: false, modal: activeWin(), onClose: () => void finish(true), esc: () => handle.close() });
+  const owner = activeWin();
+  const win = openWindow({ id, title, icon: 'disk', body, width: 380, height: 120 + CHROME_H, minHeight: 60, resizable: false, modal: owner, onClose: () => void finish(true), esc: () => handle.close() });
   win.setBusy(true);
+  // the window it blocks shows the 98 hourglass while the work runs (the dialog itself keeps the arrow + busy)
+  owner?.el.classList.add('cur-busy');
   requestAnimationFrame(() => cancel.focus());
   bus.emit('long-start', { say: opts.say });
   let frac: number | null = null;
@@ -210,6 +213,7 @@ export function progressDialog(title: string, opts: { onCancel?: () => void; mes
     if (closed) return;
     closed = true;
     clearInterval(timer);
+    owner?.el.classList.remove('cur-busy');
     bus.emit('long-end');
     if (fromWin) {
       handle.cancelled = true;

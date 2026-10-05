@@ -24,7 +24,6 @@
 }
 .foldy-canvas {
   display: block;
-  image-rendering: pixelated;
 }
 .foldy-say {
   flex: 1;
@@ -121,7 +120,6 @@
 }
 .logo-art {
   display: block;
-  image-rendering: pixelated;
   margin: 2px auto 0;
   box-shadow: 0 0 0 1px #808080;
 }

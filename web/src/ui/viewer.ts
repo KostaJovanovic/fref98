@@ -6,7 +6,7 @@
 import { h, clamp } from './dom';
 import { ui, onScale } from './scale';
 import { heatColor } from './art';
-import { compareRects, boxToImage, type Box } from './compare';
+import { compareRects, boxToImage, fitZoom, ZOOMS, type Box } from './compare';
 import type { DecodedImage } from '../engine/types';
 
 export interface Pane {
@@ -31,7 +31,6 @@ export interface MaskState {
   data: number[];
 }
 
-export const ZOOMS = [0.125, 0.25, 1 / 3, 0.5, 2 / 3, 1, 2, 3, 4, 6, 8, 12, 16, 24, 32];
 
 export function toCanvas(d: DecodedImage): HTMLCanvasElement {
   return paintCanvas(document.createElement('canvas'), d);
@@ -149,9 +148,7 @@ export class Viewer {
     const H = this.canvas.height;
     const r = this.paneRects(W, H)[0];
     // every pane is drawn into the main pane's box, so fitting the main pane fits them all
-    const z = Math.min((r.w - 8 * ui.k) / Math.max(1, p.w), (r.h - 8 * ui.k) / Math.max(1, p.h));
-    if (z >= 1) return Math.floor(z);
-    return z;
+    return fitZoom(Math.min((r.w - 8 * ui.k) / Math.max(1, p.w), (r.h - 8 * ui.k) / Math.max(1, p.h)));
   }
 
   /** Device-pixel box a pane is drawn into: the main pane's box (at the same place in its pane rectangle), so
@@ -249,8 +246,8 @@ export class Viewer {
       x.clip();
       const b = this.paneBox(p, r, z);
       if (p.img) {
-        x.imageSmoothingEnabled = b.sx < 1 || b.sy < 1;
-        x.imageSmoothingQuality = 'high';
+        // never smoothed: the artifacts are the point (zooming out decimates, see ZOOMS)
+        x.imageSmoothingEnabled = false;
         x.drawImage(p.img, 0, 0, p.img.width, p.img.height, b.x, b.y, b.w, b.h);
         this.drawOverlays(x, b, p);
       }
@@ -268,9 +265,10 @@ export class Viewer {
       const hy = Math.round(H / 2 - 12 * k);
       x.fillStyle = '#000';
       x.fillRect(sx - 5 * k, hy, 11 * k, 24 * k);
-      x.fillStyle = '#ece9d8';
+      // (98 button face and shadow)
+      x.fillStyle = '#c0c0c0';
       x.fillRect(sx - 4 * k, hy + k, 9 * k, 22 * k);
-      x.fillStyle = '#716f64';
+      x.fillStyle = '#808080';
       for (let i = 0; i < 4; i++) x.fillRect(sx - 2 * k, hy + (6 + i * 3) * k, 5 * k, k);
     } else if (this.mode === 'three') {
       this.panes.forEach((p, i) => {
@@ -465,7 +463,7 @@ export class Viewer {
       if (this.pointers.has(e.pointerId)) this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       const d = this.devicePoint(e);
       if (!mode) {
-        c.style.cursor = this.mode === 'split' && Math.abs(d.x - this.canvas.width * this.split) < 10 * ui.k ? 'var(--cur-ew, ew-resize)' : this.mask ? 'var(--cur-cross, crosshair)' : '';
+        c.style.cursor = this.mode === 'split' && Math.abs(d.x - this.canvas.width * this.split) < 10 * ui.k ? 'var(--cur-ew, ew-resize)' : this.mask ? (this.maskErase ? 'var(--cur-cross, crosshair)' : 'var(--cur-pen, crosshair)') : '';
         return;
       }
       if (mode === 'pinch' && this.pointers.size >= 2) {

@@ -84,15 +84,15 @@ Some small files (~9 KB each) don't open at all (likely broken headers), a good 
 **No antialiasing anywhere. Everything is pixel-exact.**
 - **Fonts:** bitmap pixel fonts at fixed sizes. CSS can't turn off ClearType for vector fonts on Windows, so we use fonts whose outlines sit on the pixel grid, or draw text from a glyph atlas.
 - **Scaling:** nearest-neighbour everywhere (`image-rendering: pixelated`).
-- **Colour:** dithered 256-colour gradients.
+- **Colour:** 256 colours, dithered (the one exception: the smooth 98 caption gradient of title bars and the Start banner, as 98 draws it on 16-bit displays).
 - **Cursors:** 1-bit pixel cursors, including an hourglass.
 - **UI scale:** whole steps only (1×/2×/3×). We correct for Windows display scaling (125%/150%) so each UI pixel maps to whole screen pixels.
 
 **Dithering is the overall art style.**
-- **Palette:** one fixed 256-colour palette (web-safe 216 plus XP blues and greens). Every UI element is dithered into it.
+- **Palette:** one fixed 256-colour palette (web-safe 216 plus the Windows 98/VGA colours, greys, icon manilas and sky blues). Every UI element is dithered into it.
 - **Methods, chosen by purpose:**
-  - **Ordered Bayer** for gradients, title bars and the sky.
-  - **Atkinson** for icons and Foldy.
+  - **Ordered Bayer** for the sky, the wizard panel and the dissolves.
+  - **Majority snap to the VGA colours** for icons (drawn 4× and voted down); **Atkinson** for photo thumbnails.
   - **Checkerboard "screen-door"** instead of transparency.
 - **Shadows and transparency:** window and menu shadows and Foldy's speech balloon use checkerboard dithers. No alpha blending.
 - **Animations and fades:** window open, close and minimise, and screensaver fades, step through dither patterns rather than alpha.

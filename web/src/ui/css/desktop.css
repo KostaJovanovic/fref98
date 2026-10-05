@@ -125,6 +125,10 @@
 .desktop.dragging-icons * {
   cursor: var(--cur-arrow, default);
 }
+.desktop.dragging-icons.nodrop,
+.desktop.dragging-icons.nodrop * {
+  cursor: var(--cur-no, not-allowed);
+}
 
 /* F2: the 98 rename box (white, 1 px black frame) in place of the label */
 .dicon.renaming .lbl {

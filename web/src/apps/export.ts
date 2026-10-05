@@ -334,7 +334,7 @@ function animOptions() {
 
 function sheetOptions() {
   let style = sheetStyle;
-  const body = h('div', { class: 'col' }, h('div', null, 'One PNG with every picture in My Pictures.'), h('div', { class: 'field-row sa-opt' }, h('span', { class: 'flbl' }, 'Style:'), selectField(style, [['graft', 'Recovery tool (8 per row, black)'], ['xp', 'Thumbnails view'], ['kodak', 'Kodak-style index print']], (v) => (style = v as SheetStyle), { label: 'Sheet style', width: 220 })));
+  const body = h('div', { class: 'col' }, h('div', null, 'One PNG with every picture in My Pictures.'), h('div', { class: 'field-row sa-opt' }, h('span', { class: 'flbl' }, 'Style:'), selectField(style, [['graft', 'Recovery tool (8 per row, black)'], ['thumbs', 'Thumbnails view'], ['kodak', 'Kodak-style index print']], (v) => (style = v as SheetStyle), { label: 'Sheet style', width: 220 })));
   dialog98({ title: 'Contact Sheet Options', icon: 'pictures', body, width: 340, height: 150, buttons: [{ label: 'OK', primary: true, run: () => void (sheetStyle = style) }, { label: 'Cancel', cancel: true }] });
 }
 

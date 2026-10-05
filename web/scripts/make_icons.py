@@ -1,4 +1,4 @@
-"""Draws the PWA icons (original pixel art: Foldy's folder on a dithered blue tile) and writes them to
+"""Draws the PWA icons (original pixel art: Foldy's folder on a dithered teal-to-navy tile) and writes them to
 public/icons at 32, 180, 192 and 512 px with nearest-neighbour scaling. Requires Pillow."""
 import os
 from PIL import Image
@@ -44,8 +44,9 @@ PAL = {
     'K': (58, 42, 16), 'Y': (240, 188, 69), 'y': (208, 154, 42), 'L': (255, 224, 138), 'W': (255, 255, 255),
     'B': (17, 17, 17), 'R': (176, 64, 32),
 }
-BG0 = (61, 149, 255)
-BG1 = (0, 84, 227)
+# the 98 desktop teal dithered down into the caption navy
+BG0 = (0, 128, 128)
+BG1 = (0, 0, 128)
 BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]
 
 
