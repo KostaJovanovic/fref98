@@ -12,7 +12,7 @@ simulating the look. Everything runs on device; nothing is uploaded.
   Recycle Bin, Help, About, Display Properties (wallpaper, 15 colour schemes, 16/256/High/True colour, six screen
   savers), Hex Doctor, Camera Wizard (webcam), Video Lab, Save As.
 - **Cut so far:** the XP shell (v0.18), the Classic grey theme (v0.18), the "browser" decoder personality
-  (v0.24), the "keep original" import toggle and the import-profile setting (v0.31: imports always fit the first
+  (v0.24), the "keep original" import toggle and the import-profile setting (v0.30: imports always fit the first
   camera profile).
 - **Postponed (REVISION.md §3):** merging Simple and Expert into one editor, and cutting Video Lab, the webcam
   and the screen savers. The card window, the steps, the presets, the Camera Wizard and the expert stack view
@@ -343,7 +343,7 @@ palette and dithering rules still hold.)*
 
 - **Q1 First release:** ship only when everything in the v1 scope is done (encoding, byte damage, card, hex/inspection).
 - **Q11 Card model:** a separate "Card project" workspace with "Open in editor" on recovered files, plus a "Pass through card" step in the single-image stack.
-- **Q24 Resolution:** import at the camera profile's size (e.g. 2272×1704 for the IXUS 400) by default, with a "keep original" toggle. *(The toggle never got a UI and was removed in v0.31; JPEGs always keep their bytes.)*
+- **Q24 Resolution:** import at the camera profile's size (e.g. 2272×1704 for the IXUS 400) by default, with a "keep original" toggle. *(The toggle never got a UI and was removed in v0.30; JPEGs always keep their bytes.)*
 - **Q46 Transfer damage:** in v1 (FTP ASCII, 7-bit mail, broken base64, interrupted download, MMS recompression).
 
 ## Review questions (from plan review; others unanswered)
