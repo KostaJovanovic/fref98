@@ -818,23 +818,6 @@ impl Volume {
         }
     }
 
-    /// Rewrite size field of an existing entry (power loss leaves size 0 etc.).
-    pub fn set_entry_size(&self, img: &mut SparseImage, loc: EntryLoc, size: u64) {
-        if loc.offset == 0 {
-            return;
-        }
-        match self.fs {
-            Fs::Fat16 | Fs::Fat32 => img.put_u32(loc.offset + 28, size as u32),
-            Fs::ExFat => {
-                let mut set = img.read_vec(loc.offset, loc.count as usize * 32);
-                set[32 + 8..32 + 16].copy_from_slice(&size.to_le_bytes());
-                let sum = checksum16(&set);
-                set[2..4].copy_from_slice(&sum.to_le_bytes());
-                img.write(loc.offset, &set);
-            }
-        }
-    }
-
     /// Read every entry in a directory (including deleted ones), for undelete tools.
     pub fn read_dir(&self, img: &SparseImage, dir: Dir) -> Vec<DirEntry> {
         let slots = self.dir_slots(img, dir);

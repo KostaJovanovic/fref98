@@ -25,6 +25,8 @@ pub enum Fill {
 pub struct DecodeOpts {
     pub personality: Personality,
     pub fill: Fill,
+    /// Smooth ("fancy") chroma upsampling, as libjpeg does by default. Only the chroma step's "Decoder
+    /// upsampling" param turns it off; the web never sends `fancy_upsampling` (expert/API use only).
     pub fancy: bool,
     pub max_dim: Option<usize>,
     /// Donor JPEG used by Fill::Donor.

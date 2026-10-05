@@ -3,6 +3,10 @@
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    if args.len() < 3 {
+        eprintln!("usage: render_local <out_dir> <file.jpg>...");
+        std::process::exit(2);
+    }
     let out = std::path::PathBuf::from(&args[1]);
     std::fs::create_dir_all(&out).unwrap();
     for f in &args[2..] {

@@ -21,6 +21,7 @@ import { canEncodeMp4, encodeMp4 } from '../engine/mp4';
 import { errorBox, message, confirmBox, progressDialog, progressDone } from '../ui/dialog';
 import { registerContext } from '../ui/contextmenu';
 import { dialog98 } from './tools98';
+import { saveProject } from '../shell/startmenu';
 import * as bus from '../bus';
 
 type Kind = 'jpg' | 'png' | 'rfg' | 'json' | 'zip' | 'gif' | 'avi' | 'mp4' | 'sheet';
@@ -413,8 +414,7 @@ async function savePng(name: string): Promise<boolean> {
 
 async function saveRfg(name: string): Promise<boolean> {
   // the one project save (File ▸ Save Project uses it too)
-  const m = await import('../shell/shell');
-  await m.saveProject(name);
+  await saveProject(name);
   return true;
 }
 

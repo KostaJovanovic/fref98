@@ -1,4 +1,5 @@
-//! Forgiving JPEG parser + entropy decoder (baseline/extended sequential and progressive Huffman).
+//! Forgiving JPEG parser + entropy decoder (baseline/extended sequential and progressive, Huffman and
+//! arithmetic coded: SOF0/1/2 and SOF9/10).
 //! Produces quantised coefficients plus an event log. Corrupt-data behaviour follows
 //! libjpeg-turbo: when data runs out or a marker shows up, the rest of the MCU is decoded from
 //! zero bits and following MCUs are left at zero (grey) until the next restart marker; DC
@@ -194,7 +195,6 @@ struct Dec<'a> {
     cond: Conditioning,
 }
 
-/// Parse and entropy-decode. Never panics; `img` is None only when no frame header was found.
 /// Offset to restart header reading from when the normal walk found no frame: the first plausible
 /// SOF0/1/2 (8-bit, sane size, 1/3/4 components, matching length; the largest one, so an embedded
 /// Exif thumbnail loses to the main image), backed up to the quantisation tables that precede it.
@@ -219,6 +219,7 @@ fn find_header_start(d: &[u8]) -> Option<usize> {
     Some(dqt.unwrap_or(sof))
 }
 
+/// Parse and entropy-decode. Never panics; `img` is None only when no frame header was found.
 pub fn parse(d: &[u8], track_bits: bool) -> Parsed {
     let mut dec = Dec {
         d,
@@ -889,8 +890,7 @@ impl<'a> Dec<'a> {
                 }
                 if sequential {
                     // libjpeg zeroes the MCU buffer; blocks stay empty.
-                    for (k, &ci) in scan.comps.iter().enumerate() {
-                        let _ = k;
+                    for &ci in scan.comps.iter() {
                         let c = &mut img.comps[ci];
                         let (bh_, bv_) = if interleaved { (c.h, c.v) } else { (1, 1) };
                         for by in 0..bv_ {

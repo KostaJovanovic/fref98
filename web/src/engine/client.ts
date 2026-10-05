@@ -293,10 +293,6 @@ export class EngineClient {
     return this.call<Uint8Array>('encodeRgba', { width, height, rgba, opts });
   }
 
-  encodeLike(width: number, height: number, rgba: Uint8Array | Uint8ClampedArray, like: Uint8Array): Job<Uint8Array> {
-    return this.call<Uint8Array>('encodeLike', { width, height, rgba, like });
-  }
-
   inspect(input: Uint8Array): Job<Inspection & { via: 'ours' | 'fallback' }> {
     return this.call('inspect', { input });
   }

@@ -11,7 +11,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const out = path.resolve(here, '..', '..', 'test-local', 'audit');
 
 const server = await serveDist();
-const base = server.base;
+const base = server.app;
 await mkdir(out, { recursive: true });
 const want = process.argv.slice(2);
 const run = (name) => !want.length || want.some((w) => name.includes(w));
@@ -106,7 +106,8 @@ if (run('desk')) {
   await pg.keyboard.press('Escape');
 }
 
-const apps = ['editor', 'pictures', 'card', 'presets', 'recycle', 'help', 'about', 'display', 'hex', 'webcam', 'video', 'export'];
+const apps = await pg.evaluate(() => window.__refrag.apps);
+if (!apps?.length) report('registry', 'window.__refrag.apps is empty');
 for (const id of apps) {
   if (!run(id)) continue;
   await closeAll();

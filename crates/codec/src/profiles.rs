@@ -3,11 +3,9 @@
 //! baseline, Annex K Huffman tables, no restart interval, APP1 Exif first and no JFIF.
 //! Phone and app profiles are approximations from publicly observed behaviour.
 
-use crate::coeffs::{ColorSpace, CompSpec};
-use crate::color::Matrix;
-use crate::encoder::{sampling_factors, EncodeSettings, HuffMode};
+use crate::encoder::{EncodeSettings, HuffMode};
 use crate::markers::APP1;
-use crate::tables::{scaled_table, zigzag_to_natural, STD_CHROMA_Q, STD_LUMA_Q};
+use crate::tables::zigzag_to_natural;
 use serde::Serialize;
 
 /// Canon DIGITAL IXUS 400 "Superfine" luminance table, zigzag order as stored in DQT.
@@ -166,10 +164,6 @@ pub fn infos() -> Vec<ProfileInfo> {
     defs().into_iter().map(|d| d.info).collect()
 }
 
-pub fn ids() -> Vec<&'static str> {
-    defs().iter().map(|d| d.info.id).collect()
-}
-
 /// A resolved profile: encoder settings plus its size rule.
 pub struct Profile {
     pub settings: EncodeSettings,
@@ -207,16 +201,11 @@ impl Profile {
 
 pub fn get(id: &str) -> Option<Profile> {
     let d = defs().into_iter().find(|d| d.info.id == id)?;
+    // standard() already gives the tables for d.quality, the sampling, YCbCr and BT.601
     let mut s = EncodeSettings::standard(d.quality, d.sub);
     if let Some((l, c)) = d.custom {
         s.qtables = vec![l, c, c];
-    } else {
-        s.qtables = vec![scaled_table(&STD_LUMA_Q, d.quality), scaled_table(&STD_CHROMA_Q, d.quality), scaled_table(&STD_CHROMA_Q, d.quality)];
     }
-    let (h, v) = sampling_factors(d.sub);
-    s.comps = vec![CompSpec { id: 1, h, v, tq: 0 }, CompSpec { id: 2, h: 1, v: 1, tq: 1 }, CompSpec { id: 3, h: 1, v: 1, tq: 1 }];
-    s.color = ColorSpace::YCbCr;
-    s.matrix = Matrix::Bt601;
     s.progressive = d.progressive;
     s.huffman = if d.optimize { HuffMode::Optimize } else { HuffMode::Standard };
     s.restart_interval = d.restart;

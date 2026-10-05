@@ -1,12 +1,13 @@
 // The Windows 98 desktop: icons from a list of registry ids on the 75×75 grid (snap-to-grid drag of the
 // selection, positions saved in settings.iconPos), rubber-band selection (Ctrl toggles, Shift adds), keyboard
-// (arrows, Home/End, Enter, F2 rename, Delete, Ctrl+A, type-ahead) and the desktop / icon / Recycle Bin menus.
+// (arrows, Home/End, Enter, F2 rename, Ctrl+A, type-ahead) and the desktop / icon / Recycle Bin menus. The icons
+// are apps, and the bin holds photos, steps and projects, so nothing on the desktop can be deleted.
 import { h, setText } from '../ui/dom';
 import { iconImg, icon } from '../ui/art';
 import { ui, onScale, toUi, uiRect } from '../ui/scale';
 import { trackDrag } from '../ui/wm-drag';
 import { registerContext } from '../ui/contextmenu';
-import { confirmBox, message } from '../ui/dialog';
+import { message } from '../ui/dialog';
 import type { MenuItem } from '../ui/menu';
 import { APPS, openApp } from '../apps/registry';
 import { store } from '../state';
@@ -15,7 +16,7 @@ import * as G from './desktop-grid';
 
 /** The desktop icons, by registry id, in their first-run order. Cutting an app means removing it from APPS
  *  (or from this list). */
-export const DESKTOP_ICONS = ['card', 'pictures', 'editor', 'presets', 'recycle', 'help'];
+const DESKTOP_ICONS = ['card', 'pictures', 'editor', 'presets', 'recycle', 'help'];
 
 /** Desktop labels that differ from the window title. */
 const LABELS: Record<string, string> = { help: 'Help' };
@@ -23,8 +24,6 @@ const LABELS: Record<string, string> = { help: 'Help' };
 const TYPES: Record<string, string> = { card: 'Removable Disk', pictures: 'System Folder', recycle: 'Recycle Bin', presets: 'File Folder', help: 'Help File' };
 /** System icons stay first when arranging, as My Computer and the Recycle Bin do in 98. */
 const RANK: Record<string, number> = { card: 0, pictures: 1, recycle: 2 };
-/** Icons that Delete sends to the Recycle Bin. The bin holds photos, steps and projects, not apps, so none yet. */
-const DELETABLE = new Set<string>();
 
 interface DIcon {
   id: string;
@@ -43,7 +42,7 @@ let focusId: string | null = null;
 let renaming: string | null = null;
 
 const appType = (id: string) => TYPES[id] ?? 'Application';
-export const iconLabel = (id: string) => settings.iconNames[id] ?? LABELS[id] ?? APPS[id]?.title ?? id;
+const iconLabel = (id: string) => settings.iconNames[id] ?? LABELS[id] ?? APPS[id]?.title ?? id;
 
 function gridNow(): G.GridSize {
   // phones lay the icons out in rows (CSS); there the grid only keeps the cell order
@@ -142,7 +141,7 @@ function setCells(next: G.Cells) {
   persist();
 }
 
-export function arrangeIcons(by: 'name' | 'type') {
+function arrangeIcons(by: 'name' | 'type') {
   setCells(G.arrange(ids.map((id) => ({ id, name: iconLabel(id), type: appType(id), rank: RANK[id] })), by, gridNow().rows));
 }
 
@@ -197,7 +196,7 @@ function orderedIds(): string[] {
   return [...ids].sort((a, b) => cells[a].c * rows + cells[a].r - (cells[b].c * rows + cells[b].r));
 }
 
-export function openSelected(fallback?: string) {
+function openSelected(fallback?: string) {
   const list = sel.size ? [...sel] : fallback ? [fallback] : [];
   for (const id of list) void openApp(id);
 }
@@ -384,7 +383,6 @@ function onKey(e: KeyboardEvent) {
   else if (e.key === 'End') go(order[order.length - 1]);
   else if (e.key === 'Enter') openSelected(cur ?? undefined);
   else if (e.key === 'F2' && cur) startRename(cur);
-  else if (e.key === 'Delete') void deleteSelected();
   else if (mod && e.key.toLowerCase() === 'a') select(ids);
   else if (e.key === ' ' && cur) {
     if (mod) sel.has(cur) ? sel.delete(cur) : sel.add(cur);
@@ -408,10 +406,10 @@ function onKey(e: KeyboardEvent) {
   }
 }
 
-// ------------------------------------------------------------------ rename (F2) and delete
+// ------------------------------------------------------------------ rename (F2)
 
 /** Inline 98 rename box over the label. The new name is a desktop label only; the app keeps its title. */
-export function startRename(id: string) {
+function startRename(id: string) {
   const ic = icons.get(id);
   if (!ic || renaming || ui.phone) return;
   renaming = id;
@@ -457,16 +455,6 @@ export function startRename(id: string) {
   inp.addEventListener('pointerdown', (e) => e.stopPropagation());
 }
 
-const canDelete = (list: string[]) => list.length > 0 && list.every((id) => DELETABLE.has(id));
-
-async function deleteSelected() {
-  const list = [...sel];
-  if (!canDelete(list)) return;
-  const what = list.length === 1 ? `'${iconLabel(list[0])}'` : `these ${list.length} items`;
-  if (!(await confirmBox('Confirm File Delete', `Are you sure you want to send ${what} to the Recycle Bin?`, 'Yes', 'recycle'))) return;
-  // no deletable icons exist yet (see DELETABLE); when one does, it moves to store.bin here
-}
-
 // ------------------------------------------------------------------ properties and menus
 
 function properties(id: string) {
@@ -482,7 +470,7 @@ async function emptyBin() {
 }
 
 /** The desktop's own menu (right-click on empty desktop). */
-export function desktopMenu(): MenuItem[] {
+function desktopMenu(): MenuItem[] {
   return [
     {
       label: 'Arrange &Icons',
@@ -526,15 +514,13 @@ function selectFor(el: Element): string | null {
 function iconMenu(el: Element): MenuItem[] | null {
   const id = selectFor(el);
   if (!id) return null;
-  const list = [...sel];
-  const items: MenuItem[] = [
+  return [
     { label: '&Open', default: true, onClick: () => openSelected(id) },
     { sep: true },
-    { label: 'Rena&me', disabled: list.length > 1 || ui.phone, onClick: () => startRename(id) },
+    { label: 'Rena&me', disabled: sel.size > 1 || ui.phone, onClick: () => startRename(id) },
+    { sep: true },
+    { label: 'P&roperties', onClick: () => properties(id) },
   ];
-  if (canDelete(list)) items.push({ label: '&Delete', onClick: () => void deleteSelected() });
-  items.push({ sep: true }, { label: 'P&roperties', onClick: () => properties(id) });
-  return items;
 }
 
 function binMenu(el: Element): MenuItem[] | null {

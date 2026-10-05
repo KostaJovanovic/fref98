@@ -5,7 +5,6 @@
    20 px rows. */
 .menu.startmenu {
   padding-left: 24px;
-  z-index: var(--z-menu);
 }
 .menu.startmenu > .sm-banner {
   position: absolute;

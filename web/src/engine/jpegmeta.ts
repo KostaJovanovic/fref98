@@ -37,7 +37,7 @@ export function inspectJpeg(b: Uint8Array): Inspection {
       i++;
       continue;
     }
-    let m = b[i + 1];
+    const m = b[i + 1];
     if (m === 0xff) {
       i++;
       continue;
@@ -128,7 +128,6 @@ export function inspectJpeg(b: Uint8Array): Inspection {
     }
     segments.push({ offset: start, length: Math.min(len + 2, b.length - start), marker: m, name: markerName(m), summary });
     i += 2 + Math.max(len, 2);
-    m = 0;
   }
   return out;
 }

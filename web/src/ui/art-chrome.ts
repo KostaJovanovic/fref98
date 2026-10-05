@@ -67,10 +67,11 @@ export function sizeGrip(): string {
 /** Sets the chrome sprites as CSS custom properties (--cap-min, --cap-min-p, --cap-min-d, …, --grip98). */
 export function applyChromeVars(root: HTMLElement) {
   const url = (u: string) => `url("${u}")`;
-  for (const k of ['min', 'max', 'restore', 'close', 'help'] as CapKind[]) {
+  // the buttons window.css draws (a restore button is never disabled; no window has a help button yet)
+  for (const k of ['min', 'max', 'restore', 'close'] as CapKind[]) {
     root.style.setProperty(`--cap-${k}`, url(captionButton(k, 'n')));
     root.style.setProperty(`--cap-${k}-p`, url(captionButton(k, 'p')));
-    root.style.setProperty(`--cap-${k}-d`, url(captionButton(k, 'd')));
+    if (k !== 'restore') root.style.setProperty(`--cap-${k}-d`, url(captionButton(k, 'd')));
   }
   root.style.setProperty('--grip98', url(sizeGrip()));
 }

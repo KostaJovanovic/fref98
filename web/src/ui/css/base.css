@@ -75,7 +75,6 @@
   --ts: 1;
   /* stacking layers, bottom to top (windows are 10 + their place in the window list, see ui/wm.ts) */
   --z-taskbar: 5000;
-  --z-balloon: 6500;
   --z-menu: 7000;
   --z-combo-list: 7100;
   --z-saver: 9000;
@@ -166,10 +165,8 @@ button,
 .dicon,
 .task,
 .mi,
-.sm-item,
 .tab,
-.li,
-.card-tile {
+.li {
   /* 98: buttons, icons and menu items use the arrow; only hyperlinks get the hand */
   cursor: var(--cur-arrow, default);
 }

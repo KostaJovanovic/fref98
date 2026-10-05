@@ -90,7 +90,6 @@ dependencies = [
  "js-sys",
  "refragmenter-card",
  "refragmenter-codec",
- "serde",
  "serde_json",
  "wasm-bindgen",
 ]

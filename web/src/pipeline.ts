@@ -55,13 +55,6 @@ class Pipeline {
     this.schedule();
   }
 
-  /** Re-read the catalog after the engine was rebuilt (dev: `npm run wasm`). */
-  refreshCaps(c: EngineCaps) {
-    this.caps = c;
-    this.catalog = new Map(c.catalog.map((s) => [s.id, s]));
-    this.schedule();
-  }
-
   on(l: Listener): () => void {
     this.listeners.add(l);
     return () => this.listeners.delete(l);

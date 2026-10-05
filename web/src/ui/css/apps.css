@@ -1,60 +1,10 @@
 
-/* ------------------------------------------------------------------ card & pool */
+/* ------------------------------------------------------------------ card */
 
-.thumbs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-content: flex-start;
-  padding: 8px;
-  background: var(--c-win);
-}
-.thumb {
-  width: 108px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  padding: 4px;
-  border: 1px solid transparent;
-  background: transparent;
-  text-align: center;
-}
-.thumb .frame {
-  width: 100px;
-  height: 100px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #d0d0bf;
-  background: var(--c-win);
-}
-.thumb.sel {
-  border-color: var(--sel);
-}
-.thumb.sel .lbl {
-  background: var(--sel);
-  color: var(--c-seltext);
-}
-.thumb .lbl {
-  max-width: 100px;
-  overflow: hidden;
-  white-space: nowrap;
-  padding: 0 2px;
-}
-.thumb .sub {
-  color: var(--face-dk);
-}
 .clustermap {
   display: block;
   border: 1px solid var(--face-dk);
   background: #000;
-}
-.legend-sw {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border: 1px solid var(--c-dark);
 }
 
 /* ------------------------------------------------------------------ 98 Explorer folder windows (apps/explorer.ts)
@@ -96,11 +46,8 @@
   display: flex;
   align-items: center;
   gap: 1px;
-  padding: 2px 2px 2px 2px;
+  padding: 2px;
   box-shadow: inset 0 1px var(--c-hi), inset 0 -1px var(--c-shadow);
-}
-.xw-band + .xw-band {
-  margin-top: 0;
 }
 /* the band gripper: one raised 3 px bar */
 .xw-grip {
@@ -232,9 +179,6 @@
   outline: none;
   user-select: none;
   -webkit-user-select: none;
-}
-.xw-web {
-  padding: 2px;
 }
 .xw-web > .y2k {
   min-height: 100%;

@@ -30,7 +30,7 @@ export function cached(key: string, make: () => HTMLCanvasElement): string {
   return cachedUrl(artScheme + '|' + key, make);
 }
 
-export function dither(c: HTMLCanvasElement, mode: 'atkinson' | 'bayer' | 'none', spread = 40) {
+function dither(c: HTMLCanvasElement, mode: 'atkinson' | 'bayer' | 'none', spread = 40) {
   const x = ctx2d(c);
   const d = x.getImageData(0, 0, c.width, c.height);
   if (mode === 'atkinson') ditherAtkinson(d.data, c.width, c.height);
@@ -161,7 +161,7 @@ export function setArtColors(id: string, c: SchemeColors) {
 }
 
 /** Small glyphs (menu check/bullet/arrow, combo and scroll arrows, spin arrows) as pixel rows. */
-const GLYPH98: Record<string, string[]> = {
+const GLYPH98 = {
   check: ['......#', '.....##', '#...###', '##.###.', '#####..', '.###...', '..#....'],
   radio: ['.##.', '####', '####', '.##.'],
   bullet: ['.###.', '#####', '#####', '#####', '.###.'],
@@ -171,14 +171,15 @@ const GLYPH98: Record<string, string[]> = {
   'arrow-u': ['...#...', '..###..', '.#####.', '#######'],
   'spin-u': ['..#..', '.###.', '#####'],
   'spin-d': ['#####', '.###.', '..#..'],
-};
+} satisfies Record<string, string[]>;
 
+/** The glyph names (a real union now, so a misspelt glyph is a type error). */
 export type Glyph98 = keyof typeof GLYPH98;
 
 /** A glyph in a colour; `emboss` draws the 98 disabled look (white copy 1 px down-right, grey on top). */
-export function glyph98(kind: Glyph98 | string, color = C98.text, emboss = false): string {
+export function glyph98(kind: Glyph98, color = C98.text, emboss = false): string {
   return cached(`g98:${kind}:${color}:${emboss}`, () => {
-    const rows = GLYPH98[kind] ?? GLYPH98.check;
+    const rows = GLYPH98[kind];
     const w = Math.max(...rows.map((r) => r.length));
     const c = makeCanvas(w + (emboss ? 1 : 0), rows.length + (emboss ? 1 : 0));
     if (emboss) ascii(rows, { '#': C98.hi }, c, 1, 1);
@@ -194,7 +195,7 @@ function bevel(c: HTMLCanvasElement, kind: BevelKind, x0 = 0, y0 = 0, w = c.widt
 }
 
 /** 98 checkbox: 13×13 sunken white box with a 7×7 black check. d = disabled, p = pressed (grey inside). */
-export function checkboxSprite(checked: boolean, state: 'n' | 'h' | 'd' | 'p' = 'n'): string {
+export function checkboxSprite(checked: boolean, state: 'n' | 'd' | 'p' = 'n'): string {
   return cached(`cb98:${checked}:${state}`, () => {
     const c = makeCanvas(13, 13);
     const x = ctx2d(c);
@@ -210,7 +211,7 @@ const RADIO_OUT = ['....XXXX....', '..XX....XX..', '.X........X.', '.X........X.
 const RADIO_IN = ['', '....XXXX....', '..XX....XX..', '..X......X..', '.X........X.', '.X........X.', '.X........X.', '.X........X.', '..X......X..', '..XX....XX..', '....XXXX....'];
 
 /** 98 radio button: a 12×12 pixel-stepped sunken circle with a 4×4 dot. */
-export function radioSprite(checked: boolean, state: 'n' | 'h' | 'd' | 'p' = 'n'): string {
+export function radioSprite(checked: boolean, state: 'n' | 'd' | 'p' = 'n'): string {
   return cached(`rb98:${checked}:${state}`, () => {
     const c = makeCanvas(12, 12);
     const x = ctx2d(c);
@@ -239,14 +240,9 @@ export function radioSprite(checked: boolean, state: 'n' | 'h' | 'd' | 'p' = 'n'
   });
 }
 
-/** Back-compat: a small arrow glyph (used by older CSS as --img-arrow-down). */
-export function arrowGlyph(dir: 'up' | 'down' | 'left' | 'right', color = C98.text): string {
-  return glyph98(dir === 'up' ? 'arrow-u' : dir === 'down' ? 'arrow-d' : dir === 'left' ? 'arrow-l' : 'arrow-r', color);
-}
-
 /** 98 trackbar thumb: an 11×21 raised tab pointing down (toward the tick marks). */
-export function sliderThumb(state: 'n' | 'h' | 'd' = 'n'): string {
-  return cached(`thumb98:${state}`, () => {
+export function sliderThumb(): string {
+  return cached('thumb98', () => {
     const rows = [
       'WWWWWWWWWWK',
       'WLLLLLLLLGK',
@@ -270,7 +266,6 @@ export function sliderThumb(state: 'n' | 'h' | 'd' = 'n'): string {
       '....WGK....',
       '.....K.....',
     ];
-    void state;
     return ascii(rows, { W: C98.hi, L: C98.light, F: C98.face, G: C98.shadow, K: C98.dark });
   });
 }
@@ -302,14 +297,14 @@ export function checker2(a: string, b: string): string {
 
 /** A 98 bevelled button sprite with a centred glyph: scroll-bar arrows (16×16), the combo-box button
  *  (16×17), spin buttons. Pressed: flat 1 px shadow, glyph 1 px down-right. Disabled: embossed glyph. */
-export function bevelButton(w: number, h: number, glyph: Glyph98 | string, state: 'n' | 'p' | 'd' = 'n', kind: 'frame' | 'raised' = 'frame'): string {
+export function bevelButton(w: number, h: number, glyph: Glyph98, state: 'n' | 'p' | 'd' = 'n', kind: 'frame' | 'raised' = 'frame'): string {
   return cached(`bb98:${w}:${h}:${glyph}:${state}:${kind}`, () => {
     const c = makeCanvas(w, h);
     const x = ctx2d(c);
     x.fillStyle = C98.face;
     x.fillRect(0, 0, w, h);
     bevel(c, state === 'p' ? 'pressed' : kind);
-    const rows = GLYPH98[glyph] ?? [];
+    const rows: string[] = GLYPH98[glyph];
     const gw = Math.max(...rows.map((r) => r.length));
     const gh = rows.length;
     const ox = Math.floor((w - gw) / 2) + (state === 'p' ? 1 : 0);
@@ -320,49 +315,37 @@ export function bevelButton(w: number, h: number, glyph: Glyph98 | string, state
   });
 }
 
-/** The scroll-bar thumb and other plain raised frames (used where box-shadow bevels can't be drawn). */
-export function frameSprite(w: number, h: number): string {
-  return cached(`fr98:${w}:${h}`, () => {
-    const c = makeCanvas(w, h);
-    const x = ctx2d(c);
-    x.fillStyle = C98.face;
-    x.fillRect(0, 0, w, h);
-    bevel(c, 'frame');
-    return c;
-  });
-}
-
 /** Every 98 control sprite as CSS custom properties (applied on the app root by theme.ts). */
 export function controlArtVars(): Record<string, string> {
   const u = (s: string) => `url("${s}")`;
   const v: Record<string, string> = {};
+  // only the sprites the CSS reads (each one is a PNG encode at startup and on every scheme change)
   for (const on of [false, true]) {
     const k = on ? '-on' : '';
-    v[`--img-cb${k}`] = u(checkboxSprite(on));
-    v[`--img-cb${k}-h`] = u(checkboxSprite(on, 'h'));
-    v[`--img-cb${k}-d`] = u(checkboxSprite(on, 'd'));
-    v[`--img-cb${k}-p`] = u(checkboxSprite(on, 'p'));
-    v[`--img-rb${k}`] = u(radioSprite(on));
-    v[`--img-rb${k}-h`] = u(radioSprite(on, 'h'));
-    v[`--img-rb${k}-d`] = u(radioSprite(on, 'd'));
-    v[`--img-rb${k}-p`] = u(radioSprite(on, 'p'));
+    for (const s of ['n', 'd', 'p'] as const) {
+      const sfx = s === 'n' ? '' : '-' + s;
+      v[`--img-cb${k}${sfx}`] = u(checkboxSprite(on, s));
+      v[`--img-rb${k}${sfx}`] = u(radioSprite(on, s));
+    }
   }
-  v['--img-arrow-down'] = u(arrowGlyph('down'));
   v['--img-thumb'] = u(sliderThumb());
-  v['--img-thumb-h'] = u(sliderThumb('h'));
   v['--img-pblock'] = u(progressBlock());
   v['--img-sb-track'] = u(checker2(C98.face, C98.hi));
   for (const [dir, g] of [['up', 'arrow-u'], ['down', 'arrow-d'], ['left', 'arrow-l'], ['right', 'arrow-r']] as const) {
     v[`--img-sb-${dir}`] = u(bevelButton(16, 16, g));
     v[`--img-sb-${dir}-p`] = u(bevelButton(16, 16, g, 'p'));
-    v[`--img-sb-${dir}-d`] = u(bevelButton(16, 16, g, 'd'));
   }
-  for (const g of Object.keys(GLYPH98)) {
-    v[`--img-g-${g}`] = u(glyph98(g));
-    v[`--img-g-${g}-w`] = u(glyph98(g, C98.seltext));
-    v[`--img-g-${g}-d`] = u(glyph98(g, C98.shadow, true));
-    v[`--img-g-${g}-g`] = u(glyph98(g, C98.shadow));
-  }
+  // glyph variants: '' text colour, -w on a selection, -d embossed (disabled), -g grey
+  const GLYPH_VARS: [Glyph98, string[]][] = [
+    ['check', ['', '-w', '-d', '-g']],
+    ['radio', ['', '-w', '-d']],
+    ['arrow-r', ['', '-w', '-d', '-g']],
+    ['arrow-d', ['', '-d']],
+    ['spin-u', ['', '-d']],
+    ['spin-d', ['', '-d']],
+  ];
+  for (const [g, vars] of GLYPH_VARS)
+    for (const s of vars) v[`--img-g-${g}${s}`] = u(s === '-w' ? glyph98(g, C98.seltext) : s === '-d' ? glyph98(g, C98.shadow, true) : s === '-g' ? glyph98(g, C98.shadow) : glyph98(g));
   return v;
 }
 

@@ -120,15 +120,6 @@
 .phone .check {
   min-height: 44px;
 }
-.phone input[type='range'] {
-  height: 44px;
-}
-.phone input[type='range']::-webkit-slider-thumb {
-  width: 22px;
-  height: 36px;
-  margin-top: -17px;
-  background-size: 22px 36px;
-}
 /* the taskbar: the bottom tab bar, still grey */
 #app.phone .taskbar {
   padding: 0 2px;
@@ -225,7 +216,4 @@
 }
 .phone .param {
   grid-template-columns: 1fr;
-}
-.phone .foldy-balloon {
-  width: auto;
 }

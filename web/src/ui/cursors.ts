@@ -488,11 +488,10 @@ function busyStart(el: HTMLElement) {
   }
 }
 
-/** Sets every --cur-* variable on `root` (and the document element). Resolution and page-zoom changes come
- *  through scale.ts's onScale (theme.ts calls refreshCursors), the one place that watches them. */
-export function initCursors(root: HTMLElement) {
+/** Sets every --cur-* variable on the document element. Resolution and page-zoom changes come through
+ *  scale.ts's onScale (theme.ts calls refreshCursors), the one place that watches them. */
+export function initCursors() {
   host = document.documentElement;
-  void root;
   apply(true);
   // the busy probe rules live in css/cursors.css (the CSP forbids inline <style>)
   document.addEventListener(

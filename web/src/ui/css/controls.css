@@ -103,7 +103,6 @@
 }
 .tool:disabled img {
   filter: url(#emboss98);
-  opacity: 1;
 }
 
 /* ---------------------------------------------------------------- text boxes, spin boxes, combo boxes */
@@ -675,9 +674,6 @@ input[type='range']:disabled::-webkit-slider-thumb {
 .warn {
   color: #a00000;
 }
-.ok {
-  color: #006000;
-}
 .b {
   font-weight: 700;
 }
@@ -689,14 +685,6 @@ input[type='range']:disabled::-webkit-slider-thumb {
 .selectable {
   user-select: text;
   -webkit-user-select: text;
-}
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
 }
 h1,
 h2,

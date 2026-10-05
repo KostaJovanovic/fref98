@@ -50,10 +50,6 @@
 .lb98:not(:focus) .li.sel {
   background: var(--c-sel);
 }
-.lb98:focus .li.sel {
-  outline: 1px dotted var(--focus-on-sel);
-  outline-offset: -1px;
-}
 .sw98 {
   display: inline-block;
   width: 12px;

@@ -9,6 +9,10 @@ use std::io::Write;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    if args.len() < 3 {
+        eprintln!("usage: card_local <photo_dir> <out_dir> [preset_id] [count]");
+        std::process::exit(2);
+    }
     let dir = &args[1];
     let out = std::path::PathBuf::from(&args[2]);
     let preset_id = args.get(3).map(String::as_str).unwrap_or("ixus_512");

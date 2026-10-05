@@ -9,6 +9,10 @@ use std::time::Instant;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    if args.len() < 2 {
+        eprintln!("usage: card_bench <photo_dir> [count] [preset_id]");
+        std::process::exit(2);
+    }
     let dir = &args[1];
     let count: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(16);
     let only = args.get(3).cloned();

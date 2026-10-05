@@ -10,14 +10,8 @@ import { startScreensaverWatch } from './screensaver';
 import { buildDesktop } from './desktop';
 import { buildTaskbar, taskbarRect } from './taskbar';
 
-export { taskbarRect } from './taskbar';
-export { saveProject, rememberProject } from './startmenu';
-
-export let desktopEl: HTMLElement;
-
 export function buildShell(app: HTMLElement) {
   const desktop = h('div', { class: 'desktop', role: 'main', 'aria-label': 'Desktop' });
-  desktopEl = desktop;
   const taskbar = buildTaskbar();
   app.append(desktop, taskbar);
   setMenuLayer(app);

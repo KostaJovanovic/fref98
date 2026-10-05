@@ -159,10 +159,6 @@ export class Player {
     return !!this.plan;
   }
 
-  get glitching(): boolean {
-    return !!this.pain;
-  }
-
   /** Speaks a line (replacing any line in progress). */
   say(text: string, cb: TalkCallbacks = {}) {
     this.plan = talk(text, this.timing);

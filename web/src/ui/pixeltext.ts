@@ -3,7 +3,7 @@
 import { GLYPHS } from './glyphdata.gen';
 
 export const LINE = 13;
-export const ASCENT = 10;
+const ASCENT = 10;
 
 function glyph(cp: number): number[] {
   return GLYPHS[cp] ?? GLYPHS[63]; // '?'

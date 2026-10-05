@@ -31,12 +31,9 @@ export interface Settings {
   fill: 'grey' | 'repeat' | 'black' | 'donor';
   /** Pool photo shown in never-reached blocks with fill "donor" (empty = the next photo in the pool). */
   fillDonor?: string;
-  keepOriginal: boolean;
-  importProfile: string;
   stripPrivateExif: boolean;
   embedRecipe: boolean;
   reducedMotion: 'auto' | boolean;
-  wallpaperPhoto?: string; // pool uid
   /** Desktop icon cells [column, row] on the 75×75 grid, by registry id (missing = next free cell). */
   iconPos: Record<string, [number, number]>;
   /** Desktop icon labels the user renamed with F2, by registry id (the app itself keeps its name). */
@@ -59,8 +56,6 @@ const DEFAULTS: Settings = {
   expert: false,
   personality: 'libjpeg',
   fill: 'grey',
-  keepOriginal: false,
-  importProfile: '',
   stripPrivateExif: true,
   embedRecipe: false,
   reducedMotion: 'auto',
@@ -70,7 +65,7 @@ const DEFAULTS: Settings = {
 };
 
 /** Every setting this version stores (the optional ones have no default). */
-const OPTIONAL: (keyof Settings)[] = ['fillDonor', 'wallpaperPhoto'];
+const OPTIONAL: (keyof Settings)[] = ['fillDonor'];
 const KNOWN = new Set<string>([...Object.keys(DEFAULTS), ...OPTIONAL]);
 
 const KEY = 'refragmenter.settings.v1';

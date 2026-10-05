@@ -172,8 +172,3 @@ export function progressBar(fraction = 0): HTMLElement & { set(f: number): void 
   requestAnimationFrame(() => bar.set(fraction));
   return bar;
 }
-
-/** A sunken status-bar pane (put several in a status bar row). */
-export function statusPane(content: string | Node, opts: { grow?: boolean } = {}): HTMLElement {
-  return h('div', { class: 'status-pane' + (opts.grow ? ' grow' : '') }, content);
-}

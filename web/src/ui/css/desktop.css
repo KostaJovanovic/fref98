@@ -18,12 +18,6 @@
   left: 0;
   top: 0;
 }
-.desktop .wall.tiles {
-  width: 100%;
-  height: 100%;
-  background-image: var(--img-tiles);
-  background-size: 32px 32px;
-}
 
 /* The icon layer only spans the icons and lets clicks between them through to the desktop. No z-index: it
    must not form a stacking context, so the XOR-style focus rectangle blends with the sky behind it. */

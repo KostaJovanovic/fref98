@@ -6,7 +6,6 @@ import { iconCanvas } from '../ui/art';
 import { button } from '../ui/controls';
 import { openWindow, activeWin, type Win } from '../ui/wm';
 import { openDialog, type DialogButton } from '../ui/dialog';
-import { drawText, textWidth } from '../ui/pixeltext';
 import { ditherBayer } from '../ui/palette';
 
 /** A fixed-size 98 dialog, modal to its owner (default: the active window): buttons in a row at the bottom
@@ -191,8 +190,8 @@ export function wizardArt(icons: string[], w = 140, hh = 270): HTMLCanvasElement
 
 // ------------------------------------------------------------------ the Display Properties monitor
 
-export const CRT_W = 184;
-export const CRT_H = 170;
+const CRT_W = 184;
+const CRT_H = 170;
 export const SCREEN = { x: 17, y: 16, w: 150, h: 112 };
 
 /** The beige monitor of Display Properties. `paint` draws the screen (SCREEN.w × SCREEN.h). */
@@ -325,9 +324,6 @@ export function pieChart(used: number, total: number, w = 120, hh = 60): HTMLCan
       }
     }
   x.putImageData(img, 0, 0);
-  // black outline around the whole shape and the slice edges on the top face
-  x.strokeStyle = '#000';
-  x.lineWidth = 1;
   return c;
 }
 
@@ -370,9 +366,4 @@ export function bookIcon(kind: 'closed' | 'open' | 'page'): HTMLImageElement {
   const img = h('img', { class: 'ico', width: 16, height: 16, alt: '', 'aria-hidden': 'true', draggable: false });
   img.src = u;
   return img;
-}
-
-/** Pixel-font text in a canvas, for art that needs words (the wizard bitmap, the monitor). */
-export function canvasText(x: CanvasRenderingContext2D, s: string, cx: number, y: number, col: string, bold = false) {
-  drawText(x, s, Math.round(cx - textWidth(s, bold) / 2), y, col, { bold });
 }

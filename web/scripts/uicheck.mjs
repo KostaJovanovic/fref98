@@ -1,4 +1,4 @@
-// Native-UI audit (Phase 2): serves dist/, opens every app from the registry and checks that no browser UI
+// Native-UI audit: serves dist/, opens every app from the registry and checks that no browser UI
 // can show up: no `title` attributes, every <select> hidden behind our drop-down, every visible text in our
 // pixel font, right-click menus on each surface (with the browser menu prevented), and the 8 resize zones.
 // Also saves screenshots of a cascaded menu, a message box and an open drop-down.
@@ -13,7 +13,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const out = path.resolve(process.argv[2] ?? path.resolve(here, '..', '..', 'test-local', 'uicheck'));
 
 const server = await serveDist();
-const base = server.base;
+const base = server.app;
 await mkdir(out, { recursive: true });
 
 const results = [];
@@ -45,14 +45,14 @@ await pg.locator('text=Try a sample photo').first().click().catch(() => {});
 await pg.waitForTimeout(2500);
 
 // ------------------------------------------------------------------ open every app from the registry
-const appIds = ['editor', 'pictures', 'card', 'presets', 'recycle', 'help', 'about', 'display', 'hex', 'webcam', 'video', 'export'];
+const appIds = await pg.evaluate(() => window.__refrag.apps);
 for (const id of appIds) {
   await pg.evaluate((id) => window.__refrag.openApp(id), id);
   await pg.waitForTimeout(700);
 }
 await pg.waitForTimeout(800);
 const opened = await pg.locator('.win').count();
-check('apps opened from the registry', opened >= appIds.length - 2, `${opened} windows for ${appIds.length} apps`);
+check('apps opened from the registry', appIds.length > 0 && opened === appIds.length, `${opened} windows for ${appIds.length} apps`);
 
 // ------------------------------------------------------------------ static audits (everything open at once)
 async function audits(tag) {
@@ -156,7 +156,7 @@ await rightClick('taskbar', () => {
 });
 await pg.keyboard.press('Escape');
 
-// ------------------------------------------------------------------ resize zones (Agent A's frame)
+// ------------------------------------------------------------------ resize zones (the window frame)
 await pg.evaluate(() => window.__refrag.openApp('help'));
 await pg.waitForTimeout(800);
 {
@@ -674,6 +674,42 @@ await pg.waitForTimeout(300);
   await pg.waitForTimeout(200);
   await closeAll();
   await pg.waitForTimeout(300);
+
+  // ---------------------------------------------------------------- dead code gone (audit B10)
+  const vars = await pg.evaluate(() => {
+    const st = document.getElementById('app').style;
+    const names = [...st].filter((n) => n.startsWith('--img-'));
+    return { names, cb: !!st.getPropertyValue('--img-cb'), thumb: !!st.getPropertyValue('--img-thumb') };
+  });
+  const dead = vars.names.filter((n) => /-h$|^--img-arrow-down$|^--img-thumb-h$|^--img-checker-(black|white)$|^--img-tail$|^--img-tiles$/.test(n));
+  check('only the sprite variables the CSS reads are generated (02-4, 03-10)', vars.cb && vars.thumb && dead.length === 0, `${vars.names.length} vars; dead: ${dead.join(' ')}`);
+  // 04-14: the desktop icons are apps; no Delete entry, and the Delete key opens no confirmation
+  const del = await pg.evaluate(async () => {
+    const ic = document.querySelector('.dicon[data-app="pictures"]');
+    ic.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 40, clientY: 40 }));
+    await new Promise((r) => setTimeout(r, 200));
+    const items = [...document.querySelectorAll('.menu .mi .mlabel')].map((e) => e.textContent);
+    const narrow = document.querySelectorAll('.menu .mck.narrow').length;
+    for (const m of document.querySelectorAll('.menu')) m.remove();
+    ic.focus();
+    ic.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true }));
+    await new Promise((r) => setTimeout(r, 300));
+    return { items, narrow, boxes: document.querySelectorAll('.win .msgbox').length };
+  });
+  check('desktop icons have no dead Delete (04-14) and menus no no-op .narrow (03-10)', del.items.length > 0 && !del.items.includes('Delete') && del.boxes === 0 && del.narrow === 0, JSON.stringify(del));
+  await pg.keyboard.press('Escape');
+  // 12-16: the scripts read the app list from the registry
+  check('the app list comes from the registry (12-16)', appIds.includes('editor') && appIds.includes('export') && new Set(appIds).size === appIds.length, appIds.join(','));
+}
+
+// 04-29: the __refrag handle only exists with ?debug (or in a dev build)
+{
+  const plain = await ctx.newPage();
+  await plain.goto(server.base);
+  await plain.waitForTimeout(2500);
+  const has = await plain.evaluate(() => typeof window.__refrag);
+  check('no __refrag debug handle without ?debug (04-29)', has === 'undefined', has);
+  await plain.close();
 }
 
 await audits('after interaction');
@@ -752,6 +788,17 @@ await shot(pg, 'desktop');
     return e ? [parseFloat(getComputedStyle(e).fontSize), parseFloat(getComputedStyle(document.body).fontSize), parseFloat(getComputedStyle(e.closest('.win') ?? document.body).fontSize)] : null;
   });
   check('phone: h1.big is bigger than body text', !!h1 && h1[0] >= h1[2] * 1.5, JSON.stringify(h1));
+  // 03-6: one phone slider rule, the thumb at exactly 2× (22×42)
+  const rng = await ph.evaluate(() => {
+    const e = document.createElement('input');
+    e.type = 'range';
+    document.getElementById('app').append(e);
+    // (Chrome gives no computed style for ::-webkit-slider-thumb; the track height says which rule won)
+    const h = parseFloat(getComputedStyle(e).height);
+    e.remove();
+    return h;
+  });
+  check('phone: one slider rule, the 48 px track of the 2× thumb (03-6)', rng === 48, String(rng));
   // phone status bar: Hex Doctor keeps its offset readout
   await ph.evaluate(() => window.__refrag.openApp('hex'));
   await ph.waitForTimeout(800);

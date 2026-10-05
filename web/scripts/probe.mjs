@@ -7,7 +7,7 @@ const browser = await chromium.launch();
 const pg = await browser.newPage({ viewport: { width: 1366, height: 768 }, deviceScaleFactor: Number(process.env.DSF ?? 1) });
 pg.on('console', (m) => console.log('[console]', m.type(), m.text()));
 pg.on('pageerror', (e) => console.log('[pageerror]', e.message));
-await pg.goto(server.base);
+await pg.goto(server.app);
 await pg.waitForTimeout(Number(process.env.WAIT ?? 2500));
 const r = await pg.evaluate(process.argv[2] ?? '1');
 console.log(JSON.stringify(r, null, 1));

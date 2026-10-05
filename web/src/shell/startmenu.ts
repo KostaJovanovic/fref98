@@ -144,7 +144,7 @@ function dress(root: HTMLElement, items: MenuItem[], btn: HTMLElement) {
   root.classList.add('startmenu');
   root.style.minWidth = '';
   const rows = [...root.querySelectorAll<HTMLElement>(':scope > .mi')];
-  const real = items.filter((it) => !it.sep && !it.separator && !it.head);
+  const real = items.filter((it) => !it.sep && !it.head);
   rows.forEach((row, i) => {
     const ic = real[i]?.icon;
     const slot = row.querySelector('.mck');
@@ -188,7 +188,7 @@ function banner(height: number): HTMLCanvasElement {
 
 /** The 98 "Shut Down Windows" box, with our own choices. The screen behind it is dithered, as in 98, but
  *  nothing is blocked. */
-export function shutDown() {
+function shutDown() {
   let choice: 'close' | 'restart' | 'clear' = 'close';
   const body = h(
     'div',

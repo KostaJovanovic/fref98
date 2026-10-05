@@ -6,7 +6,6 @@ pub const EOI: u8 = 0xD9;
 pub const SOS: u8 = 0xDA;
 pub const DQT: u8 = 0xDB;
 pub const DHT: u8 = 0xC4;
-pub const DRI: u8 = 0xDD;
 pub const APP0: u8 = 0xE0;
 pub const APP1: u8 = 0xE1;
 pub const APP2: u8 = 0xE2;

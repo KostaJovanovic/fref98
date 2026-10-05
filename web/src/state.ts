@@ -160,17 +160,6 @@ export class Store {
     return photo;
   }
 
-  /** Replace a photo's bytes (e.g. "Apply" a stack, or downscale) — not undoable for the bytes themselves. */
-  replacePhotoBytes(id: string, bytes: Uint8Array) {
-    const p = this.photos.get(id);
-    if (!p) return;
-    p.bytes = bytes;
-    p.version++;
-    this.savedPhotos.delete(id);
-    this.emit('photos');
-    this.scheduleSave();
-  }
-
   renamePhoto(id: string, name: string) {
     const p = this.photos.get(id);
     if (!p) return;

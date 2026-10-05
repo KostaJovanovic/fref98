@@ -10,7 +10,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const out = path.resolve(here, '..', 'shots');
 
 const server = await serveDist();
-const base = server.base;
+const base = server.app;
 await mkdir(out, { recursive: true });
 
 const want = process.argv.slice(2);
@@ -60,9 +60,8 @@ if (run('desk')) {
   await pg.waitForTimeout(400);
   await shot(pg, 'desk-4-start');
   await pg.keyboard.press('Escape');
-  await pg.locator('.start').click();
-  await pg.waitForTimeout(200);
-  await clickText(pg, 'Expert');
+  // the editor's Expert tab
+  await pg.locator('.win .tab', { hasText: 'Expert' }).first().click();
   await pg.waitForTimeout(1500);
   await shot(pg, 'desk-5-expert');
   await ctx.close();
