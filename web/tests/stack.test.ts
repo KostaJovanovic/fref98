@@ -9,6 +9,7 @@ import {
   setPatchedByte,
   reencodeMarkers,
   resolvePhotoParams,
+  poolOrder,
   moveNode,
   removeNode,
   findNode,
@@ -134,6 +135,17 @@ describe('runStack', () => {
     // and once it worked, a cached run no longer shows the old error
     const third = await runStack('s8', src, nodes, { apply: flakyApply, cache, catalog, pool: null });
     expect(third.results.map((x) => x.status)).toEqual(['cached', 'cached']);
+  });
+
+  // audit B4 (10-2): -1 ("next photo in the pool") was always the first photo of the project
+  it('the pool starts with the photo after the edited one', () => {
+    const order = ['a', 'b', 'c', 'd'];
+    expect(poolOrder(order, 'c')).toEqual(['d', 'a', 'b']);
+    expect(poolOrder(order, 'd')).toEqual(['a', 'b', 'c']);
+    expect(poolOrder(order, 'a')).toEqual(['b', 'c', 'd']);
+    expect(poolOrder(order, null)).toEqual(order);
+    // a photo picked by uid still resolves to itself
+    expect(resolvePhotoParams({ photo: 'b' }, { params: [{ id: 'photo', kind: 'photo' }] } as any, poolOrder(order, 'c'))).toEqual({ photo: 2 });
   });
 
   it('can stop between steps', async () => {

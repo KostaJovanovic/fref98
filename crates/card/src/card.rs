@@ -94,7 +94,8 @@ pub struct Card {
     small: Vec<Option<refragmenter_codec::Image>>,
 }
 
-/// SD Association-style default cluster sizes.
+/// Default cluster sizes: SD Association style for FAT16 and exFAT; FAT32 as Windows formats cards up to
+/// 4 GB (4 KB) and as the SDA formats SDHC (32 KB). `fs::plan` still adjusts them to a valid count.
 pub fn default_cluster_kb(fs: Fs, size_mb: u64) -> u64 {
     match fs {
         Fs::Fat16 => {
@@ -111,8 +112,8 @@ pub fn default_cluster_kb(fs: Fs, size_mb: u64) -> u64 {
             }
         }
         Fs::Fat32 => {
-            if size_mb <= 8192 {
-                32
+            if size_mb <= 4096 {
+                4
             } else {
                 32
             }
@@ -131,23 +132,16 @@ pub fn default_cluster_kb(fs: Fs, size_mb: u64) -> u64 {
 /// overwriting), so a 64 GB card with 1 KB clusters (64 M of them) would need gigabytes.
 const MAX_CLUSTERS: u64 = 1 << 22;
 
-/// `cluster_bytes`, doubled until the card has at most MAX_CLUSTERS clusters.
-fn fit_cluster_bytes(size: u64, mut cluster_bytes: u64) -> u64 {
-    while size / cluster_bytes > MAX_CLUSTERS && cluster_bytes < 1 << 20 {
-        cluster_bytes *= 2;
-    }
-    cluster_bytes
-}
-
 impl Card {
     pub fn new(fs: Fs, size_mb: u64, cluster_kb: Option<u64>, camera: CameraKind, photos: Vec<Vec<u8>>, seed: u32) -> Card {
         let size = size_mb.clamp(8, 1 << 20) * 1024 * 1024;
         let mut img = SparseImage::new(size);
         let asked = cluster_kb.unwrap_or_else(|| default_cluster_kb(fs, size_mb)).clamp(1, 1024);
-        let ckb = fit_cluster_bytes(size, asked * 1024) / 1024;
+        let plan = crate::fs::plan(fs, size, asked * 1024, MAX_CLUSTERS);
+        let fs = plan.fs;
         let mut rng = Pcg32::new(seed as u64, 0x43415244);
         let serial = rng.next_u32();
-        let vol = Volume::format(&mut img, fs, ckb * 1024, serial, "CARD");
+        let vol = Volume::format(&mut img, fs, plan.cluster_bytes, serial, "CARD");
         let n = vol.cluster_count as usize + 2;
         let np = photos.len();
         let mut c = Card {
@@ -170,14 +164,14 @@ impl Card {
             small: vec![None; np],
         };
         c.sync_meta_states();
-        if ckb != asked {
-            c.log.push(format!("{asked} KB clusters would make too many on a card this size; using {ckb} KB."));
+        if let Some(n) = plan.note {
+            c.log.push(n);
         }
         c.log.push(format!(
-            "Formatted {} MB card as {} with {} KB clusters ({} clusters).",
+            "Formatted {} MB card as {} with {} clusters ({} clusters).",
             size / (1024 * 1024),
             fs.name().to_uppercase(),
-            ckb,
+            crate::fs::fmt_cluster(c.vol.cluster_bytes),
             c.vol.cluster_count
         ));
         c
@@ -240,6 +234,8 @@ impl Card {
                 return None;
             }
         }
+        // on a full card only the part that fits is written, and the entry says so
+        let data = &data[..data.len().min(chain.len() * cb)];
         let idx = self.files.len();
         self.stamp += 7 + self.rng.below(50);
         // Power loss: only part of the data reaches the card and metadata is left inconsistent.
@@ -253,9 +249,7 @@ impl Card {
             let off = self.vol.cluster_offset(c);
             if s < data.len() {
                 self.img.write(off, &data[s..e]);
-                if e - s < cb {
-                    // Cameras leave the slack of the last cluster as whatever was there before.
-                }
+                // the slack of the last cluster keeps whatever was there before, as on a camera
             }
         }
         let contiguous = Volume::is_contiguous(&chain);
@@ -334,6 +328,12 @@ impl Card {
         }
         let i = self.next_photo % self.photos.len();
         self.next_photo += 1;
+        Some(self.photo_bytes(i))
+    }
+
+    /// The photo at roll position `i` (wrapping) as the camera writes it.
+    fn photo_bytes(&mut self, i: usize) -> (usize, Vec<u8>) {
+        let i = i % self.photos.len();
         if self.camera_thumbs && !self.thumbed[i] {
             self.thumbed[i] = true;
             if crate::jpeg::exif_thumbnail(&self.photos[i]).is_none() {
@@ -346,7 +346,18 @@ impl Card {
                 }
             }
         }
-        Some((i, self.photos[i].clone()))
+        (i, self.photos[i].clone())
+    }
+
+    /// The photos an event names (`photos`: roll positions), or `count` from the running cursor.
+    fn event_photos(&mut self, named: Option<&[usize]>, count: usize) -> Vec<(usize, Vec<u8>)> {
+        if self.photos.is_empty() {
+            return Vec::new();
+        }
+        match named {
+            Some(list) => list.iter().map(|&i| self.photo_bytes(i)).collect(),
+            None => (0..count).filter_map(|_| self.next_photo_bytes()).collect(),
+        }
     }
 
     /// 1/8-scale preview of photo `i` from its DC coefficients (cached).
@@ -358,9 +369,13 @@ impl Card {
     }
 
     pub fn shoot(&mut self, count: usize) {
+        self.shoot_photos(None, count);
+    }
+
+    /// `named`: the roll positions to shoot, in order (else `count` photos from the running cursor).
+    pub fn shoot_photos(&mut self, named: Option<&[usize]>, count: usize) {
         let Some(dir) = self.ensure_dirs() else { return };
-        for _ in 0..count {
-            let Some((pi, data)) = self.next_photo_bytes() else { return };
+        for (pi, data) in self.event_photos(named, count) {
             let name = self.camera.photo_name(self.shot_no);
             self.shot_no += 1;
             self.write_file(dir, &name, &data, "photo", pi as i32, Policy::NextFree, ST_LIVE);
@@ -482,7 +497,11 @@ impl Card {
     /// Re-create the file system. Data stays where it is; if the geometry changes, old files no longer
     /// line up with the new cluster grid.
     pub fn reformat(&mut self, fs: Fs, cluster_bytes: u64, why: &str) {
-        let cluster_bytes = fit_cluster_bytes(self.img.size, cluster_bytes);
+        let plan = crate::fs::plan(fs, self.img.size, cluster_bytes, MAX_CLUSTERS);
+        if let Some(n) = &plan.note {
+            self.log.push(n.clone());
+        }
+        let (fs, cluster_bytes) = (plan.fs, plan.cluster_bytes);
         let old_state = std::mem::take(&mut self.state);
         let old_owner = std::mem::take(&mut self.owner);
         let old_ds = self.vol.data_start;
@@ -527,9 +546,9 @@ impl Card {
             }
         }
         self.log.push(format!(
-            "{why}: {} with {} KB clusters. Old photos are still on the card, just forgotten{}.",
+            "{why}: {} with {} clusters. Old photos are still on the card, just forgotten{}.",
             fs.name().to_uppercase(),
-            cluster_bytes / 1024,
+            crate::fs::fmt_cluster(cluster_bytes),
             if cluster_bytes != old_cb || self.vol.data_start != old_ds { " (and no longer aligned to the cluster grid)" } else { "" }
         ));
     }
@@ -538,7 +557,17 @@ impl Card {
         self.power_loss = Some((at.clamp(0.05, 0.95), mode.to_string()));
     }
 
-    /// chkdsk: chains allocated in the FAT but not referenced by any entry become FOUND.000\FILE0000.CHK.
+    /// A live subdirectory of `parent` called `name`, if there is one.
+    fn find_dir(&self, parent: Dir, name: &str) -> Option<Dir> {
+        self.vol
+            .read_dir(&self.img, parent)
+            .into_iter()
+            .find(|e| e.is_dir && !e.deleted && e.name.eq_ignore_ascii_case(name) && e.first >= 2 && e.first <= self.vol.last_cluster())
+            .map(|e| Dir::Cluster(e.first))
+    }
+
+    /// chkdsk: chains allocated in the FAT but not referenced by any entry become FOUND.nnn\FILEnnnn.CHK
+    /// (each run uses the next free FOUND.nnn, as Windows does).
     pub fn chkdsk(&mut self) {
         let n = self.state.len();
         let lost: Vec<usize> = (0..self.files.len())
@@ -552,7 +581,8 @@ impl Card {
             return;
         }
         let root = self.vol.root();
-        let Some(found) = self.vol.mkdir(&mut self.img, root, "FOUND.000", self.stamp) else {
+        let folder = (0..1000).map(|n| format!("FOUND.{n:03}")).find(|n| self.find_dir(root, n).is_none()).unwrap_or_else(|| "FOUND.999".into());
+        let Some(found) = self.vol.mkdir(&mut self.img, root, &folder, self.stamp) else {
             self.log.push("chkdsk: the disk is full, so the lost chains could not be saved.".into());
             return;
         };
@@ -569,15 +599,22 @@ impl Card {
             self.files[i].dir = found;
             let cl = f.clusters.clone();
             self.mark_clusters(&cl, i as i32, ST_LIVE);
-            self.log.push(format!("chkdsk: recovered lost chain as FOUND.000\\{name}."));
+            self.log.push(format!("chkdsk: recovered lost chain as {folder}\\{name}."));
         }
         self.sync_meta_states();
     }
 
-    /// Damage FAT links: chains jump into other files' clusters (cross-links after a crash).
+    /// Damage FAT links: chains jump into other files' clusters (cross-links after a crash). Only files
+    /// read through the FAT can be hit: exFAT keeps contiguous files without a FAT chain.
     pub fn fat_glitch(&mut self, count: usize) {
-        let live: Vec<usize> = (0..self.files.len()).filter(|&i| !self.files[i].deleted && self.files[i].clusters.len() > 2).collect();
+        let chained = |f: &FileRec| self.vol.fs != Fs::ExFat || !Volume::is_contiguous(&f.clusters);
+        let live: Vec<usize> = (0..self.files.len()).filter(|&i| !self.files[i].deleted && self.files[i].clusters.len() > 2 && chained(&self.files[i])).collect();
         if live.len() < 2 {
+            self.log.push(if self.vol.fs == Fs::ExFat {
+                "FAT glitch: no effect, exFAT keeps these photos without a FAT chain.".into()
+            } else {
+                "FAT glitch: no effect, there are not enough files to cross-link.".into()
+            });
             return;
         }
         for _ in 0..count {
@@ -652,7 +689,8 @@ impl Card {
     /// (also ones deleted since), "live" = only photos still on the card.
     pub fn os_junk_with(&mut self, kb: u64, thumbs_of: &str) {
         let root = self.vol.root();
-        let Some(svi) = self.vol.mkdir(&mut self.img, root, "SYSTEM~1", self.stamp) else {
+        // the PC reuses its folder from an earlier visit
+        let Some(svi) = self.find_dir(root, "SYSTEM~1").or_else(|| self.vol.mkdir(&mut self.img, root, "SYSTEM~1", self.stamp)) else {
             self.log.push("A PC tried to write its index files, but the card is full.".into());
             return;
         };
@@ -733,10 +771,14 @@ impl Card {
         }
     }
 
-    /// Flash memory failure in the data area.
-    pub fn flash_fault(&mut self, mode: &str, count: usize, page_kb: u64) {
+    /// Flash memory failure in the data area: in any file's clusters, or in photo `target`'s only.
+    pub fn flash_fault(&mut self, mode: &str, count: usize, page_kb: u64, target: Option<usize>) {
         let page = page_kb.clamp(2, 64) * 1024;
-        let used: Vec<u32> = (2..self.state.len() as u32).filter(|&c| self.owner[c as usize] >= 0).collect();
+        let used: Vec<u32> = match target.and_then(|i| self.photo_file(i)) {
+            // past its header cluster: a lost header is a different story (nothing decodes at all)
+            Some(f) => f.clusters.iter().skip(1).copied().filter(|&c| (c as usize) < self.state.len()).collect(),
+            None => (2..self.state.len() as u32).filter(|&c| self.owner[c as usize] >= 0).collect(),
+        };
         if used.is_empty() {
             return;
         }
@@ -774,26 +816,24 @@ impl Card {
         self.log.push(format!("Flash fault ({mode}): {count} page(s) of {} KB damaged.", page / 1024));
     }
 
-    /// Movie clip: MJPEG AVI + .THM sidecar (frames are the next photos, re-used as frames).
-    pub fn video(&mut self, frames: usize) {
+    /// Movie clip: MJPEG AVI + .THM sidecar (frames are photos of the roll: `named`, or the next ones).
+    pub fn video(&mut self, frames: usize, named: Option<&[usize]>) {
         let Some(dir) = self.ensure_dirs() else { return };
         let mut jpegs = Vec::new();
-        for _ in 0..frames.max(1) {
-            if let Some((_, d)) = self.next_photo_bytes() {
-                // 640x480 MJPEG frames with standard tables and no DHT, like Canon's movie mode.
-                let frame = refragmenter_codec::decode_rgba(&d)
-                    .map(|img| {
-                        let small = crate::formats::resize_box(&img, 640, 480);
-                        crate::jpeg::strip_dht(&refragmenter_codec::encode_rgba(&small, 70, "422"))
-                    })
-                    .unwrap_or(d);
-                jpegs.push(frame);
-            }
+        for (_, d) in self.event_photos(named, frames.max(1)) {
+            // 640x480 MJPEG frames with standard tables and no DHT, like Canon's movie mode.
+            let frame = refragmenter_codec::decode_rgba(&d)
+                .map(|img| {
+                    let small = crate::formats::resize_box(&img, 640, 480);
+                    crate::jpeg::strip_dht(&refragmenter_codec::encode_rgba(&small, 70, "422"))
+                })
+                .unwrap_or(d);
+            jpegs.push(frame);
         }
         if jpegs.is_empty() {
             return;
         }
-        let avi = crate::avi::mjpeg_avi(&jpegs, 640, 480, 15);
+        let avi = refragmenter_codec::avi::write(&jpegs, 640, 480, 15);
         let n = self.shot_no;
         self.shot_no += 1;
         let thm = crate::jpeg::exif_thumbnail(&jpegs[0]).map(|(o, l)| jpegs[0][o..o + l].to_vec()).unwrap_or_else(|| jpegs[0].clone());
@@ -804,10 +844,12 @@ impl Card {
     /// Run a scenario JSON: { events: [ {type, ...} ] }.
     pub fn run_events(&mut self, events: &[Value]) {
         use refragmenter_codec::step::{get_bool, get_f64, get_i64, get_str};
+        // roll positions an event names ("photos": [0, 1, …]), at most 500
+        let named = |e: &Value| -> Option<Vec<usize>> { e.get("photos")?.as_array().map(|a| a.iter().filter_map(|v| v.as_u64()).take(500).map(|v| v as usize).collect()) };
         for e in events {
             let t = get_str(e, "type", "");
             match t {
-                "shoot" => self.shoot(get_i64(e, "count", 1).clamp(1, 500) as usize),
+                "shoot" => self.shoot_photos(named(e).as_deref(), get_i64(e, "count", 1).clamp(1, 500) as usize),
                 "burst" => self.burst(get_i64(e, "count", 3).clamp(2, 8) as usize, get_i64(e, "period", 1).clamp(1, 16) as usize),
                 "delete" => self.delete(
                     get_str(e, "which", "all"),
@@ -818,7 +860,11 @@ impl Card {
                 "quick_format" => self.quick_format(),
                 "reformat_pc" => {
                     let fs = Fs::parse(get_str(e, "fs", "fat32"));
-                    let ckb = get_i64(e, "cluster_kb", 4).clamp(1, 1024) as u64;
+                    // no size given: what Windows picks for this file system and card size
+                    let ckb = match e.get("cluster_kb").and_then(|v| v.as_i64()) {
+                        Some(k) => k.clamp(1, 1024) as u64,
+                        None => default_cluster_kb(fs, self.img.size >> 20),
+                    };
                     self.reformat(fs, ckb * 1024, "Formatted on a PC");
                 }
                 "power_loss" => self.arm_power_loss(get_f64(e, "at", 0.5), get_str(e, "mode", "size_zero")),
@@ -833,8 +879,10 @@ impl Card {
                     get_str(e, "mode", "erased"),
                     get_i64(e, "count", 4).clamp(1, 4096) as usize,
                     get_i64(e, "page_kb", 16) as u64,
+                    // internal (pass_through_card): faults aimed at one photo
+                    usize::try_from(get_i64(e, "photo", -1)).ok(),
                 ),
-                "video" => self.video(get_i64(e, "frames", 4).clamp(1, 60) as usize),
+                "video" => self.video(get_i64(e, "frames", 4).clamp(1, 60) as usize, named(e).as_deref()),
                 "power_cycle" => {
                     // Many cameras forget their roving allocation pointer when switched off: next file goes
                     // into the first hole, which is how photos get fragmented.
@@ -842,27 +890,36 @@ impl Card {
                     self.log.push("Camera switched off and on: next photo goes into the first free gap.".into());
                 }
                 "advance" => {
-                    let pct = get_f64(e, "percent", 50.0).clamp(0.0, 99.0);
-                    let n = (self.vol.free_clusters() as f64 * pct / 100.0) as usize;
+                    let free = self.vol.free_clusters() as f64;
+                    let n = match e.get("kb").and_then(|v| v.as_u64()) {
+                        // internal (pass_through_card): an amount instead of a share
+                        Some(kb) => ((kb * 1024).div_ceil(self.vol.cluster_bytes) as f64).min(free * 0.99) as usize,
+                        None => (free * get_f64(e, "percent", 50.0).clamp(0.0, 99.0) / 100.0) as usize,
+                    };
+                    let pct = n as f64 * 100.0 / free.max(1.0);
                     // Older shots the owner keeps: occupied clusters (contents not modelled).
                     let chain = self.vol.alloc(n, Policy::NextFree);
                     for &c in &chain {
                         self.vol.mark(&mut self.img, c, true);
                         self.state[c as usize] = ST_META;
                     }
-                    if self.vol.fs != Fs::ExFat {
+                    // the same rule as write_file: only a contiguous exFAT file goes without a FAT chain
+                    let nofat = self.vol.fs == Fs::ExFat && Volume::is_contiguous(&chain);
+                    if !nofat {
                         self.vol.link_chain(&mut self.img, &chain);
                     }
                     let root = self.vol.root();
                     if let Some(&first) = chain.first() {
                         let size = chain.len() as u64 * self.vol.cluster_bytes;
-                        self.vol.write_entry(&mut self.img, root, "OLDSHOTS.DAT", first, size.min(u32::MAX as u64), false, self.stamp, Volume::is_contiguous(&chain));
+                        self.vol.write_entry(&mut self.img, root, "OLDSHOTS.DAT", first, size.min(u32::MAX as u64), false, self.stamp, nofat);
                     }
                     self.log.push(format!("Card already {pct:.0}% used by older shots: writing continues from there."));
                 }
                 _ => self.log.push(format!("Unknown event '{t}' ignored.")),
             }
         }
+        // FSInfo / PercentInUse after everything (burst and advance don't keep them up to date)
+        self.vol.update_fsinfo(&mut self.img);
     }
 
     /// Cluster range covering a file's original data (for matching recovered files back to photos).

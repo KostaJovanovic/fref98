@@ -71,6 +71,143 @@ pub struct Volume {
     /// In-memory allocation mirror (index = cluster number).
     pub in_use: Vec<bool>,
     pub next_hint: u32,
+    /// exFAT: the entry set of each subdirectory (by first cluster), so its lengths follow when it grows.
+    dir_entries: Vec<(u32, EntryLoc)>,
+}
+
+/// FAT16 and FAT32 are told apart by their cluster count alone (Microsoft's FAT specification), so a
+/// volume whose count is out of range for its type is mounted as another type by every real driver.
+pub const FAT16_MIN_CLUSTERS: u64 = 4085;
+pub const FAT16_MAX_CLUSTERS: u64 = 65524;
+pub const FAT32_MIN_CLUSTERS: u64 = 65525;
+
+/// Largest cluster size a file system allows (FAT: 128 sectors per cluster; exFAT: 32 MB).
+fn max_cluster_bytes(fs: Fs) -> u64 {
+    if fs == Fs::ExFat {
+        32 << 20
+    } else {
+        64 << 10
+    }
+}
+
+/// `b` rounded down to a power of two, within 512 bytes ..= the file system's largest cluster.
+fn pow2_cluster(fs: Fs, b: u64) -> u64 {
+    let b = b.clamp(SECTOR, max_cluster_bytes(fs));
+    1 << (63 - b.leading_zeros())
+}
+
+/// Where things go on a volume of `total_sectors` with `spc` sectors per cluster:
+/// (FAT sectors, first data sector, cluster count before any cap).
+fn layout(fs: Fs, total_sectors: u64, spc: u64) -> (u64, u64, u64) {
+    match fs {
+        Fs::Fat16 | Fs::Fat32 => {
+            let fat16 = fs == Fs::Fat16;
+            let reserved: u64 = if fat16 { 1 } else { 32 };
+            let root_sectors: u64 = if fat16 { 512 * 32 / SECTOR } else { 0 };
+            let entry = if fat16 { 2 } else { 4 };
+            let mut fat_sectors = 1u64;
+            loop {
+                let data_sectors = total_sectors.saturating_sub(reserved + 2 * fat_sectors + root_sectors);
+                let clusters = data_sectors / spc;
+                let need = ((clusters + 2) * entry).div_ceil(SECTOR);
+                if need <= fat_sectors {
+                    break;
+                }
+                fat_sectors = need;
+            }
+            let data_start = reserved + 2 * fat_sectors + root_sectors;
+            (fat_sectors, data_start, total_sectors.saturating_sub(data_start) / spc)
+        }
+        Fs::ExFat => {
+            let fat_offset: u64 = 2048;
+            let mut fat_len = 1u64;
+            loop {
+                let heap = (fat_offset + fat_len).div_ceil(spc) * spc;
+                let clusters = total_sectors.saturating_sub(heap) / spc;
+                let need = ((clusters + 2) * 4).div_ceil(SECTOR);
+                if need <= fat_len {
+                    break;
+                }
+                fat_len = need;
+            }
+            let heap = (fat_offset + fat_len).div_ceil(spc) * spc;
+            (fat_len, heap, total_sectors.saturating_sub(heap) / spc)
+        }
+    }
+}
+
+/// Clusters a `size`-byte volume gets with this cluster size, before any cap.
+fn raw_cluster_count(fs: Fs, size: u64, cluster_bytes: u64) -> u64 {
+    layout(fs, size / SECTOR, cluster_bytes / SECTOR).2
+}
+
+/// "4 KB", or "512-byte" below 1 KB.
+pub fn fmt_cluster(b: u64) -> String {
+    if b < 1024 {
+        format!("{b}-byte")
+    } else {
+        format!("{} KB", b / 1024)
+    }
+}
+
+/// A file system layout that real drivers mount the way it was meant.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Plan {
+    pub fs: Fs,
+    pub cluster_bytes: u64,
+    /// Why it differs from what was asked (for the card's log), if it does.
+    pub note: Option<String>,
+}
+
+/// The nearest valid geometry to the request: a power-of-two cluster size the file system allows, a
+/// cluster count in range for the FAT type, and at most `max_clusters` clusters (memory). The cluster
+/// size is halved or doubled as needed; when no size works (FAT32 on a small card, FAT16 on one over
+/// 4 GB, FAT32 with more clusters than memory allows) another file system is used.
+pub fn plan(fs: Fs, size: u64, cluster_bytes: u64, max_clusters: u64) -> Plan {
+    let mut cb = pow2_cluster(fs, cluster_bytes);
+    let count = |cb: u64| raw_cluster_count(fs, size, cb);
+    let max = max_cluster_bytes(fs);
+    let mut memory = false;
+    while count(cb) > max_clusters && cb < max {
+        cb *= 2;
+        memory = true;
+    }
+    let other = |to: Fs, why: &str| {
+        let p = plan(to, size, cluster_bytes, max_clusters);
+        let note = format!("{why}; formatted as {} instead.", to.name().to_uppercase());
+        Plan { note: Some(note), ..p }
+    };
+    let mb = size >> 20;
+    match fs {
+        Fs::ExFat => {}
+        Fs::Fat16 => {
+            while count(cb) > FAT16_MAX_CLUSTERS && cb < max {
+                cb *= 2;
+            }
+            while count(cb) < FAT16_MIN_CLUSTERS && cb > SECTOR {
+                cb /= 2;
+            }
+            if count(cb) > FAT16_MAX_CLUSTERS {
+                return other(Fs::Fat32, &format!("FAT16 can't hold a {mb} MB card"));
+            }
+        }
+        Fs::Fat32 => {
+            if count(cb) > max_clusters {
+                return other(Fs::ExFat, &format!("FAT32 would need too many clusters on a {mb} MB card"));
+            }
+            while count(cb) < FAT32_MIN_CLUSTERS && cb > SECTOR {
+                cb /= 2;
+            }
+            if count(cb) < FAT32_MIN_CLUSTERS {
+                return other(Fs::Fat16, &format!("FAT32 needs at least {FAT32_MIN_CLUSTERS} clusters, more than a {mb} MB card has"));
+            }
+        }
+    }
+    let note = (cb != cluster_bytes).then(|| {
+        let why = if memory && cb > cluster_bytes { "would make too many clusters on a card this size" } else { "don't make a valid card this size" };
+        format!("{} clusters {why}; using {}.", fmt_cluster(cluster_bytes), fmt_cluster(cb))
+    });
+    Plan { fs, cluster_bytes: cb, note }
 }
 
 impl Volume {
@@ -190,30 +327,19 @@ impl Volume {
 
     // ---------------------------------------------------------------- formatting
 
+    /// Lays out a fresh file system. `cluster_bytes` is rounded down to a power of two the file system
+    /// allows; `plan` picks one that also gives a valid cluster count.
     pub fn format(img: &mut SparseImage, fs: Fs, cluster_bytes: u64, serial: u32, label: &str) -> Volume {
         let total_sectors = img.size / SECTOR;
-        let spc = (cluster_bytes / SECTOR).max(1);
+        let spc = pow2_cluster(fs, cluster_bytes) / SECTOR;
+        let (fat_len, data_start_s, clusters) = layout(fs, total_sectors, spc);
         let mut v = match fs {
             Fs::Fat16 | Fs::Fat32 => {
                 let fat16 = fs == Fs::Fat16;
                 let reserved: u64 = if fat16 { 1 } else { 32 };
                 let root_entries: u64 = if fat16 { 512 } else { 0 };
-                let root_sectors = root_entries * 32 / SECTOR;
-                let entry = if fat16 { 2 } else { 4 };
-                // Solve FAT size iteratively.
-                let mut fat_sectors = 1u64;
-                loop {
-                    let data_sectors = total_sectors.saturating_sub(reserved + 2 * fat_sectors + root_sectors);
-                    let clusters = data_sectors / spc;
-                    let need = ((clusters + 2) * entry).div_ceil(SECTOR);
-                    if need <= fat_sectors {
-                        break;
-                    }
-                    fat_sectors = need;
-                }
-                let data_start_s = reserved + 2 * fat_sectors + root_sectors;
-                let clusters = (total_sectors - data_start_s) / spc;
-                let clusters = if fat16 { clusters.min(65524) } else { clusters.min(0x0FFF_FFF5) };
+                let fat_sectors = fat_len;
+                let clusters = if fat16 { clusters.min(FAT16_MAX_CLUSTERS) } else { clusters.min(0x0FFF_FFF5) };
                 Volume {
                     fs,
                     size: img.size,
@@ -230,40 +356,27 @@ impl Volume {
                     serial,
                     in_use: vec![false; clusters as usize + 2],
                     next_hint: 2,
+                    dir_entries: Vec::new(),
                 }
             }
-            Fs::ExFat => {
-                let fat_offset: u64 = 2048;
-                let mut fat_len = 1u64;
-                loop {
-                    let heap = (fat_offset + fat_len).div_ceil(spc) * spc;
-                    let clusters = total_sectors.saturating_sub(heap) / spc;
-                    let need = ((clusters + 2) * 4).div_ceil(SECTOR);
-                    if need <= fat_len {
-                        break;
-                    }
-                    fat_len = need;
-                }
-                let heap = (fat_offset + fat_len).div_ceil(spc) * spc;
-                let clusters = (total_sectors - heap) / spc;
-                Volume {
-                    fs,
-                    size: img.size,
-                    cluster_bytes: spc * SECTOR,
-                    cluster_count: clusters as u32,
-                    data_start: heap * SECTOR,
-                    fat_start: fat_offset * SECTOR,
-                    fat_bytes: fat_len * SECTOR,
-                    nfats: 1,
-                    root16_start: 0,
-                    root16_entries: 0,
-                    root_cluster: 0,
-                    bitmap_cluster: 2,
-                    serial,
-                    in_use: vec![false; clusters as usize + 2],
-                    next_hint: 2,
-                }
-            }
+            Fs::ExFat => Volume {
+                fs,
+                size: img.size,
+                cluster_bytes: spc * SECTOR,
+                cluster_count: clusters as u32,
+                data_start: data_start_s * SECTOR,
+                fat_start: 2048 * SECTOR,
+                fat_bytes: fat_len * SECTOR,
+                nfats: 1,
+                root16_start: 0,
+                root16_entries: 0,
+                root_cluster: 0,
+                bitmap_cluster: 2,
+                serial,
+                in_use: vec![false; clusters as usize + 2],
+                next_hint: 2,
+                dir_entries: Vec::new(),
+            },
         };
         // Wipe metadata area (FATs and root) so a reformat really resets them; data clusters are untouched.
         let meta_end = match fs {
@@ -291,8 +404,8 @@ impl Volume {
             v.write_label_entry(img, Dir::Root16, label);
         } else if fs == Fs::Fat32 {
             v.write_label_entry(img, Dir::Cluster(2), label);
-            v.update_fsinfo(img);
         }
+        v.update_fsinfo(img);
         v
     }
 
@@ -309,7 +422,8 @@ impl Volume {
                 b[14..16].copy_from_slice(&((self.fat_start / SECTOR) as u16).to_le_bytes());
                 b[16] = 2;
                 b[17..19].copy_from_slice(&(self.root16_entries as u16).to_le_bytes());
-                if total_sectors < 65536 {
+                // FAT32 always uses the 32-bit total (TotSec16 must be 0 there)
+                if fat16 && total_sectors < 65536 {
                     b[19..21].copy_from_slice(&(total_sectors as u16).to_le_bytes());
                 } else {
                     b[32..36].copy_from_slice(&(total_sectors as u32).to_le_bytes());
@@ -432,7 +546,16 @@ impl Volume {
         img.write(12 * SECTOR, &region);
     }
 
+    /// FAT32 FSInfo free count and next-free hint; exFAT PercentInUse (boot sector and backup; the byte is
+    /// left out of the boot checksum for this reason).
     pub fn update_fsinfo(&self, img: &mut SparseImage) {
+        if self.fs == Fs::ExFat {
+            let used = self.cluster_count.saturating_sub(self.free_clusters()) as u64;
+            let pct = (used * 100 / (self.cluster_count as u64).max(1)) as u8;
+            img.write(112, &[pct]);
+            img.write(12 * SECTOR + 112, &[pct]);
+            return;
+        }
         if self.fs != Fs::Fat32 {
             return;
         }
@@ -500,6 +623,14 @@ impl Volume {
         }
         // Grow cluster directories by one cluster.
         if let Dir::Cluster(first) = dir {
+            if self.fs == Fs::ExFat {
+                // The set goes into the new cluster. The never-used slots left at the end of the old
+                // one would read as "end of directory" (type 0) and hide it: mark them unused (0x01).
+                let tail: Vec<u64> = slots.iter().rev().take_while(|&&o| img.read_vec(o, 1)[0] == 0).copied().collect();
+                for off in tail {
+                    img.write(off, &[0x01]);
+                }
+            }
             let mut last = first;
             loop {
                 let next = self.fat_get(img, last);
@@ -514,9 +645,29 @@ impl Volume {
             img.fill(self.cluster_offset(c), self.cluster_bytes, 0);
             self.fat_set(img, last, c);
             self.fat_set(img, c, self.eoc());
+            self.grew_dir(img, first);
             return Some(self.cluster_offset(c));
         }
         None
+    }
+
+    /// exFAT reads a directory only as far as its entry's lengths say: one cluster more after growing.
+    fn grew_dir(&self, img: &mut SparseImage, first: u32) {
+        if self.fs != Fs::ExFat {
+            return;
+        }
+        let Some(&(_, loc)) = self.dir_entries.iter().find(|(c, _)| *c == first) else { return };
+        if loc.offset == 0 {
+            return;
+        }
+        let mut set = img.read_vec(loc.offset, loc.count as usize * 32);
+        for at in [32 + 8, 32 + 24] {
+            let len = u64::from_le_bytes(set[at..at + 8].try_into().unwrap()) + self.cluster_bytes;
+            set[at..at + 8].copy_from_slice(&len.to_le_bytes());
+        }
+        let sum = checksum16(&set);
+        set[2..4].copy_from_slice(&sum.to_le_bytes());
+        img.write(loc.offset, &set);
     }
 
     /// Create a subdirectory and return it; None when the card has no free cluster left.
@@ -526,7 +677,7 @@ impl Volume {
         img.fill(self.cluster_offset(c), self.cluster_bytes, 0);
         self.fat_set(img, c, self.eoc());
         let loc = self.write_entry(img, parent, name, c, self.cluster_bytes, true, stamp, false);
-        let _ = loc;
+        self.dir_entries.push((c, loc));
         if self.fs != Fs::ExFat {
             let parent_c = match parent {
                 Dir::Root16 => 0,
@@ -580,10 +731,11 @@ impl Volume {
                 s[1] = 0x01 | if contiguous { 0x02 } else { 0 };
                 s[3] = units.len() as u8;
                 s[4..6].copy_from_slice(&name_hash(&units).to_le_bytes());
-                let alloc = if is_dir { self.cluster_bytes } else { size.div_ceil(self.cluster_bytes) * self.cluster_bytes };
-                s[8..16].copy_from_slice(&(if is_dir { alloc } else { size }).to_le_bytes());
+                // ValidDataLength and DataLength: the file's size (a directory: its one cluster so far)
+                let len = if is_dir { self.cluster_bytes } else { size };
+                s[8..16].copy_from_slice(&len.to_le_bytes());
                 s[20..24].copy_from_slice(&first.to_le_bytes());
-                s[24..32].copy_from_slice(&alloc.to_le_bytes());
+                s[24..32].copy_from_slice(&len.to_le_bytes());
                 for i in 0..name_entries {
                     let e = &mut set[64 + i * 32..96 + i * 32];
                     e[0] = 0xC1;

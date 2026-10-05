@@ -173,12 +173,28 @@ pub fn ids() -> Vec<&'static str> {
 /// A resolved profile: encoder settings plus its size rule.
 pub struct Profile {
     pub settings: EncodeSettings,
+    /// The quality its tables stand for.
+    pub quality: i32,
+    /// Its tables were measured from real files (not libjpeg's standard ones).
+    pub measured: bool,
     /// (max_w, max_h) box for cameras, or (n, n) long-side cap for apps; 0 = keep size.
     pub max_w: usize,
     pub max_h: usize,
 }
 
 impl Profile {
+    /// Its settings at quality `q`: libjpeg's standard tables for `q`, or its own measured tables scaled
+    /// from the quality they were made for (they used to be replaced by the standard ones).
+    pub fn settings_at(&self, q: i32) -> EncodeSettings {
+        let mut s = self.settings.clone();
+        if self.measured {
+            s.rescale_quality(self.quality, q);
+        } else {
+            s.set_quality(q);
+        }
+        s
+    }
+
     /// Target dimensions for a w x h source (never upscales; rotates the box for portrait).
     pub fn target_dims(&self, w: usize, h: usize) -> (usize, usize) {
         if self.max_w == 0 {
@@ -208,7 +224,7 @@ pub fn get(id: &str) -> Option<Profile> {
         s.jfif = false;
         s.segments.push((APP1, crate::exif::minimal(make, model)));
     }
-    Some(Profile { settings: s, max_w: d.info.width, max_h: d.info.height })
+    Some(Profile { settings: s, quality: d.quality, measured: d.custom.is_some(), max_w: d.info.width, max_h: d.info.height })
 }
 
 pub fn json() -> String {

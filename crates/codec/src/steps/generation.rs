@@ -87,7 +87,8 @@ fn resave(p: &Value, input: &[u8], ctx: &StepCtx) -> StepResult {
     let (mut img, mut base) = px_in(input)?;
     let (ow, oh) = (img.w, img.h);
     let mut max_box = (0usize, 0usize);
-    if let Some(pr) = profiles::get(&prof) {
+    let profile = profiles::get(&prof);
+    if let Some(pr) = &profile {
         base = pr.settings.clone();
         max_box = (pr.max_w, pr.max_h);
     }
@@ -124,9 +125,15 @@ fn resave(p: &Value, input: &[u8], ctx: &StepCtx) -> StepResult {
                 img = resize(&img, tw, th);
             }
         }
-        let mut s = base.clone();
         let gq = (q + if jit > 0 { rng.range(-jit, jit) } else { 0 }).clamp(1, 100);
-        s.set_quality(gq as i32);
+        let mut s = match &profile {
+            Some(pr) => pr.settings_at(gq as i32),
+            None => {
+                let mut s = base.clone();
+                s.set_quality(gq as i32);
+                s
+            }
+        };
         match sub.as_str() {
             "keep" => {}
             "random" => {

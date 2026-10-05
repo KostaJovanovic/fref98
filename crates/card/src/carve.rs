@@ -50,10 +50,23 @@ pub fn fat_chain(card: &Card, first: u32, max_len: usize) -> Vec<u32> {
     out
 }
 
+/// How `fs_read` treats deleted entries.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Undelete {
+    /// Only live files.
+    None,
+    /// Recuva-style: an exFAT chain that survived the delete is followed; otherwise the file's clusters
+    /// are taken from its start on, skipping clusters another file uses now.
+    Recuva,
+    /// The plain assumption: one contiguous run from the start cluster.
+    Contiguous,
+}
+
 pub fn carve(card: &Card, tool: &str, opts: &serde_json::Value) -> Vec<Recovered> {
     match tool {
-        "fat" => fs_read(card, false),
-        "recuva" | "undelete_contiguous" => fs_read(card, true),
+        "fat" => fs_read(card, Undelete::None),
+        "recuva" => fs_read(card, Undelete::Recuva),
+        "undelete_contiguous" => fs_read(card, Undelete::Contiguous),
         "thumbnails" => thumbnails(card),
         "graft" => {
             let mut v = photorec(card);
@@ -73,7 +86,8 @@ pub fn photorec(card: &Card) -> Vec<Recovered> {
     let mut c = 2u32;
     while c <= last {
         let off = card.vol.cluster_offset(c);
-        if card.img.is_blank_range(off, 4) {
+        // only a cluster that is blank all through: an old header can sit further in (after a reformat)
+        if card.img.is_blank_range(off, cb) {
             c += 1;
             continue;
         }
@@ -120,12 +134,7 @@ pub fn photorec(card: &Card) -> Vec<Recovered> {
 
 /// Cluster holding byte `off` of the data area (None before cluster 2 / past the end).
 pub fn cluster_at(card: &Card, off: u64) -> Option<u32> {
-    let base = card.vol.cluster_offset(2);
-    if off < base {
-        return None;
-    }
-    let c = 2 + ((off - base) / card.vol.cluster_bytes) as u32;
-    (c <= card.vol.last_cluster()).then_some(c)
+    card.vol.cluster_at(off)
 }
 
 /// PhotoRec's JPEG carve from byte `start` (cluster `c` holds it): read block by block (one
@@ -278,9 +287,10 @@ pub fn graft(card: &Card, carved: &[Recovered], opts: &serde_json::Value) -> Vec
     out
 }
 
-/// Read files through the file system. `undelete` also returns deleted entries, assuming they are
-/// contiguous from their (possibly damaged) start cluster, like Recuva and most undelete tools.
-pub fn fs_read(card: &Card, undelete: bool) -> Vec<Recovered> {
+/// Read files through the file system; with `mode` other than None also deleted entries, from their
+/// (possibly damaged) start cluster.
+pub fn fs_read(card: &Card, mode: Undelete) -> Vec<Recovered> {
+    let undelete = mode != Undelete::None;
     let mut out = Vec::new();
     let mut stack: Vec<(Dir, String, bool, u32)> = vec![(card.vol.root(), String::new(), false, 0)];
     let cb = card.vol.cluster_bytes as usize;
@@ -328,8 +338,22 @@ pub fn fs_read(card: &Card, undelete: bool) -> Vec<Recovered> {
             }
             let size = (e.size as usize).min(MAX_FILE);
             let n = size.div_ceil(cb);
+            let exfat_chain = card.vol.fs == Fs::ExFat && !e.contiguous;
             let (chain, note) = if !deleted && !(card.vol.fs == Fs::ExFat && e.contiguous) {
                 (fat_chain(card, e.first, n), "read through the FAT chain".to_string())
+            } else if mode == Undelete::Recuva && exfat_chain {
+                // exFAT deletes leave the FAT alone: the fragmented file's chain is still there
+                (fat_chain(card, e.first, n), "undeleted along the FAT chain exFAT kept".to_string())
+            } else if mode == Undelete::Recuva {
+                let mut chain = Vec::with_capacity(n);
+                let mut c = e.first;
+                while chain.len() < n && c <= last {
+                    if !card.vol.in_use[c as usize] {
+                        chain.push(c);
+                    }
+                    c += 1;
+                }
+                (chain, "undeleted from the start cluster on, skipping clusters in use by other files".to_string())
             } else {
                 let chain: Vec<u32> = (e.first..(e.first + n as u32).min(last + 1)).collect();
                 let note = if deleted {
@@ -365,9 +389,10 @@ pub fn thumbnails(card: &Card) -> Vec<Recovered> {
         if card.img.is_blank_range(off, cb as u64) {
             continue;
         }
-        let cl = cluster_bytes(card, c);
+        // two bytes of the next cluster too, so an SOI split across the boundary is seen
+        let cl = card.img.read_vec(off, cb + 2);
         let mut i = 0;
-        while i + 3 < cl.len() {
+        while i < cb && i + 3 <= cl.len() {
             if cl[i] == 0xFF && cl[i + 1] == 0xD8 && cl[i + 2] == 0xFF {
                 let abs = off + i as u64;
                 if abs >= seen_end {

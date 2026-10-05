@@ -60,7 +60,6 @@ class Editor {
   private presetSeed = newSeed();
   private viewMode: 'single' | 'split' | 'three' = 'split';
   private heatOn = false;
-  private thirdPersonality: 'libjpeg' | 'browser' | 'gdiplus' = 'gdiplus';
   private maskTarget: { uid: string; param: string } | null = null;
   private inspectCache: { key: string; info: Inspection } | null = null;
   private toolbar: HTMLElement;
@@ -195,7 +194,7 @@ class Editor {
             this.refreshPanes();
             this.rebuildToolbar();
           }, { pressed: this.viewMode === 'three' }),
-          selectField(settings.personality, [['libjpeg', 'Decoder: libjpeg'], ['browser', 'Decoder: browser'], ['gdiplus', 'Decoder: GDI+']], (v) => setSettings({ personality: v as any }), { label: 'Decoder personality' }),
+          selectField(settings.personality, [['libjpeg', 'Decoder: libjpeg'], ['gdiplus', 'Decoder: GDI+']], (v) => setSettings({ personality: v as any }), { label: 'Decoder personality' }),
           toolButton(iconImg('hex', 16), 'Open Hex Doctor', () => openApp('hex')),
         ]
       : [];
@@ -576,7 +575,8 @@ class Editor {
           Object.assign(browser, { img: c, w: bmp.width, h: bmp.height, error: undefined });
           bmp.close();
         } else Object.assign(browser, { img: null, error: 'Your browser refuses to open this file at all.' });
-        const third = settings.personality === this.thirdPersonality ? (settings.personality === 'gdiplus' ? 'browser' : 'gdiplus') : this.thirdPersonality;
+        // the third pane: our decoder with the other personality
+        const third = settings.personality === 'gdiplus' ? 'libjpeg' : 'gdiplus';
         other.label = `Ours as ${third}`;
         let d: DecodedImage | null = null;
         let err = '';

@@ -1,7 +1,6 @@
 //! File Refragmenter virtual SD card: FAT16/FAT32/exFAT card images, camera write/delete/overwrite scenarios,
 //! carving and rebuilding, plus other-format recovery scenarios.
 
-pub mod avi;
 pub mod card;
 pub mod carve;
 mod formats;

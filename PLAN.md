@@ -339,7 +339,7 @@ The reference material is private: real people's photos, used locally only.
 4. Is "matches libjpeg" bit-exact? Which IDCT and upsampler is the reference? What counts as "reproduces the reference recoveries"?
    *Bit-exact against libjpeg-turbo islow with fancy upsampling on clean files. On broken files, the same structural events (grey-start MCU, DC offsets, wrap column) plus a PSNR threshold.*
 5. Which viewers' handling of broken files should we emulate?
-   *Three "decoder personalities": libjpeg-turbo, browser-style grey fill, Windows GDI+/WIC.*
+   *Two "decoder personalities": libjpeg-turbo and Windows GDI+/WIC. (A third, "browser-style grey fill", decoded exactly like libjpeg and was dropped in v0.24; the editor's three-way compare shows the real browser instead.)*
 6. Which JPEG variants are in scope (arithmetic coding, 12-bit, lossless, CMYK)?
    *The decoder forgivingly handles CMYK/YCCK and arithmetic coding; the encoder writes 8-bit baseline and progressive Huffman only.*
 7. Which Huffman tables do we encode with?

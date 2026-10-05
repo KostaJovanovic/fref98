@@ -398,6 +398,15 @@ pub fn apply(id: &str, p: &Value, input: &[u8], ctx: &StepCtx) -> Option<StepRes
     Some(r)
 }
 
+/// Cluster size of the PC's FAT32 in the "Reformatted on a PC" story.
+fn pc_reformat_kb(sev: i64) -> u64 {
+    if sev > 5 {
+        4
+    } else {
+        2
+    }
+}
+
 /// Story presets for the single-photo card round trip. Photo 0 is the edited photo.
 fn story(scenario: &str, severity: i64, neighbours: usize, photo_len: usize, cluster_kb: u64) -> (Fs, Vec<usize>, Vec<Value>) {
     let n = neighbours;
@@ -442,8 +451,10 @@ fn story(scenario: &str, severity: i64, neighbours: usize, photo_len: usize, clu
             order.push(0);
             order.extend(3..=n);
             events = vec![
+                // older shots first: a real FAT32's two FATs (512 KB+) overwrite the start of the old data
+                json!({"type":"advance","kb": 1024}),
                 json!({"type":"shoot","count": n + 1}),
-                json!({"type":"reformat_pc","fs":"fat32","cluster_kb": if sev > 5 { 4 } else { 2 }}),
+                json!({"type":"reformat_pc","fs":"fat32","cluster_kb": pc_reformat_kb(sev)}),
                 json!({"type":"os_junk","target_frac": (sev - 1) as f64 / 9.0 * 0.5}),
             ];
         }
@@ -459,18 +470,22 @@ fn story(scenario: &str, severity: i64, neighbours: usize, photo_len: usize, clu
         "flash_failure" => {
             order.push(0);
             order.extend(1..=n);
+            // Faults land in the photo's own pages (spread over the whole card they mostly missed it),
+            // about as many as its share of a card of n + 1 photos.
+            let share = |k: i64| (k as usize).div_ceil(n + 1).max(1);
             events = vec![
                 json!({"type":"shoot","count": n + 1}),
-                json!({"type":"flash_fault","mode":"burst","count": sev * 2, "page_kb": 16}),
+                json!({"type":"flash_fault","mode":"burst","count": share(sev * 2), "page_kb": 16, "photo": 0}),
             ];
             if sev >= 4 {
                 // Whole erased pages (0xFF) stop the decoder: only when it's bad.
-                events.push(json!({"type":"flash_fault","mode":"erased","count": sev / 4, "page_kb": 16}));
+                events.push(json!({"type":"flash_fault","mode":"erased","count": share(sev / 4), "page_kb": 16, "photo": 0}));
             }
         }
         "fat32_undelete" => {
-            // A and B are shot, A deleted; after a power cycle the edited photo fills A's gap and
-            // continues past B. Undelete assumes it was contiguous and reads B's data instead.
+            // A and B are shot, A deleted, and a PC fills part of A's gap; after a power cycle the
+            // edited photo fills the rest of the gap and continues past B. Undelete assumes it was
+            // contiguous and reads B's data instead: from further in the worse it is.
             fs = Fs::Fat32;
             order.extend([1, 2.min(n.max(1))]);
             order.push(0);
@@ -479,6 +494,7 @@ fn story(scenario: &str, severity: i64, neighbours: usize, photo_len: usize, clu
                 json!({"type":"advance","percent": 30}),
                 json!({"type":"shoot","count": 2}),
                 json!({"type":"delete","which":"first","count":1}),
+                json!({"type":"os_junk","gap_left": 1.0 - sev as f64 * 0.09}),
                 json!({"type":"power_cycle"}),
                 json!({"type":"shoot","count": 1 + n.saturating_sub(2)}),
                 json!({"type":"delete","which":"all","clear_high": false}),
@@ -521,10 +537,15 @@ fn pass_through(p: &Value, input: &[u8], ctx: &StepCtx) -> StepResult {
     let photos: Vec<Vec<u8>> = order.iter().map(|&i| cands[i.min(cands.len() - 1)].clone()).collect();
     let target_pos = order.iter().position(|&i| i == 0).unwrap_or(0);
     let total: usize = photos.iter().map(|d| d.len()).sum();
+    // Big enough for a valid card with the asked cluster size (sparse, so size costs nothing): FAT16 needs
+    // 4085+ clusters, FAT32 65525+ (also the PC's FAT32 after a reformat, with its own cluster size).
+    let clusters_mb = |n: u64, kb: u64| (n * kb).div_ceil(1024) + 8;
     let size_mb = match fs {
-        // Big enough that start clusters need more than 16 bits (sparse, so it costs nothing).
-        Fs::Fat32 => (((total * 3) >> 20) as u64 + 40).max(1536),
-        _ => (((total * 3) >> 20) as u64 + 8).max(16),
+        Fs::Fat32 => (((total * 3) >> 20) as u64 + 40).max(1536).max(clusters_mb(crate::fs::FAT32_MIN_CLUSTERS + 4096, ckb)),
+        _ => {
+            let reformat = if scenario == "pc_reformat" { clusters_mb(crate::fs::FAT32_MIN_CLUSTERS, pc_reformat_kb(severity.clamp(1, 10))) } else { 0 };
+            (((total * 3) >> 20) as u64 + 8).max(16).max(clusters_mb(crate::fs::FAT16_MIN_CLUSTERS, ckb)).max(reformat)
+        }
     };
     // A second-hand card: free space still holds old photo data, so reading past a file's end
     // gives other pictures rather than blank (grey) space.
@@ -540,12 +561,23 @@ fn pass_through(p: &Value, input: &[u8], ctx: &StepCtx) -> StepResult {
         if matches!(ty, "reformat_pc" | "quick_format") {
             frozen = true;
         }
-        let ev = match e.get("target_frac").and_then(|v| v.as_f64()) {
+        let ev = match (e.get("target_frac").and_then(|v| v.as_f64()), e.get("gap_left").and_then(|v| v.as_f64())) {
             // Junk that reaches `target_frac` of the way into the photo (from the first free cluster).
-            Some(f) if ty == "os_junk" => {
+            (Some(f), _) if ty == "os_junk" => {
                 let gap = ranges.first().map(|r| r.0.saturating_sub(card.vol.cluster_offset(2)) / 1024).unwrap_or(0);
                 let kb = gap.saturating_sub(4) + (input.len() as f64 / 1024.0 * f.clamp(0.0, 1.0)) as u64;
                 json!({"type":"os_junk","kb": kb.max(1), "exact": true})
+            }
+            // Junk into the first free gap until only `gap_left` of the photo still fits in it.
+            (_, Some(f)) if ty == "os_junk" => {
+                let cb = card.vol.cluster_bytes;
+                let Some(start) = (2..=card.vol.last_cluster()).find(|&c| !card.vol.in_use[c as usize]) else { continue };
+                let gap = (start..=card.vol.last_cluster()).take_while(|&c| !card.vol.in_use[c as usize]).count() as u64;
+                let fits = ((input.len() as u64).div_ceil(cb) as f64 * f.clamp(0.05, 1.0)).round().max(1.0) as u64;
+                if gap <= fits {
+                    continue;
+                }
+                json!({"type":"os_junk","kb": ((gap - fits) * cb).div_ceil(1024), "exact": true})
             }
             _ => e.clone(),
         };

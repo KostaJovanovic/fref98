@@ -15,7 +15,8 @@ export interface Settings {
    *  foldy/timeline.ts DEFAULT_TIMING for the rest). */
   foldyTiming: Partial<FoldyTiming>;
   expert: boolean;
-  personality: 'libjpeg' | 'browser' | 'gdiplus';
+  /** ('browser' until v0.23: it decoded exactly like libjpeg, so it reads as libjpeg now) */
+  personality: 'libjpeg' | 'gdiplus';
   /** How the preview decoder fills blocks that never received data. */
   fill: 'grey' | 'repeat' | 'black' | 'donor';
   /** Pool photo shown in never-reached blocks with fill "donor" (empty = the next photo in the pool). */
@@ -97,6 +98,7 @@ function load(): Settings {
         foldyTiming: s.foldyTiming && typeof s.foldyTiming === 'object' ? s.foldyTiming : {},
         iconPos: s.iconPos && typeof s.iconPos === 'object' ? s.iconPos : {},
         iconNames: s.iconNames && typeof s.iconNames === 'object' ? s.iconNames : {},
+        personality: s.personality === 'gdiplus' ? 'gdiplus' : 'libjpeg',
       };
     }
   } catch {

@@ -77,10 +77,10 @@ pub fn encode_rgba(width: u32, height: u32, rgba: &[u8], opts_json: &str) -> Res
     }
     let pid = o.get("profile").and_then(|v| v.as_str()).unwrap_or(profiles::DEFAULT_PROFILE);
     let prof = profiles::get(pid).or_else(|| profiles::get(profiles::DEFAULT_PROFILE)).unwrap();
-    let mut s = prof.settings;
-    if let Some(q) = o.get("quality").and_then(|v| v.as_i64()) {
-        s.set_quality(q.clamp(1, 100) as i32);
-    }
+    let mut s = match o.get("quality").and_then(|v| v.as_i64()) {
+        Some(q) => prof.settings_at(q.clamp(1, 100) as i32),
+        None => prof.settings,
+    };
     if let Some(sub) = o.get("subsampling").and_then(|v| v.as_str()) {
         s.set_subsampling(sub);
     }

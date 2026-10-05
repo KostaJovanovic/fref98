@@ -30,16 +30,30 @@ async function thumb(bytes: Uint8Array, size: number): Promise<HTMLCanvasElement
   }
 }
 
-export async function contactSheet(items: SheetItem[], style: SheetStyle = 'graft', onProgress?: (i: number, n: number) => void, shouldStop?: () => boolean): Promise<HTMLCanvasElement> {
+/** Where the cells of a sheet of `n` pictures go (shared by drawing and hit-testing). */
+export function sheetLayout(n: number, style: SheetStyle = 'graft') {
   const perRow = style === 'kodak' ? 6 : 8;
   const cell = style === 'kodak' ? 120 : 160;
   const pad = style === 'graft' ? 6 : 10;
   const labelH = LINE + 4;
-  const cols = Math.min(perRow, Math.max(1, items.length));
-  const rows = Math.max(1, Math.ceil(items.length / perRow));
   const headH = style === 'kodak' ? 40 : 0;
-  const W = cols * (cell + pad) + pad;
-  const H = headH + rows * (cell + labelH + pad) + pad;
+  const cols = Math.min(perRow, Math.max(1, n));
+  const rows = Math.max(1, Math.ceil(n / perRow));
+  return { perRow, cell, pad, labelH, headH, W: cols * (cell + pad) + pad, H: headH + rows * (cell + labelH + pad) + pad };
+}
+
+/** The picture under sheet pixel (x, y), or -1 (a gap, a label or past the last one). */
+export function sheetHit(n: number, x: number, y: number, style: SheetStyle = 'graft'): number {
+  const L = sheetLayout(n, style);
+  const col = Math.floor((x - L.pad) / (L.cell + L.pad));
+  const row = Math.floor((y - L.headH - L.pad) / (L.cell + L.labelH + L.pad));
+  if (col < 0 || col >= L.perRow || row < 0) return -1;
+  const i = row * L.perRow + col;
+  return i < n ? i : -1;
+}
+
+export async function contactSheet(items: SheetItem[], style: SheetStyle = 'graft', onProgress?: (i: number, n: number) => void, shouldStop?: () => boolean): Promise<HTMLCanvasElement> {
+  const { perRow, cell, pad, labelH, headH, W, H } = sheetLayout(items.length, style);
   const c = document.createElement('canvas');
   c.width = W;
   c.height = H;

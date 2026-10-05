@@ -1,5 +1,5 @@
 use refragmenter_card::card::{CameraKind, Card};
-use refragmenter_card::carve;
+use refragmenter_card::carve::{self, Undelete};
 use refragmenter_card::fs::Fs;
 use refragmenter_codec::step::{Pcg32, StepCtx};
 use serde_json::json;
@@ -75,7 +75,7 @@ fn exfat_contiguous_undelete_is_perfect_fat32_high_bits_are_lost() {
     let ph = photos(3, 120_000);
     let mut ex = Card::new(Fs::ExFat, 64, Some(32), CameraKind::Phone, ph.clone(), 2);
     ex.run_events(&[json!({"type":"shoot","count":3}), json!({"type":"delete","which":"all"})]);
-    let rec = carve::fs_read(&ex, true);
+    let rec = carve::fs_read(&ex, Undelete::Contiguous);
     let got: Vec<_> = rec.iter().filter(|r| r.name.ends_with(".JPG")).collect();
     assert_eq!(got.len(), 3);
     assert!(got.iter().zip(&ph).all(|(r, p)| &r.data == p));
@@ -83,7 +83,7 @@ fn exfat_contiguous_undelete_is_perfect_fat32_high_bits_are_lost() {
     // FAT32 card large enough that start clusters exceed 16 bits.
     let mut f32 = Card::new(Fs::Fat32, 2048, Some(4), CameraKind::Phone, ph, 3);
     f32.run_events(&[json!({"type":"advance","percent":60}), json!({"type":"shoot","count":1}), json!({"type":"delete","which":"all"})]);
-    let rec = carve::fs_read(&f32, true);
+    let rec = carve::fs_read(&f32, Undelete::Contiguous);
     let r = rec.iter().find(|r| r.name.ends_with(".JPG")).unwrap();
     assert_ne!(r.source_clusters.first().copied(), f32.photo_file(0).map(|f| f.clusters[0]));
 }
@@ -143,7 +143,7 @@ fn thumbs_db_holds_real_thumbnails_that_carving_finds() {
     let mut card = Card::new(Fs::Fat16, 32, Some(4), CameraKind::Canon2004, ph, 6);
     card.run_events(&[json!({"type":"shoot","count":3}), json!({"type":"delete","which":"all"}), json!({"type":"os_junk","kb":64})]);
     // Read Thumbs.db back through the file system and parse the compound file.
-    let files = carve::fs_read(&card, false);
+    let files = carve::fs_read(&card, Undelete::None);
     let tdb = files.iter().find(|r| r.name.ends_with("THUMBS.DB")).expect("Thumbs.db written");
     let thumbs = refragmenter_card::thumbs::read_thumbs_db(&tdb.data);
     assert_eq!(thumbs.len(), 3, "one thumbnail per photo shown");
@@ -185,7 +185,7 @@ fn camera_adds_exif_thumbnails_and_overwrite_destroys_deleted_photos() {
     assert_eq!(card.state[c0], refragmenter_card::card::ST_OVERWROTE);
     assert!(card.log.iter().any(|l| l.contains("IMG_0004.JPG overwrote") && l.contains("IMG_0001.JPG")));
     // Undelete of the victim now returns the new photo's bytes, not the old photo.
-    let rec = carve::fs_read(&card, true);
+    let rec = carve::fs_read(&card, Undelete::Contiguous);
     let r = rec.iter().find(|r| r.name.contains("~MG_0001") || r.name.ends_with("IMG_0001.JPG")).unwrap();
     assert_ne!(&r.data[..], &card.photos[0][..r.data.len().min(card.photos[0].len())]);
     // EXIF thumbnails of live photos are carvable.
@@ -304,6 +304,41 @@ fn sweep_pass_through_card() {
             }
             eprintln!("{line}");
         }
+    }
+}
+
+// Audit B4 (11-18, 11-5, 11-14): "fat32_undelete" returned the photo untouched for every tool and severity,
+// "flash_failure" did for severities 1-8; the sweep above only printed that.
+#[test]
+fn every_pass_through_scenario_damages_the_photo_from_severity_3() {
+    let ph = big_photos(4);
+    for tool in ["graft", "photorec", "recuva", "fat"] {
+        for sc in ["junk_overwrite", "fragmented", "burst", "pc_reformat", "power_loss", "flash_failure", "fat32_undelete"] {
+            for sev in [3, 6, 10] {
+                let ctx = StepCtx { seed: 11, pool: &ph[1..] };
+                let p = json!({"scenario": sc, "tool": tool, "severity": sev});
+                let out = refragmenter_card::apply_step("pass_through_card", &p, &ph[0], &ctx).unwrap().unwrap();
+                assert_ne!(out, ph[0], "{tool} / {sc} / severity {sev} returned the photo untouched");
+            }
+        }
+    }
+}
+
+// Audit B4 (10-1): heic_tiles and raw_as_jpeg use the seed but said `random: false` (no seed/dice in the UI)
+#[test]
+fn card_steps_that_are_not_random_ignore_the_seed() {
+    let ph = real_photos(3);
+    let variants = [json!({}), json!({"mode":"scattered","fill":"shuffle"})];
+    for info in refragmenter_card::catalog() {
+        for p in &variants {
+            let run = |seed| refragmenter_card::apply_step(info.id, p, &ph[0], &StepCtx { seed, pool: &ph[1..] }).unwrap().ok();
+            if !info.random {
+                assert!(run(7) == run(12345), "{} uses the seed ({p}) but says random: false", info.id);
+            }
+        }
+    }
+    for id in ["heic_tiles", "raw_as_jpeg"] {
+        assert!(refragmenter_card::catalog().iter().any(|i| i.id == id && i.random), "{id}");
     }
 }
 
