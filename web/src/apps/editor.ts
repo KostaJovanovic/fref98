@@ -15,7 +15,7 @@ import { settings, setSettings } from '../settings';
 import { PRESETS, presetAvailability, type Preset } from '../presets';
 import { StackView } from '../editor/stackview';
 import { link } from '../editor/link';
-import { engine, NotAvailableError } from '../engine/client';
+import { engine, NotAvailableError, isCancel } from '../engine/client';
 import { newSeed, hashBytes } from '../engine/hash';
 import { replaceNode, rebasePatch, findNode, type StackNode, type StepItem } from '../engine/stack';
 import type { ParamInfo, Inspection, DecodeEvent, DecodedImage } from '../engine/types';
@@ -23,7 +23,7 @@ import { importFiles, useSample, ensureSamples } from '../importflow';
 import { foldy } from '../foldy/foldy';
 import { explainEvents } from '../foldy/lines';
 import { openApp } from './registry';
-import { message } from '../ui/dialog';
+import { message, errorBox } from '../ui/dialog';
 import type { MenuItem } from '../ui/menu';
 import * as bus from '../bus';
 
@@ -773,7 +773,9 @@ class Editor {
       store.update((d) => {
         d.stack = replaceNode(d.stack, node.uid, (n) => (n.type === 'patch' ? rebasePatch(n, out.output) : n));
       }, 'stack');
-    })();
+    })().catch((e) => {
+      if (!isCancel(e)) errorBox(`Cannot rebase the patch: ${(e as Error)?.message ?? e}`);
+    });
   }
 
   hasNode(uid: string) {

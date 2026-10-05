@@ -18,6 +18,7 @@ import { openApp } from './registry';
 import { foldy } from '../foldy/foldy';
 import { Folder, propertySheet, standardButtons, getClip, setClip, type FolderSpec } from './explorer';
 import * as M from './explorer-model';
+import { restoreItems } from './recycle';
 
 const LOCATION = 'C:\\My Documents';
 const ADDRESS = LOCATION + '\\My Pictures';
@@ -241,7 +242,7 @@ function paste() {
   if (!c || !canPaste()) return;
   if (c.from === 'recycle') {
     // moving items out of the Recycle Bin puts them back
-    for (const k of c.keys) if (store.bin.some((b) => b.id === k)) store.restore(k);
+    void restoreItems(c.keys.filter((k) => store.bin.some((b) => b.id === k)));
     setClip(null);
     return;
   }
@@ -281,10 +282,8 @@ async function del(items: PhotoData[]) {
   undo = {
     label: '&Undo Delete',
     run: () => {
-      for (const u of uids) {
-        const it = store.bin.find((b) => b.kind === 'photo' && b.data?.uid === u);
-        if (it) store.restore(it.id);
-      }
+      const ids = uids.map((u) => store.bin.find((b) => b.kind === 'photo' && b.data?.uid === u)?.id);
+      void restoreItems(ids.filter((id): id is string => !!id));
     },
   };
   f?.updateTools();

@@ -12,23 +12,12 @@ import { errorBox, message } from '../ui/dialog';
 import { APPS, openApp } from '../apps/registry';
 import { PRESETS } from '../presets';
 import { store } from '../state';
-import { kvGet, kvSet } from '../engine/storage';
+import { clearWallpaperImage } from './wallpaper';
+import { settings, setSettings } from '../settings';
+import { resetSamples, ensureSamples } from '../importflow';
+import { loadRecent, rememberProject, forgetRecent, recentProjects, recentZip } from './recent';
 
-const RECENT_KEY = 'recent-projects';
-type Recent = { name: string; at: number };
-let recent: Recent[] = [];
-
-async function loadRecent() {
-  recent = (await kvGet<Recent[]>(RECENT_KEY)) ?? [];
-}
-
-export async function rememberProject(name: string, zip: Uint8Array) {
-  const list = ((await kvGet<Recent[]>(RECENT_KEY)) ?? []).filter((r) => r.name !== name);
-  list.unshift({ name, at: Date.now() });
-  await kvSet('recent:' + name, zip);
-  recent = list.slice(0, 6);
-  await kvSet(RECENT_KEY, recent);
-}
+export { rememberProject };
 
 export async function saveProject() {
   const name = (store.doc.name || 'Untitled').replace(/[^\w .-]+/g, '_');
@@ -38,7 +27,7 @@ export async function saveProject() {
 }
 
 async function openRecent(name: string) {
-  const zip = await kvGet<Uint8Array>('recent:' + name);
+  const zip = await recentZip(name);
   if (!zip) return errorBox('That project is no longer stored.');
   try {
     await store.loadProjectZip(zip);
@@ -80,7 +69,7 @@ function programs(): MenuItem[] {
 function documents(): MenuItem[] {
   return [
     ...(APPS.pictures ? [{ label: 'My &Pictures', icon: 'pictures', onClick: () => void openApp('pictures') }, { sep: true }] : []),
-    ...(recent.length ? recent.map((r) => ({ label: r.name.replace(/&/g, '&&'), icon: 'project', onClick: () => void openRecent(r.name) })) : [{ label: '(Empty)', disabled: true }]),
+    ...(recentProjects().length ? recentProjects().map((r) => ({ label: r.name.replace(/&/g, '&&'), icon: 'project', onClick: () => void openRecent(r.name) })) : [{ label: '(Empty)', disabled: true }]),
   ];
 }
 
@@ -229,6 +218,12 @@ async function doShutDown(choice: 'close' | 'restart' | 'clear') {
   for (const w of windows()) w.close();
   if (choice === 'clear') {
     await store.clearSession();
+    await forgetRecent();
+    clearWallpaperImage();
+    // the desktop redraws without the forgotten picture
+    if (settings.wallpaper === 'photo') setSettings({ wallpaper: 'photo' });
+    resetSamples();
+    void ensureSamples();
     message('File Refragmenter', 'It is now safe to turn off your computer.\n\n(Just kidding. The session was forgotten; you can keep going.)', 'shutdown');
   }
 }

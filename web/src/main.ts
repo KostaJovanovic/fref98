@@ -15,6 +15,7 @@ import { foldy } from './foldy/foldy';
 import { engine } from './engine/client';
 import { showSplash } from './apps/splash';
 import { errorBox } from './ui/dialog';
+import { onStorageError } from './engine/storage';
 
 async function boot() {
   const root = document.getElementById('app')!;
@@ -57,6 +58,13 @@ async function boot() {
   })().catch((e) => {
     bootError = e;
     console.error('engine failed to start', e);
+  });
+  // autosave that can't write (storage full or blocked) says so once, instead of losing work quietly
+  let storageWarned = false;
+  onStorageError(() => {
+    if (storageWarned) return;
+    storageWarned = true;
+    errorBox('Your work could not be saved in this browser (its storage is full or blocked). Use File ▸ Save Project to keep a copy.');
   });
   const splash = showSplash(root, engineReady);
   await engineReady;

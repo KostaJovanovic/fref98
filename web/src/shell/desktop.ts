@@ -69,7 +69,7 @@ export function buildDesktop(desktop: HTMLElement) {
     ic.img.src = icon(store.bin.length ? 'recyclefull' : 'recycle', 32);
     (ic.img.parentElement as HTMLElement).style.setProperty('--mask-src', `url("${ic.img.src}")`);
   };
-  store.on((why) => why === 'bin' && upd());
+  store.on((why) => (why === 'bin' || why === 'load') && upd());
   upd();
 
   layout();

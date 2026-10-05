@@ -4,7 +4,7 @@
 import type { MenuItem } from '../ui/menu';
 import { getWin } from '../ui/wm';
 import { store, type RecycleItem } from '../state';
-import { confirmBox } from '../ui/dialog';
+import { confirmBox, errorBox } from '../ui/dialog';
 import { Folder, propertySheet, standardButtons, setClip, type FolderSpec } from './explorer';
 import * as M from './explorer-model';
 
@@ -33,7 +33,7 @@ export function itemSize(it: RecycleItem): number {
 export function open() {
   if (f && getWin('recycle')) return f.win.focus();
   f = new Folder<RecycleItem>(spec());
-  unsub = store.on((why) => why === 'bin' && f?.render());
+  unsub = store.on((why) => (why === 'bin' || why === 'load') && f?.render());
 }
 
 function spec(): FolderSpec<RecycleItem> {
@@ -132,7 +132,17 @@ function fileMenu(fo: Folder<RecycleItem>): MenuItem[] {
 }
 
 function restore(items: RecycleItem[]) {
-  for (const it of items) store.restore(it.id);
+  void restoreItems(items.map((it) => it.id));
+}
+
+/** Restores bin items; one 98 error box names those that could not be put back. Also used by My Pictures' Paste. */
+export async function restoreItems(ids: string[]) {
+  const failed: string[] = [];
+  for (const id of ids) {
+    const label = store.bin.find((b) => b.id === id)?.label;
+    if (label !== undefined && !(await store.restore(id))) failed.push(label);
+  }
+  if (failed.length) errorBox(`Cannot restore '${failed[0]}'${failed.length > 1 ? ` and ${failed.length - 1} other item(s)` : ''}: the file is no longer stored or is damaged.`);
 }
 
 function cut(items: RecycleItem[]) {
@@ -141,12 +151,7 @@ function cut(items: RecycleItem[]) {
 
 /** Removes items for good (photo bytes too, unless the photo is back in My Pictures). */
 function forget(ids: Set<string>) {
-  const keep = new Set(store.doc.order);
-  const going = store.bin.filter((b) => ids.has(b.id));
-  for (const it of going) if (it.kind === 'photo' && !keep.has(it.data?.uid)) store.photos.delete(it.data.uid);
-  store.bin = store.bin.filter((b) => !ids.has(b.id));
-  store.emit('bin');
-  store.scheduleSave();
+  store.forget(ids);
 }
 
 async function purge(items: RecycleItem[]) {

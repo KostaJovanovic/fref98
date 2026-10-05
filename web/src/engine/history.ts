@@ -33,6 +33,14 @@ export class History<T> {
     this.lastKey = null;
   }
 
+  /** Rewrites every state (past, current and future), e.g. to drop something that was deleted for good. */
+  rewrite(f: (state: T) => T) {
+    const g = (s: string) => JSON.stringify(f(JSON.parse(s) as T));
+    this.past = this.past.map(g);
+    this.future = this.future.map(g);
+    this.current = g(this.current);
+  }
+
   get canUndo(): boolean {
     return this.past.length > 0;
   }

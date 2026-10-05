@@ -65,6 +65,11 @@ export async function applyRecipe(steps: import('./engine/stack').StackNode[]) {
 
 let samplesP: Promise<void> | null = null;
 
+/** After Shut Down ▸ forget: the next ensureSamples() puts the samples back in the emptied pool. */
+export function resetSamples() {
+  samplesP = null;
+}
+
 /** Makes sure the bundled photos (or generated placeholders) are in the pool. */
 export function ensureSamples(): Promise<void> {
   if (samplesP) return samplesP;
